@@ -31,6 +31,7 @@ subprojects {
         junitVersion = '5.8.2'
         springBootVersion = '2.6.2'
         springDependencyManagerVersion = '1.0.11.RELEASE'
+        javaxPersistenceApiVersion = '2.2'
     }
 
     dependencies {
