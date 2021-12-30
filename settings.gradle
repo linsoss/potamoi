@@ -1,4 +1,5 @@
 rootProject.name = 'potamoi'
 
 include 'potamoi-server'
-
+include 'potamoi-common'
+include 'potamoi-storage'

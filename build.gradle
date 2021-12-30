@@ -1,3 +1,10 @@
+plugins {
+    id 'java'
+    id 'scala'
+    id 'org.springframework.boot' version '2.6.2' apply false
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE' apply false
+}
+
 allprojects {
     group = 'com.github.al.assad'
     version = '0.1.0-SNAPSHOT'
