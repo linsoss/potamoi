@@ -1,13 +1,6 @@
-plugins {
-    id 'java'
-    id 'scala'
-    id 'org.springframework.boot' version '2.6.2' apply false
-    id 'io.spring.dependency-management' version '1.0.11.RELEASE' apply false
-}
-
 allprojects {
     group = 'com.github.al.assad'
-    version = '0.1.0-SNAPSHOT'
+    version = '101-SNAPSHOT'
 
     repositories {
         maven {
@@ -28,23 +21,19 @@ subprojects {
         scalaVersion = '2.12.15'
         scalaBinaryVersion = '2.12'
         scalatestVersion = '3.2.10'
-        junitVersion = '5.8.2'
-        springBootVersion = '2.6.2'
-        springDependencyManagerVersion = '1.0.11.RELEASE'
-        javaxPersistenceApiVersion = '2.2'
+        testngVersion = '7.4.0'
     }
 
     dependencies {
         // scala
         implementation "org.scala-lang:scala-library:${scalaVersion}"
         implementation "org.scala-lang:scala-reflect:${scalaVersion}"
-        // junit and scalatest
+        // testng and scalatest
         testImplementation "org.scalatest:scalatest_${scalaBinaryVersion}:${scalatestVersion}"
-        testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
-        testImplementation "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+        testImplementation "org.testng:testng:${testngVersion}"
     }
 
     test {
-        useJUnitPlatform()
+        useTestNG()
     }
 }
