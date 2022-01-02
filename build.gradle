@@ -1,6 +1,6 @@
 allprojects {
     group = 'com.github.al.assad'
-    version = '101-SNAPSHOT'
+    version = '0.0.2-SNAPSHOT'
 
     repositories {
         maven {
