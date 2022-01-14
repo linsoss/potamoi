@@ -1,5 +1,0 @@
-rootProject.name = 'potamoi'
-
-include 'potamoi-server'
-include 'potamoi-common'
-
