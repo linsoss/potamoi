@@ -1,19 +1,29 @@
 
+lazy val scala = "2.12.15"
+lazy val akkaVersion = "2.6.18"
+lazy val akkaHttpVersion = "10.2.7"
+lazy val flinkVersion = flink14
+
 lazy val commonSettings = Seq(
   organization := "com.github.potamois",
   version := "0.1.0",
-  scalaVersion := "2.12.15"
+  licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0.html")),
+
+  scalaVersion := scala,
+  Compile / scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls", "-Xlint"),
+  Compile / javacOptions ++= Seq("-encoding:UTF-8", "-Xlint:unchecked", "-Xlint:deprecation"),
+  run / fork := true,
+  Global / cancelable := false,
+  Test / parallelExecution := false,
 )
-javacOptions ++= Seq("-encoding", "UTF-8")
-
-lazy val akkaVersion = "2.6.18"
-lazy val akkaHttpVersion = "10.2.7"
 
 
-// modules
+// root module
 lazy val root = Project(id = "potamoi", base = file("."))
+  .aggregate(commons, flinkGateway)
   .settings(commonSettings)
 
+// commons module
 lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"))
   .settings(commonSettings,
     libraryDependencies := Seq(
@@ -21,10 +31,12 @@ lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"
       "org.scalatest" %% "scalatest" % "3.2.9" % Test
     ))
 
+// flink gateway module project
 lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potamoi-flink-gateway"))
   .dependsOn(commons)
   .settings(commonSettings,
-    libraryDependencies := akkaDeps ++ flinkDeps)
+    libraryDependencies := akkaDeps ++ flinkDeps(flinkVersion))
+  .enablePlugins(JavaAppPackaging)
 
 
 // akka dependencies
@@ -37,11 +49,15 @@ lazy val akkaDeps = Seq(
 )
 
 // flink dependencies
-lazy val flinkVersion = "1.14.3"
-
-lazy val flinkDeps = Seq(
+lazy val flink14 = "1.14.3"
+lazy val flink13 = "1.13.5"
+lazy val flink12 = "1.12.7"
+lazy val flink11 = "1.11.6"
+def flinkDeps(version: String = flink14) = Seq(
   "org.apache.flink" %% "flink-table-planner",
-  "org.apache.flink" %% "flink-clients",
-).map(_ % flinkVersion)
+  "org.apache.flink" %% "flink-clients"
+).map(_ % version)
+
+
 
 
