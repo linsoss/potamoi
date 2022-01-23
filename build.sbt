@@ -25,18 +25,22 @@ lazy val root = Project(id = "potamoi", base = file("."))
 
 // commons module
 lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"))
-  .settings(commonSettings,
-    libraryDependencies := Seq(
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
       "ch.qos.logback" % "logback-classic" % "1.2.10",
       "org.scalatest" %% "scalatest" % "3.2.9" % Test
     ))
 
-// flink gateway module project
+// flink gateway module
 lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potamoi-flink-gateway"))
   .dependsOn(commons)
-  .settings(commonSettings,
-    libraryDependencies := akkaDeps ++ flinkDeps(flinkVersion))
+  .settings(
+    commonSettings,
+    libraryDependencies ++= akkaDeps ++ flinkDeps(flinkVersion)
+  )
   .enablePlugins(JavaAppPackaging)
+
 
 
 // akka dependencies
