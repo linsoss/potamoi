@@ -37,10 +37,9 @@ lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potam
   .dependsOn(commons)
   .settings(
     commonSettings,
-    libraryDependencies ++= akkaDeps ++ flinkDeps(flinkVersion)
+    libraryDependencies ++= akkaDeps ++ flinkDeps(flinkVersion) ++ tmpDeps,
   )
   .enablePlugins(JavaAppPackaging)
-
 
 
 // akka dependencies
@@ -62,6 +61,10 @@ def flinkDeps(version: String = flink14) = Seq(
   "org.apache.flink" %% "flink-clients"
 ).map(_ % version)
 
+// todo remove in the future
+val tmpDeps = Seq(
+  "com.github.knaufk" % "flink-faker" % "0.4.1"
+)
 
 
 
