@@ -15,6 +15,10 @@ lazy val commonSettings = Seq(
   run / fork := true,
   Global / cancelable := false,
   Test / parallelExecution := false,
+  libraryDependencies ++= Seq(
+    "ch.qos.logback" % "logback-classic" % "1.2.10",
+    "org.scalatest" %% "scalatest" % "3.2.9" % Test
+  )
 )
 
 
@@ -25,12 +29,7 @@ lazy val root = Project(id = "potamoi", base = file("."))
 
 // commons module
 lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"))
-  .settings(
-    commonSettings,
-    libraryDependencies ++= Seq(
-      "ch.qos.logback" % "logback-classic" % "1.2.10",
-      "org.scalatest" %% "scalatest" % "3.2.9" % Test
-    ))
+  .settings(commonSettings)
 
 // flink gateway module
 lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potamoi-flink-gateway"))
