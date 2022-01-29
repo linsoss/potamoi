@@ -5,6 +5,7 @@ import com.github.potamois.potamoi.flinkgateway.ResultState.ResultState
 import org.apache.flink.table.operations.{Operation, QueryOperation}
 
 /**
+ * todo Is it necessary to split this trait into more responsibility-defined traits ?
  * @author Al-assad
  */
 trait ExecutorManager {
@@ -38,7 +39,7 @@ trait ExecutorManager {
 
   def cancelQuery(sessionId: String, resultId: String): SafeResult[Unit]
 
-  // retrieve result
+  // retrieve result api
 
   def retrieveModifyResult(sessionId: String, resultId: String): SafeResult[ModifyResult]
 
@@ -47,8 +48,6 @@ trait ExecutorManager {
   def receiveResultRow(sessionId: String, resultId: String, handle: ResultRowData => Unit): SafeResult[Unit]
 
 }
-
-case class SafeResult[T](pass: Boolean, error: Option[String], payload: Option[T])
 
 case class ResultDescriptor(sessionId: String, resultId: String, kind: ResultKind, contextConfig: SessionContextConfig)
 
