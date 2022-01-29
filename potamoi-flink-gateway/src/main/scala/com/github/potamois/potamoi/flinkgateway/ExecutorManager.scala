@@ -1,0 +1,79 @@
+package com.github.potamois.potamoi.flinkgateway
+
+import com.github.potamois.potamoi.flinkgateway.ResultKind.ResultKind
+import com.github.potamois.potamoi.flinkgateway.ResultState.ResultState
+import org.apache.flink.table.operations.{Operation, QueryOperation}
+
+/**
+ * @author Al-assad
+ */
+trait ExecutorManager {
+
+  type ResultId = String
+
+  // session manager api
+
+  def openSession(sessionId: String): String
+
+  def closeSession(sessionId: String): Unit
+
+  def setSessionProperties(sessionId: String, properties: Map[String, String]): Unit
+
+  def getSessionProperties(sessionId: String): Map[String, String]
+
+  def setSessionResultCollectStrategy(sessionId: String, resultCollectStrategy: ResultCollectStrategy): Unit
+
+  def getSessionResultCollectStrategy(sessionId: String): ResultCollectStrategy
+
+  def getSessionResultExecStates(sessionId: String): SafeResult[Map[ResultId, ResultDescriptorState]]
+
+  // sql execution api
+  def parseStatement(sessionId: String, statement: String): SafeResult[Operation]
+
+  def executeOperation(sessionId: String, ops: Operation): SafeResult[TableResultData]
+
+  def executeModifyOperations(sessionId: String, modifyOps: Seq[Operation]): SafeResult[ResultDescriptor]
+
+  def executeQueryOperation(sessionId: String, queryOps: QueryOperation): SafeResult[ResultDescriptor]
+
+  def cancelQuery(sessionId: String, resultId: String): SafeResult[Unit]
+
+  // retrieve result
+
+  def retrieveModifyResult(sessionId: String, resultId: String): SafeResult[ModifyResult]
+
+  def retrieveQueryResult(sessionId: String, resultId: String): SafeResult[QueryResult]
+
+  def receiveResultRow(sessionId: String, resultId: String, handle: ResultRowData => Unit): SafeResult[Unit]
+
+}
+
+case class SafeResult[T](pass: Boolean, error: Option[String], payload: Option[T])
+
+case class ResultDescriptor(sessionId: String, resultId: String, kind: ResultKind, contextConfig: SessionContextConfig)
+
+case class ResultDescriptorState(descriptor: ResultDescriptor, state: ResultState)
+
+case class TableResultData(cols: Seq[Column], data: Seq[RowData])
+
+case class Column(name: String, dataType: String)
+
+case class RowData(kind: String, values: Seq[String])
+
+case class Error(summary: String, errorStack: String)
+
+case class ModifyResult(jobId: String, result: TableResultData, st: Long)
+
+case class QueryResult(jobId: String, row: Long, result: TableResultData, st: Long)
+
+case class ResultRowData(jobId: String, cols: Seq[Column], data: RowData, st: Long)
+
+object ResultKind extends Enumeration {
+  type ResultKind = Value
+  val MODIFY, QUERY = Value
+}
+
+object ResultState extends Enumeration {
+  type ResultState = Value
+  val READY, RUNNING, FINISHED = Value
+}
