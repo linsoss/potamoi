@@ -15,7 +15,10 @@ package object flinkgateway {
 
     def fail[T](error: Error): SafeResult[T] = SafeResult(pass = false, Some(error), None)
 
-    def fail[T](errorSummary: String): SafeResult[T] = SafeResult(pass = false, Some(Error(errorSummary, "")), None)
+    def fail[T](suammry: String): SafeResult[T] = SafeResult(pass = false, Some(Error(suammry, "")), None)
+
+    def fail[T](suammry: String, exception: Throwable): SafeResult[T] =
+      SafeResult(pass = false, Some(Error(suammry, exception.getMessage)), None)
   }
 
 }
