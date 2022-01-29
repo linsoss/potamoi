@@ -15,6 +15,10 @@ class UsingSpec extends AnyWordSpec with Matchers {
     override def close(): Unit = isClosed = true
   }
 
+  object Resource {
+    @throws[Exception] def failCreate(): Resource = throw new Exception("resource creation failed")
+  }
+
   "Using" should {
 
     "auto close single resource" in {
@@ -67,6 +71,13 @@ class UsingSpec extends AnyWordSpec with Matchers {
       resource2.isClosed shouldBe true
       resource1.isConsumed shouldBe true
       resource2.isConsumed shouldBe false
+    }
+
+    "fail to create resource" in {
+      assertThrows[Exception] {Resource.failCreate()}
+      val re = Using(Resource.failCreate()) { rs => rs.consume() }
+      re.isFailure shouldBe true
+      re.failed.get.getMessage shouldBe "resource creation failed"
     }
   }
 
