@@ -75,5 +75,5 @@ object ResultKind extends Enumeration {
 
 object ResultState extends Enumeration {
   type ResultState = Value
-  val READY, RUNNING, FINISHED = Value
+  val PENDING, RUNNING, FINISHED = Value
 }
