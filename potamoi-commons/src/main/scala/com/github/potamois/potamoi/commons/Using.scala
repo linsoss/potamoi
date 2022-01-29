@@ -19,7 +19,8 @@ import scala.util.control.{ControlThrowable, NonFatal}
  * A utility for performing automatic resource management. It can be used to perform an
  * operation using resources, after which it releases the resources in reverse order
  * of their creation.
- * Copy from scala-2.13.6 scala.util.Using
+ *
+ * @note Copy from scala-2.13.6 scala.util.Using
  */
 
 object Using {
