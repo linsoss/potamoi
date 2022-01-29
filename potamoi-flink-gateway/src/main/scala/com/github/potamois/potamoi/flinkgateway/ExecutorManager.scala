@@ -6,6 +6,7 @@ import org.apache.flink.table.operations.{Operation, QueryOperation}
 
 /**
  * todo Is it necessary to split this trait into more responsibility-defined traits ?
+ *
  * @author Al-assad
  */
 trait ExecutorManager {
@@ -14,7 +15,9 @@ trait ExecutorManager {
 
   // session manager api
 
-  def openSession(sessionId: String): String
+  def openSession(sessionId: String): SafeResult[String] = openSession(sessionId, SessionContextConfig.default)
+
+  def openSession(sessionId: String, contextConfig: SessionContextConfig): SafeResult[String]
 
   def closeSession(sessionId: String): Unit
 
@@ -58,8 +61,6 @@ case class TableResultData(cols: Seq[Column], data: Seq[RowData])
 case class Column(name: String, dataType: String)
 
 case class RowData(kind: String, values: Seq[String])
-
-case class Error(summary: String, errorStack: String)
 
 case class ModifyResult(jobId: String, result: TableResultData, st: Long)
 
