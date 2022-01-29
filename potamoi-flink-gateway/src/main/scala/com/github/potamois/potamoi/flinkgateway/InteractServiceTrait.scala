@@ -9,7 +9,7 @@ import org.apache.flink.table.operations.{Operation, QueryOperation}
  *
  * @author Al-assad
  */
-trait ExecutorManager {
+trait InteractServiceTrait {
 
   type ResultId = String
 
