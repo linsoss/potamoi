@@ -2,7 +2,7 @@ package com.github.potamois.potamoi.flinkgateway
 
 import com.github.potamois.potamoi.flinkgateway.ResultKind.ResultKind
 import com.github.potamois.potamoi.flinkgateway.ResultState.ResultState
-import org.apache.flink.table.operations.{Operation, QueryOperation}
+import org.apache.flink.table.operations.{ModifyOperation, Operation, QueryOperation}
 
 /**
  * todo Is it necessary to split this trait into more responsibility-defined traits ?
@@ -11,6 +11,7 @@ import org.apache.flink.table.operations.{Operation, QueryOperation}
  */
 trait InteractServiceTrait {
 
+  type SessionId = String
   type ResultId = String
 
   // session manager api
@@ -36,7 +37,7 @@ trait InteractServiceTrait {
 
   def executeOperation(sessionId: String, ops: Operation): SafeResult[TableResultData]
 
-  def executeModifyOperations(sessionId: String, modifyOps: Seq[Operation]): SafeResult[ResultDescriptor]
+  def executeModifyOperations(sessionId: String, modifyOps: Seq[ModifyOperation]): SafeResult[ResultDescriptor]
 
   def executeQueryOperation(sessionId: String, queryOps: QueryOperation): SafeResult[ResultDescriptor]
 
@@ -54,7 +55,10 @@ trait InteractServiceTrait {
 
 case class ResultDescriptor(sessionId: String, resultId: String, kind: ResultKind, contextConfig: SessionContextConfig)
 
-case class ResultDescriptorState(descriptor: ResultDescriptor, state: ResultState)
+case class ResultDescriptorState(descriptor: ResultDescriptor,
+                                 state: ResultState,
+                                 error: Option[Error] = None,
+                                 ts: Long = System.currentTimeMillis)
 
 case class TableResultData(cols: Seq[Column], data: Seq[RowData])
 
@@ -62,11 +66,11 @@ case class Column(name: String, dataType: String)
 
 case class RowData(kind: String, values: Seq[String])
 
-case class ModifyResult(jobId: String, result: TableResultData, st: Long)
+case class ModifyResult(jobId: String, result: TableResultData, st: Long = System.currentTimeMillis)
 
-case class QueryResult(jobId: String, row: Long, result: TableResultData, st: Long)
+case class QueryResult(jobId: String, row: Long, result: TableResultData, st: Long = System.currentTimeMillis)
 
-case class ResultRowData(jobId: String, cols: Seq[Column], data: RowData, st: Long)
+case class ResultRowData(jobId: String, cols: Seq[Column], var data: RowData, st: Long = System.currentTimeMillis)
 
 object ResultKind extends Enumeration {
   type ResultKind = Value
@@ -75,5 +79,5 @@ object ResultKind extends Enumeration {
 
 object ResultState extends Enumeration {
   type ResultState = Value
-  val PENDING, RUNNING, FINISHED = Value
+  val PENDING, RUNNING, FINISHED, FAILED = Value
 }
