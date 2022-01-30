@@ -5,13 +5,13 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, CanAwait, CancellationException, ExecutionContext, Future, Promise, TimeoutException}
 import scala.util.{Failure, Try}
 
+/**
+ * A future that supports cancellation and interruption, even when backed by a ForkJoinPool.
+ */
 object CancellableFuture {
   def apply[T](body: => T)(implicit executor: ExecutionContext): CancellableFuture[T] = new CancellableFuture(body)
 }
 
-/**
- * A future that supports cancellation and interruption, even when backed by a ForkJoinPool.
- */
 class CancellableFuture[T](body: => T)(implicit executor: ExecutionContext) extends Future[T] {
   private val promise = Promise[T]()
   private var thread: Thread = null
