@@ -29,6 +29,10 @@ class FlinkApiCovertToolSpec extends AnyWordSpec with Matchers {
       )
     }
 
+    "covertTableSchema with null schema" in {
+      FlinkApiCovertTool.covertTableSchema(null) shouldBe Seq.empty
+    }
+
     "covertRow" in {
       val row = Row.ofKind(RowKind.INSERT,
         "1",
@@ -40,6 +44,10 @@ class FlinkApiCovertToolSpec extends AnyWordSpec with Matchers {
       val rowData = FlinkApiCovertTool.covertRow(row)
       rowData.kind shouldBe "+I"
       rowData.values shouldBe Seq("1", "2", "3", "4.0", "true", "null")
+    }
+
+    "covertRow with null row" in {
+      FlinkApiCovertTool.covertRow(null) shouldBe RowData.empty
     }
   }
 
