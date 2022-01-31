@@ -6,14 +6,22 @@ import org.scalatest.wordspec.AnyWordSpec
 class UuidSpec extends AnyWordSpec with Matchers {
 
   "Uuid" should {
+
     "genUUID" in {
       val uuid = Uuid.genUUID
       uuid.length shouldBe 36
     }
+
     "genShortUUID" in {
       val uuid = Uuid.genShortUUID
       uuid.length shouldBe 32
     }
+
+    "uuids cannot be repeated" in {
+      val uuids = (1 to 1000).map(_ => Uuid.genShortUUID)
+      uuids.distinct.length shouldBe uuids.length
+    }
+
   }
 
 }
