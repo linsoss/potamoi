@@ -1,7 +1,7 @@
-package com.github.potamois.potamoi.flinkgateway
+package com.github.potamois.potamoi.flinkgateway2
 
-import com.github.potamois.potamoi.flinkgateway.ResultKind.ResultKind
-import com.github.potamois.potamoi.flinkgateway.ResultState.ResultState
+import com.github.potamois.potamoi.flinkgateway2.ResultKind.ResultKind
+import com.github.potamois.potamoi.flinkgateway2.ResultState.ResultState
 import org.apache.flink.table.operations.{ModifyOperation, Operation, QueryOperation}
 
 /**

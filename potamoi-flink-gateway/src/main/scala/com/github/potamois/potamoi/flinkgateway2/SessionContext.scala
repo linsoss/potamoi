@@ -1,6 +1,6 @@
-package com.github.potamois.potamoi.flinkgateway
+package com.github.potamois.potamoi.flinkgateway2
 
-import com.github.potamois.potamoi.flinkgateway.EvictStrategy.EvictStrategy
+import com.github.potamois.potamoi.flinkgateway2.EvictStrategy.EvictStrategy
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment
 
 import scala.collection.mutable

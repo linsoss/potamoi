@@ -4,7 +4,7 @@ package com.github.potamois.potamoi
  * @author Al-assad
  */
 // noinspection SpellCheckingInspection
-package object flinkgateway {
+package object flinkgateway2 {
 
   case class SafeResult[T](pass: Boolean, error: Option[Error], payload: Option[T])
 
