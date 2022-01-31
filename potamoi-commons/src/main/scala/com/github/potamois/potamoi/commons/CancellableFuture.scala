@@ -18,7 +18,8 @@ class CancellableFuture[T](body: => T)(implicit executor: ExecutionContext) exte
   private val cancelled = new AtomicBoolean()
 
   promise tryCompleteWith Future {
-    if (!promise.isCompleted) {
+    if (promise.isCompleted) null.asInstanceOf[T]
+    else {
       this.synchronized {
         thread = Thread.currentThread
       }
@@ -31,8 +32,7 @@ class CancellableFuture[T](body: => T)(implicit executor: ExecutionContext) exte
           thread = null
         }
       }
-    } else
-      null.asInstanceOf[T]
+    }
   }
 
   /**
@@ -47,13 +47,11 @@ class CancellableFuture[T](body: => T)(implicit executor: ExecutionContext) exte
       promise.tryComplete(Failure(new CancellationException()))
       if (interrupt) {
         this.synchronized {
-          if (thread != null)
-            thread.interrupt()
+          if (thread != null) thread.interrupt()
         }
       }
       true
-    } else
-      false
+    } else false
   }
 
   /**
@@ -77,4 +75,5 @@ class CancellableFuture[T](body: => T)(implicit executor: ExecutionContext) exte
   override def transform[S](f: Try[T] => Try[S])(implicit executor: ExecutionContext): Future[S] = promise.future.transform(f)
 
   override def transformWith[S](f: Try[T] => Future[S])(implicit executor: ExecutionContext): Future[S] = promise.future.transformWith(f)
+
 }
