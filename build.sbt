@@ -1,4 +1,3 @@
-
 lazy val scala = "2.12.15"
 lazy val akkaVersion = "2.6.18"
 lazy val akkaHttpVersion = "10.2.7"
@@ -15,9 +14,12 @@ lazy val commonSettings = Seq(
   run / fork := true,
   Global / cancelable := false,
   Test / parallelExecution := false,
+
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.10",
-    "org.scalatest" %% "scalatest" % "3.2.9" % Test
+    "org.scalatest" %% "scalatest" % "3.2.9" % Test,
+    "io.spray" %% "spray-json" % "1.3.6",
+    "com.github.nscala-time" %% "nscala-time" % "2.30.0"
   )
 )
 
@@ -64,6 +66,5 @@ def flinkDeps(version: String = flink14) = Seq(
 val tmpDeps = Seq(
   "com.github.knaufk" % "flink-faker" % "0.4.1"
 )
-
 
 
