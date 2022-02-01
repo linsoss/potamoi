@@ -9,7 +9,10 @@ import scala.collection.mutable
 case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
                       remoteAddr: Option[RemoteAddr] = None,
                       flinkConfig: Map[String, String] = Map.empty,
-                      resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default)
+                      resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default) {
+
+  def toEffectiveExecConfig: EffectiveExecConfig = ExecConfig.convergeExecConfig(this)
+}
 
 case class EffectiveExecConfig(flinkConfig: Map[String, String] = Map.empty,
                                resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default)
@@ -36,6 +39,17 @@ object EvictStrategy extends Enumeration {
 
 
 object ExecConfig {
+
+  def localEnv(flinkConfig: Map[String, String] = Map.empty,
+               resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default): ExecConfig = {
+    ExecConfig(ExecMode.LOCAL, None, flinkConfig, resultCollectStrategy)
+  }
+
+  def remoteEnv(remoteAddr: RemoteAddr,
+                flinkConfig: Map[String, String] = Map.empty,
+                resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default): ExecConfig = {
+    ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, resultCollectStrategy)
+  }
 
   // todo initialize from hocon
   lazy val DEFAULT_FLINK_CONFIG = Map(
