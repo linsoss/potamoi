@@ -36,34 +36,38 @@ object EvictStrategy extends Enumeration {
 
 
 object ExecConfig {
+
   // todo initialize from hocon
   lazy val DEFAULT_FLINK_CONFIG = Map(
-    "rest.retry.max-attempts" -> "1"
+    "rest.retry.max-attempts" -> "1",
   )
 
   /**
    * Converge effective configuration from ExecConfig to EffectiveExecConfig
    * especially for flink configuration.
+   *
    * @param config should not be null
    */
   def convergeExecConfig(config: ExecConfig): EffectiveExecConfig = {
-    // base on default flink config
-    val convergedConfig = mutable.Map(DEFAULT_FLINK_CONFIG.toSeq: _*)
-    // set execution mode
-    if (config.executeMode != null) {
-      convergedConfig += "execution.target" -> config.executeMode.toString
+    // flink config
+    val convergedConfig = {
+      // base on default flink config
+      val rsConf = mutable.Map(DEFAULT_FLINK_CONFIG.toSeq: _*)
+      // set execution mode
+      if (config.executeMode != null) rsConf += "execution.target" -> config.executeMode.toString
+      // set remote address
+      config.remoteAddr match {
+        case Some(RemoteAddr(host, port)) =>
+          rsConf += "rest.address" -> host
+          rsConf += "rest.port" -> port.toString
+      }
+      // override with user-defined flink config
+      rsConf ++= config.flinkConfig
+      rsConf.toMap
     }
-    // set remote address
-    config.remoteAddr match {
-      case Some(RemoteAddr(host, port)) =>
-        convergedConfig += "rest.address" -> host
-        convergedConfig += "rest.port" -> port.toString
-    }
-    // override with user-defined flink config
-    convergedConfig ++= config.flinkConfig
-    EffectiveExecConfig(
-      convergedConfig.toMap,
-      config.resultCollectStrategy)
+    // resultCollectStrategy
+    val collectStrategy = Option(config.resultCollectStrategy) getOrElse ResultCollectStrategy.default
+    EffectiveExecConfig(convergedConfig, collectStrategy)
   }
 
 }
