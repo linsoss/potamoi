@@ -6,13 +6,14 @@ import org.apache.flink.types.Row
 import scala.collection.JavaConverters._
 
 /**
+ * Flink API conversion tool.
+ *
  * @author Al-assad
  */
-
 object FlinkApiCovertTool {
 
   /**
-   * Covert Flink [[TableSchema]] to Potamoi [[TableSchema]].
+   * Covert Flink [[TableSchema]] to Potamoi [[Column]] sequence.
    * Since ResolvedSchema is only available since flink-1.13, to maintain compatibility with the
    * deprecated TableSchema API.
    *

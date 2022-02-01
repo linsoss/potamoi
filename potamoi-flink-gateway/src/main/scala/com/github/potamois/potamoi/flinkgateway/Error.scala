@@ -1,6 +1,12 @@
 package com.github.potamois.potamoi.flinkgateway
 
-
+/**
+ * Error information.
+ *
+ * @param summary    summary message
+ * @param errorStack exception stack
+ * @author Al-assad
+ */
 case class Error(summary: String, errorStack: String)
 
 object Error {
