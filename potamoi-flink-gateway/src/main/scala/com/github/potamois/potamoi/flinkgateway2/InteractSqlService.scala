@@ -1,7 +1,5 @@
 package com.github.potamois.potamoi.flinkgateway2
 
-import com.github.potamois.potamoi.commons.{Using, Uuid}
-import com.github.potamois.potamoi.flinkgateway.FlinkApiCovertTool.{covertRow, covertTableSchema}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment
@@ -10,8 +8,6 @@ import org.apache.flink.table.operations.{ModifyOperation, Operation, QueryOpera
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -77,59 +73,61 @@ object InteractSqlService extends InteractServiceTrait {
 
 
   // noinspection ScalaDeprecation
-  override def executeOperation(sessionId: String, ops: Operation): SafeResult[TableResultData] = retrieve(sessionId) { session =>
-    val tableEnvInternal = session.tableEnv.asInstanceOf[TableEnvironmentInternal]
-    Try(tableEnvInternal.executeInternal(ops)) match {
-      case Failure(cause) =>
-        SafeResult.fail("execute sql statement failed", cause)
-      case Success(tableResult) =>
-        // extract columns meta from ResolvedSchema
-        val cols: Seq[Column] = covertTableSchema(tableResult.getTableSchema)
-        // execute Operation and collect TableResult to RowData sequence
-        val rowDatas: Seq[RowData] = Using(tableResult.collect()) { iter =>
-          iter.asScala.map(covertRow).toSeq
-        } match {
-          case Success(rows) => rows
-          case Failure(cause) => return SafeResult.fail("collect table result failed", cause)
-        }
-        SafeResult.pass(TableResultData(cols, rowDatas))
-    }
-  }
+  override def executeOperation(sessionId: String, ops: Operation): SafeResult[TableResultData] = ???
+//    retrieve(sessionId) { session =>
+//    val tableEnvInternal = session.tableEnv.asInstanceOf[TableEnvironmentInternal]
+//    Try(tableEnvInternal.executeInternal(ops)) match {
+//      case Failure(cause) =>
+//        SafeResult.fail("execute sql statement failed", cause)
+//      case Success(tableResult) =>
+//        // extract columns meta from ResolvedSchema
+//        val cols: Seq[Column] = covertTableSchema(tableResult.getTableSchema)
+//        // execute Operation and collect TableResult to RowData sequence
+//        val rowDatas: Seq[RowData] = Using(tableResult.collect()) { iter =>
+//          iter.asScala.map(covertRow).toSeq
+//        } match {
+//          case Success(rows) => rows
+//          case Failure(cause) => return SafeResult.fail("collect table result failed", cause)
+//        }
+//        SafeResult.pass(TableResultData(cols, rowDatas))
+//    }
+//  }
 
 
   override def executeModifyOperations(sessionId: String,
-                                       modifyOps: Seq[ModifyOperation]): SafeResult[ResultDescriptor] = retrieve(sessionId) { session =>
-    val resultId = Uuid.genShortUUID
-    val descriptor = ResultDescriptor(sessionId, resultId, ResultKind.MODIFY, session.config)
-    resultDescriptors += (sessionId, resultId) -> ResultDescriptorState(descriptor, ResultState.PENDING)
-
-    val tableEnvInternal = session.tableEnv.asInstanceOf[TableEnvironmentInternal]
-    val f = Future {
-      resultDescriptors += (sessionId, resultId) -> ResultDescriptorState(descriptor, ResultState.RUNNING)
-      // execute and submit flink job
-      val tableResult = Try(tableEnvInternal.executeInternal(modifyOps.asJava)) match {
-        case Success(tableResult) => tableResult
-        case Failure(cause) =>
-          resultDescriptors += (sessionId, resultId) ->
-            ResultDescriptorState(descriptor, ResultState.FAILED, Some(Error("execute sql statement failed", cause.getMessage)))
-          return SafeResult.fail("execute sql statement failed", cause)
-      }
-      val jobId = tableResult.getJobClient.get.getJobID.toHexString
-      val cols: Seq[Column] = covertTableSchema(tableResult.getTableSchema)
-      modifyResultStorage += (sessionId, resultId) -> ModifyResult(jobId, TableResultData(cols, Seq.empty))
-      // collect result
-      val rowDatas = Using(tableResult.collect()) { iter =>
-        iter.asScala.map(covertRow).toSeq
-      } match {
-        case Success(rows) =>
-          modifyResultStorage += (sessionId, resultId) -> ModifyResult(jobId, TableResultData(cols, rows))
-          resultDescriptors += (sessionId, resultId) -> ResultDescriptorState(descriptor, ResultState.FINISHED)
-        case Failure(exception) =>
-          resultDescriptors += (sessionId, resultId) -> ResultDescriptorState(descriptor, ResultState.FAILED)
-      }
-    }
-    SafeResult.pass(descriptor)
-  }
+                                       modifyOps: Seq[ModifyOperation]): SafeResult[ResultDescriptor] = ???
+//    retrieve(sessionId) { session =>
+//    val resultId = Uuid.genUUID32
+//    val descriptor = ResultDescriptor(sessionId, resultId, ResultKind.MODIFY, session.config)
+//    resultDescriptors += (sessionId, resultId) -> ResultDescriptorState(descriptor, ResultState.PENDING)
+//
+//    val tableEnvInternal = session.tableEnv.asInstanceOf[TableEnvironmentInternal]
+//    val f = Future {
+//      resultDescriptors += (sessionId, resultId) -> ResultDescriptorState(descriptor, ResultState.RUNNING)
+//      // execute and submit flink job
+//      val tableResult = Try(tableEnvInternal.executeInternal(modifyOps.asJava)) match {
+//        case Success(tableResult) => tableResult
+//        case Failure(cause) =>
+//          resultDescriptors += (sessionId, resultId) ->
+//            ResultDescriptorState(descriptor, ResultState.FAILED, Some(Error("execute sql statement failed", cause.getMessage)))
+//          return SafeResult.fail("execute sql statement failed", cause)
+//      }
+//      val jobId = tableResult.getJobClient.get.getJobID.toHexString
+//      val cols: Seq[Column] = covertTableSchema(tableResult.getTableSchema)
+//      modifyResultStorage += (sessionId, resultId) -> ModifyResult(jobId, TableResultData(cols, Seq.empty))
+//      // collect result
+//      val rowDatas = Using(tableResult.collect()) { iter =>
+//        iter.asScala.map(covertRow).toSeq
+//      } match {
+//        case Success(rows) =>
+//          modifyResultStorage += (sessionId, resultId) -> ModifyResult(jobId, TableResultData(cols, rows))
+//          resultDescriptors += (sessionId, resultId) -> ResultDescriptorState(descriptor, ResultState.FINISHED)
+//        case Failure(exception) =>
+//          resultDescriptors += (sessionId, resultId) -> ResultDescriptorState(descriptor, ResultState.FAILED)
+//      }
+//    }
+//    SafeResult.pass(descriptor)
+//  }
 
 
   override def executeQueryOperation(sessionId: String, queryOps: QueryOperation): SafeResult[ResultDescriptor] = ???
