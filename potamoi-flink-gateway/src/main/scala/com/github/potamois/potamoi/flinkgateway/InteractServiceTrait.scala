@@ -14,7 +14,6 @@ trait InteractServiceTrait {
 
   def retrievePageableQueryResult(trackOpsId: String, page: PageReq): QueryResultPageSnapshot
 
-
 }
 
 

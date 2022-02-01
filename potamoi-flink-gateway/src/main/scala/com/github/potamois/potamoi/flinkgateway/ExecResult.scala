@@ -15,6 +15,33 @@ case class ExecResult(sqlPlan: SortedMap[Int, String],
   def isValid: Boolean = error.isEmpty
 }
 
+object TrackOpsType extends Enumeration {
+  type TrackOpsType = Value
+  val NONE, QUERY, MODIFY = Value
+}
+
+case class QueryResult(trackOpsId: String,
+                       jobId: String,
+                       isEnded: Boolean,
+                       rowCount: Long,
+                       error: Option[Error],
+                       resultData: TableResultData,
+                       lastTs: Long) {
+  def hasErr: Boolean = error.isDefined
+}
+
+case class QueryResultPageSnapshot(result: QueryResult, page: PageRsp)
+
+case class ModifyResult(trackOpsId: String,
+                        jobId: String,
+                        isEnded: Boolean,
+                        error: Option[Error],
+                        resultData: TableResultData,
+                        ts: Long) {
+  def hasErr: Boolean = error.isDefined
+}
+
+
 case class TableResultData(cols: Seq[Column], data: Seq[RowData]) {
   /**
    * Formatted as tabulated content string
@@ -30,29 +57,3 @@ object RowData {
   def empty: RowData = RowData("", Seq.empty)
 }
 
-case class ModifyResult(trackOpsId: String,
-                        jobId: String,
-                        isEnded: Boolean,
-                        error: Option[Error],
-                        resultData: TableResultData,
-                        ts: Long) {
-  def hasErr: Boolean = error.isDefined
-}
-
-case class QueryResult(trackOpsId: String,
-                       jobId: String,
-                       isEnded: Boolean,
-                       rowCount: Long,
-                       error: Option[Error],
-                       resultData: TableResultData,
-                       lastTs: Long) {
-  def hasErr: Boolean = error.isDefined
-}
-
-case class QueryResultPageSnapshot(result: QueryResult, page: PageRsp)
-
-
-object TrackOpsType extends Enumeration {
-  type TrackOpsType = Value
-  val NONE, QUERY, MODIFY = Value
-}

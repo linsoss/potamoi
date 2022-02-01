@@ -1,10 +1,6 @@
 package com.github.potamois.potamoi.flinkgateway
 
-/**
- * @param summary
- * @param errorStack
- * @author Al-assad
- */
+
 case class Error(summary: String, errorStack: String)
 
 object Error {
