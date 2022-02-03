@@ -11,7 +11,6 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
   "FlinkSqlParser" when {
 
     "splitSqlStatement" should {
-
       "split normal sql content" in {
         val sql =
           """
@@ -40,7 +39,7 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
             |    f_random INT,
             |    f_random_str STRING
             |  ) WITH (
-            |    'connector' = 'datagen'
+            |    'connector' = 'datagen',
             |    'rows-per-second'= '25'
             |  )""".stripMargin,
           "DESCRIBE datagen_source",
@@ -67,12 +66,13 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
         splitSqlStatement(
           """
             |// comment
-            |//comment 2
+            |   //comment 2
             |  CREATE TABLE datagen_source (
             |    f_sequence INT,
-            |    f_random INT,// comment 3
-            |    f_random_str STRING// comment 4
+            |    f_random INT,  // comment 3
+            |    f_random_str STRING // comment 4
             |  ) WITH (
+            |  // comment 10
             |    'connector' = 'datagen',
             |    'rows-per-second'= '25'
             |  );
@@ -104,12 +104,13 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
         splitSqlStatement(
           """
             |-- comment
-            |--comment 2
+            |   --comment 2
             |  CREATE TABLE datagen_source (
             |    f_sequence INT,
-            |    f_random INT,-- comment 3
-            |    f_random_str STRING-- comment 4
+            |    f_random INT, -- comment 3
+            |    f_random_str STRING  -- comment 4
             |  ) WITH (
+            |  -- comment 10
             |    'connector' = 'datagen',
             |    'rows-per-second'= '25'
             |  );
@@ -135,7 +136,113 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
       }
 
       "split sql content with multiple lines comment using '/* */'" in {
+        splitSqlStatement("/* comment */") shouldBe Seq.empty
+        splitSqlStatement("/* comment \n comment \n */") shouldBe Seq.empty
+        splitSqlStatement("/* comment \n comment */ select * from table1") shouldBe Seq("select * from table1")
+        splitSqlStatement("select * from table1 /* comment \n comment */ ") shouldBe Seq("select * from table1")
 
+        splitSqlStatement(
+          """
+            |/* comment 1 */
+            |/*comment2*/
+            |CREATE TABLE datagen_source (
+            |    f_sequence INT,
+            |    f_random INT,  /* comment3 */
+            |    f_random_str STRING
+            |  ) WITH (
+            |  /* comment 4
+            |      comment 4 */
+            |    'connector' = 'datagen',
+            |    'rows-per-second'= '25'  /* comment 5
+            |         comment 5
+            |    */
+            |  );
+            |
+            |/* comment 6
+            |   comment 6
+            |   comment 6 */
+            |DESCRIBE datagen_source;
+            |
+            |show CATALOGS; /* comment 7
+            |comment 7
+            | */
+            |
+            |explain SELECT * FROM datagen_source /* comment 8 */;
+            |/**/
+            |""".stripMargin) shouldBe Seq(
+
+          """CREATE TABLE datagen_source (
+            |    f_sequence INT,
+            |    f_random INT,
+            |    f_random_str STRING
+            |  ) WITH (
+            |    'connector' = 'datagen',
+            |    'rows-per-second'= '25'
+            |  )""".stripMargin,
+          "DESCRIBE datagen_source",
+          "show CATALOGS",
+          "explain SELECT * FROM datagen_source")
+      }
+
+      "split sql content with multiple lines comment using unclosed '/* */" in {
+        splitSqlStatement(
+          """
+            |/* comment 1 */
+            |DESCRIBE datagen_source;
+            |  /* comment2
+            |  show CATALOGS;
+            |""".stripMargin) shouldBe Seq.empty
+        splitSqlStatement(
+          """
+            |DESCRIBE datagen_source;
+             comment2 */
+            |  show CATALOGS;
+            |""".stripMargin) shouldBe Seq.empty
+      }
+
+      "split sql content with comments of mixed use '//', '--' and '/**/'" in {
+        splitSqlStatement(
+          """ /* comment 1
+            |  comment 1 */
+            | -- comment 2
+            |// comment 3
+            |CREATE TABLE datagen_source (
+            |    f_sequence INT, -- comment 4
+            |    f_random INT,  // comment 5
+            |    f_random_str STRING
+            |  ) WITH (
+            |  /* comment 5
+            |      comment 5 */
+            |    'connector' = 'datagen',
+            |    'rows-per-second'= '25'
+            |  );
+            |
+            |/* comment 6 */
+            |DESCRIBE datagen_source;
+            |
+            |show CATALOGS; -- comment 7
+            |
+            |explain SELECT * FROM datagen_source // comment 8
+            |
+            |/* // comment9 -- comment10 */
+            |-- comment 11 // comment 12
+            | /* comment 13
+            |   -- comment 14
+            |     // comment 15
+            |*/
+            |""".stripMargin) shouldBe Seq(
+
+          """CREATE TABLE datagen_source (
+            |    f_sequence INT,
+            |    f_random INT,
+            |    f_random_str STRING
+            |  ) WITH (
+            |    'connector' = 'datagen',
+            |    'rows-per-second'= '25'
+            |  )""".stripMargin,
+          "DESCRIBE datagen_source",
+          "show CATALOGS",
+          "explain SELECT * FROM datagen_source")
       }
     }
 
