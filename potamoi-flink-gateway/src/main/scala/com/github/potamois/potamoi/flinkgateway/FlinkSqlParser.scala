@@ -19,8 +19,8 @@ object FlinkSqlParser {
    *
    * Supported symbols:
    * 1) sql separator: ";"
-   * 2）single line comment: "//" or "--"
-   * 3) multi line comments: "/* */"
+   * 2）single-line comment: "//" or "--"
+   * 3) multi-line comments: "/* */"
    *
    * @param sql Flink sqls separated by ";"
    * @return Effective sql sequence.
