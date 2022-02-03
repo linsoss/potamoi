@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.flinkgateway
 
-import com.github.potamois.potamoi.flinkgateway.FlinkSqlParser.splitSqlStatement
+import com.github.potamois.potamoi.flinkgateway.FlinkSqlParser.extractSqlStatements
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -10,7 +10,7 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
 
   "FlinkSqlParser" when {
 
-    "splitSqlStatement" should {
+    "extractSqlStatements" should {
       "split normal sql content" in {
         val sql =
           """
@@ -30,7 +30,7 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
             |explain SELECT * FROM datagen_source;
             |
             |""".stripMargin
-        val extractedSqls = splitSqlStatement(sql)
+        val extractedSqls = extractSqlStatements(sql)
 
         extractedSqls.size shouldBe 4
         extractedSqls shouldBe Seq(
@@ -49,21 +49,21 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
       }
 
       "split empty sql content" in {
-        splitSqlStatement(null) shouldBe Seq.empty
-        splitSqlStatement("") shouldBe Seq.empty
-        splitSqlStatement("   ") shouldBe Seq.empty
-        splitSqlStatement("\n \n") shouldBe Seq.empty
-        splitSqlStatement(";") shouldBe Seq.empty
-        splitSqlStatement("  ;  ") shouldBe Seq.empty
-        splitSqlStatement("  ;  ;  ") shouldBe Seq.empty
-        splitSqlStatement("\n ; \n ; \n") shouldBe Seq.empty
+        extractSqlStatements(null) shouldBe Seq.empty
+        extractSqlStatements("") shouldBe Seq.empty
+        extractSqlStatements("   ") shouldBe Seq.empty
+        extractSqlStatements("\n \n") shouldBe Seq.empty
+        extractSqlStatements(";") shouldBe Seq.empty
+        extractSqlStatements("  ;  ") shouldBe Seq.empty
+        extractSqlStatements("  ;  ;  ") shouldBe Seq.empty
+        extractSqlStatements("\n ; \n ; \n") shouldBe Seq.empty
       }
 
       "split sql content with single line comment using '//'" in {
-        splitSqlStatement("// comment") shouldBe Seq.empty
-        splitSqlStatement("// comment \n select * from table1") shouldBe Seq("select * from table1")
-        splitSqlStatement("select * from table1 // comment ") shouldBe Seq("select * from table1")
-        splitSqlStatement(
+        extractSqlStatements("// comment") shouldBe Seq.empty
+        extractSqlStatements("// comment \n select * from table1") shouldBe Seq("select * from table1")
+        extractSqlStatements("select * from table1 // comment ") shouldBe Seq("select * from table1")
+        extractSqlStatements(
           """
             |// comment
             |   //comment 2
@@ -98,10 +98,10 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
       }
 
       "split sql content with single line comment using '--'" in {
-        splitSqlStatement("-- comment") shouldBe Seq.empty
-        splitSqlStatement("-- comment \n select * from table1") shouldBe Seq("select * from table1")
-        splitSqlStatement("select * from table1 -- comment ") shouldBe Seq("select * from table1")
-        splitSqlStatement(
+        extractSqlStatements("-- comment") shouldBe Seq.empty
+        extractSqlStatements("-- comment \n select * from table1") shouldBe Seq("select * from table1")
+        extractSqlStatements("select * from table1 -- comment ") shouldBe Seq("select * from table1")
+        extractSqlStatements(
           """
             |-- comment
             |   --comment 2
@@ -136,12 +136,12 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
       }
 
       "split sql content with multiple lines comment using '/* */'" in {
-        splitSqlStatement("/* comment */") shouldBe Seq.empty
-        splitSqlStatement("/* comment \n comment \n */") shouldBe Seq.empty
-        splitSqlStatement("/* comment \n comment */ select * from table1") shouldBe Seq("select * from table1")
-        splitSqlStatement("select * from table1 /* comment \n comment */ ") shouldBe Seq("select * from table1")
+        extractSqlStatements("/* comment */") shouldBe Seq.empty
+        extractSqlStatements("/* comment \n comment \n */") shouldBe Seq.empty
+        extractSqlStatements("/* comment \n comment */ select * from table1") shouldBe Seq("select * from table1")
+        extractSqlStatements("select * from table1 /* comment \n comment */ ") shouldBe Seq("select * from table1")
 
-        splitSqlStatement(
+        extractSqlStatements(
           """
             |/* comment 1 */
             |/*comment2*/
@@ -185,14 +185,14 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
       }
 
       "split sql content with multiple lines comment using unclosed '/* */" in {
-        splitSqlStatement(
+        extractSqlStatements(
           """
             |/* comment 1 */
             |DESCRIBE datagen_source;
             |  /* comment2
             |  show CATALOGS;
             |""".stripMargin) shouldBe Seq.empty
-        splitSqlStatement(
+        extractSqlStatements(
           """
             |DESCRIBE datagen_source;
              comment2 */
@@ -201,7 +201,7 @@ class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
       }
 
       "split sql content with comments of mixed use '//', '--' and '/**/'" in {
-        splitSqlStatement(
+        extractSqlStatements(
           """ /* comment 1
             |  comment 1 */
             | -- comment 2

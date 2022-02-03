@@ -26,7 +26,7 @@ object FlinkSqlParser {
    * @return Effective sql sequence.
    *         It would return empty Seq when it sql contains unclosed "/*" or "*/"
    */
-  def splitSqlStatement(sql: String): Seq[String] = sql match {
+  def extractSqlStatements(sql: String): Seq[String] = sql match {
     case null => Seq.empty
     case _ => var rsql = sql
       // remove multiple lines comment like "/* ... */"
