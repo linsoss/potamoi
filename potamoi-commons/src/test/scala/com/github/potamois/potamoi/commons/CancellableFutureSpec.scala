@@ -21,9 +21,9 @@ class CancellableFutureSpec extends AnyWordSpec with Matchers with Waiters with 
     }
 
     "be cancellable" in {
-      val f = CancellableFuture(() -> {
+      val f = CancellableFuture {
         Thread.sleep(1000)
-      })
+      }
       f.cancel(false) shouldBe true
       f.failed.futureValue.isInstanceOf[CancellationException]
       f.isCompleted shouldBe true
@@ -34,14 +34,14 @@ class CancellableFutureSpec extends AnyWordSpec with Matchers with Waiters with 
       val ec = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
       // Fully utilize the ExecutionContext
       val w = new Waiter()
-      CancellableFuture(() -> {
+      CancellableFuture {
         w.await()
-      })(ec)
+      }(ec)
 
       val executed = new AtomicBoolean()
-      val f = CancellableFuture(() -> {
+      val f = CancellableFuture {
         executed.set(true)
-      })(ec)
+      }(ec)
 
       f.cancel(false) shouldBe true
       w.dismiss()
@@ -53,22 +53,22 @@ class CancellableFutureSpec extends AnyWordSpec with Matchers with Waiters with 
     }
 
     "not support repeated cancellation" in {
-      val f = CancellableFuture(() -> {
+      val f = CancellableFuture {
         Thread.sleep(1000)
-      })
+      }
       f.cancel(false) shouldBe true
       f.cancel(false) shouldBe false
     }
 
     "be interruptable" in {
       val waiter = new Waiter()
-      val f = CancellableFuture(() -> {
+      val f = CancellableFuture {
         try {
           Thread.sleep(1000)
         } catch {
           case _: InterruptedException => waiter.dismiss()
         }
-      })
+      }
       Thread.sleep(100)
 
       f.cancel(true) shouldBe true

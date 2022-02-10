@@ -1,6 +1,7 @@
 package com.github.potamois.potamoi.commons
 
 import com.github.potamois.potamoi.commons.FutureImplicits._
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -10,7 +11,7 @@ import scala.concurrent.{Future, TimeoutException}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-class FutureImplicitsSpec extends AnyWordSpec with Matchers {
+class FutureImplicitsSpec extends AnyWordSpec with Matchers with ScalaFutures {
 
   "FutureImplicit" should {
 
