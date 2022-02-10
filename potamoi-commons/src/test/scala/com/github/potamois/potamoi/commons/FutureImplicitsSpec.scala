@@ -19,10 +19,7 @@ class FutureImplicitsSpec extends AnyWordSpec with Matchers {
       f.waitResult() shouldBe "hello"
 
       var a = 1
-      val f2 = Future {
-        a += 1
-        a
-      }
+      val f2 = Future { a += 1; a }
       a shouldBe 1
       f2.waitResult() shouldBe 2
       a shouldBe 2
@@ -32,27 +29,19 @@ class FutureImplicitsSpec extends AnyWordSpec with Matchers {
       val f = Future("hello")
       f.waitResult(3.seconds) shouldBe "hello"
 
-      val f2 = Future {
-        Thread.sleep(1000)
-        1
-      }
+      val f2 = Future { Thread.sleep(1000); 1 }
       f2.waitResult(3.seconds) shouldBe 1
     }
 
     "call the blocking waitResult method when timeout" in {
-      val f = Future {
-        Thread.sleep(10 * 1000)
-        1
-      }
+      val f = Future { Thread.sleep(10 * 1000); 1 }
       assertThrows[TimeoutException] {
         f.waitResult(1.seconds)
       }
     }
 
     "call the blocking waitResult method when an exception thrown from future" in {
-      val f = Future {
-        throw new RuntimeException("test")
-      }
+      val f = Future(throw new RuntimeException("fail"))
       assertThrows[RuntimeException] {
         f.waitResult()
       }
