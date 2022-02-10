@@ -16,7 +16,7 @@ object FutureImplicits {
 
   implicit class FutureWrapper[T](future: Future[T]) {
     /**
-     * Await the result of the future.
+     * Await the result of the Future.
      *
      * @param timeout blocking timeout time
      * @throws TimeoutException when the call times out
@@ -25,7 +25,7 @@ object FutureImplicits {
     def waitResult(timeout: Duration = defaultTimeout): T = Await.result(future, timeout)
 
     /**
-     * Await the result wrapped by [[Try]] of the future.
+     * Await the result wrapped by [[Try]] of the Future.
      *
      * @param timeout blocking timeout time
      */
