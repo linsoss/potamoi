@@ -33,6 +33,11 @@ object FutureImplicits {
 
   }
 
+  /**
+   * Convenience method for Thread.sleep
+   */
+  def sleep(delay: Duration): Unit = Thread.sleep(delay.toMillis)
+
 }
 
 
