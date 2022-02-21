@@ -17,7 +17,9 @@ lazy val commonSettings = Seq(
 
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.10",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
     "org.scalatest" %% "scalatest" % "3.2.9" % Test,
+
     "io.spray" %% "spray-json" % "1.3.6",
     "com.github.nscala-time" %% "nscala-time" % "2.30.0"
   )
