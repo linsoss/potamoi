@@ -1,7 +1,7 @@
 lazy val scala = "2.12.15"
 lazy val akkaVersion = "2.6.18"
 lazy val akkaHttpVersion = "10.2.7"
-lazy val flinkVersion = flink14
+lazy val flinkVersion = 13
 
 lazy val commonSettings = Seq(
   organization := "com.github.potamois",
@@ -55,18 +55,29 @@ lazy val akkaDeps = Seq(
 )
 
 // flink dependencies
-lazy val flink14 = "1.14.3"
-lazy val flink13 = "1.13.5"
-lazy val flink12 = "1.12.7"
-lazy val flink11 = "1.11.6"
-def flinkDeps(version: String = flink14) = Seq(
-  "org.apache.flink" %% "flink-table-planner",
-  "org.apache.flink" %% "flink-clients"
-).map(_ % version)
+lazy val flinkVersionMap = Map(
+  14 -> "1.14.3",
+  13 -> "1.13.5",
+  12 -> "1.12.7",
+  11 -> "1.11.6"
+)
+
+def flinkDeps(majorVer: Int = 14) =
+  if (majorVer >= 14) Seq(
+    "org.apache.flink" %% "flink-table-planner",
+    "org.apache.flink" %% "flink-clients")
+    .map(_ % flinkVersionMap(majorVer))
+  else Seq(
+    "org.apache.flink" %% "flink-table-planner-blink",
+    "org.apache.flink" %% "flink-clients")
+    .map(_ % flinkVersionMap(majorVer) exclude("com.typesafe.akka", s"akka-protobuf_$scalaMajorVer"))
+
 
 // todo remove in the future
 val tmpDeps = Seq(
   "com.github.knaufk" % "flink-faker" % "0.4.1"
 )
 
+
+lazy val scalaMajorVer = scala.split("\\.").take(2).mkString(".")
 
