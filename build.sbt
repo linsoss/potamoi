@@ -1,7 +1,7 @@
 lazy val scala = "2.12.15"
 lazy val akkaVersion = "2.6.18"
 lazy val akkaHttpVersion = "10.2.8"
-lazy val flinkVersion = 13
+lazy val flinkVersion = 14
 
 lazy val commonSettings = Seq(
   organization := "com.github.potamois",
@@ -48,10 +48,17 @@ lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potam
 // akka dependencies
 lazy val akkaDeps = Seq(
   "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
-  "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion,
   "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
+  "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
+
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
-  "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test
+  "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
+  "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion,
+
+  "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
+  "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion % Test,
+  "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test
 )
 
 // flink dependencies
