@@ -33,7 +33,10 @@ lazy val root = Project(id = "potamoi", base = file("."))
 
 // commons module
 lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"))
-  .settings(commonSettings)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= akkaDeps // todo separated akka-tools to another sub-project
+  )
 
 // flink gateway module
 lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potamoi-flink-gateway"))
