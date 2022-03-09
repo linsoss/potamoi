@@ -1,4 +1,4 @@
-package com.github.potamois.potamoi.flinkgateway
+package com.github.potamois.potamoi.gateway.flink
 
 import com.github.potamois.potamoi.testkit.STSpec
 import org.apache.flink.table.api.{DataTypes, TableSchema}
