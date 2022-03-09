@@ -5,8 +5,7 @@ package com.github.potamois.potamoi.flinkgateway
  */
 trait InteractServiceTrait {
 
-  // todo execute config
-  def executeStatements(sqlStatements: String): ExecResult
+  def executeStatements(sqlStatements: String, config: ExecConfig = ExecConfig.localEnv()): ExecResult
 
   def retrieveModifyResult(trackOpsId: String): ModifyResult
 

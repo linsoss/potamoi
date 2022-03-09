@@ -15,7 +15,7 @@ import scala.util.{Failure, Success, Try}
  */
 object InteractSqlService extends InteractServiceTrait {
 
-  // todo refactor to akka actor or akka distributed data
+  // todo refactor to akka actor or akka distributed dataw
   val sessionManager = mutable.Map.empty[SessionId, SessionContext]
   val resultDescriptors = mutable.Map.empty[(SessionId, ResultId), ResultDescriptorState]
   val modifyResultStorage = mutable.Map.empty[(SessionId, ResultId), ModifyResult]
