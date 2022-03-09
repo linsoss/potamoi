@@ -5,4 +5,4 @@ package com.github.potamois.potamoi.akka
  *
  * @author Al-assad
  */
-trait CborSerializable
+trait CborSerializable extends Serializable
