@@ -1,12 +1,20 @@
 package com.github.potamois.potamoi.gateway.flink
 
+import com.github.potamois.potamoi.akka.CborSerializable
 import com.github.potamois.potamoi.commons.Tabulator
 
 
+/**
+ * @author Al-assad
+ */
+trait TraceableExecResult extends CborSerializable
 
-case class ExecResult(
+case class ImmediateExecDone(data: TableResultData) extends TraceableExecResult
 
-                     )
+case object SubmitModifyOpDone extends TraceableExecResult
+
+case object SubmitQueryOpDone extends TraceableExecResult
+
 
 /**
  * Data records of a table that extracted from [[org.apache.flink.table.api.TableResult]].
@@ -46,3 +54,5 @@ case class RowData(kind: String, values: Seq[String])
 object RowData {
   def empty: RowData = RowData("", Seq.empty)
 }
+
+
