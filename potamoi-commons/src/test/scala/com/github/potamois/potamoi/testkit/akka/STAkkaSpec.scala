@@ -18,13 +18,14 @@ trait STAkkaSpec extends AnyWordSpecLike with BeforeAndAfterEach {
 
   /**
    * Create a TestProbe and use it directly on specified function.
-   * For example:
    *
+   * @example {{{
    * val actor = spawn(MyActor())
    * testProbe[Record] { probe =>
    *   actor ! GetValue(tp.ref)
    *   probe.expectMessage(Record(1, "Tulzscha"))
    * }
+   * }}}
    */
   def testProbe[M](func: TestProbe[M] => Any)(implicit system: ActorSystem[_]): TestProbe[M] = {
     val probe = TestProbe[M]()
@@ -36,8 +37,10 @@ trait STAkkaSpec extends AnyWordSpecLike with BeforeAndAfterEach {
    * Create a TestProbe and use it's ActorRef directly on specified function.
    * For example:
    *
+   * @example {{{
    * val actor = spawn(MyActor())
    * testProbeRef[Record](actor ! GetValue(_)) expectMessage Record.default
+   * }}}
    */
   def testProbeRef[M](func: ActorRef[M] => Any)(implicit system: ActorSystem[_]): TestProbe[M] = {
     val probe = TestProbe[M]()
