@@ -10,7 +10,7 @@ class FlinkApiCovertToolSpec extends STSpec {
 
   "FlinkApiCovertTool" should {
 
-    "covertTableSchema" in {
+    "covertTableSchema correctly" in {
       val schema = new TableSchema.Builder()
         .field("f1", DataTypes.STRING)
         .field("f2", DataTypes.INT)
@@ -28,11 +28,11 @@ class FlinkApiCovertToolSpec extends STSpec {
       )
     }
 
-    "covertTableSchema with null schema" in {
+    "covertTableSchema with null schema correctly" in {
       FlinkApiCovertTool.covertTableSchema(null) shouldBe Seq.empty
     }
 
-    "covertRow" in {
+    "covertRow correctly" in {
       val row = Row.ofKind(RowKind.INSERT,
         "1",
         java.lang.Integer.valueOf(2),
@@ -45,7 +45,7 @@ class FlinkApiCovertToolSpec extends STSpec {
       rowData.values shouldBe Seq("1", "2", "3", "4.0", "true", "null")
     }
 
-    "covertRow with null row" in {
+    "covertRow with null row correctly" in {
       FlinkApiCovertTool.covertRow(null) shouldBe RowData.empty
     }
   }
