@@ -1,15 +1,14 @@
 package com.github.potamois.potamoi.commons
 
+import com.github.potamois.potamoi.testkit.STSpec
 import org.scalatest.concurrent.{ScalaFutures, Waiters}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.{CancellationException, ExecutionContext}
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{CancellationException, ExecutionContext}
 
-class CancellableFutureSpec extends AnyWordSpec with Matchers with Waiters with ScalaFutures {
+class CancellableFutureSpec extends STSpec with Waiters with ScalaFutures {
 
   "CancellableFuture" should {
 

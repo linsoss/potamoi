@@ -1,11 +1,10 @@
 package com.github.potamois.potamoi.flinkgateway
 
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
+import com.github.potamois.potamoi.testkit.STSpec
 
 import scala.language.postfixOps
 
-class FlinkSqlParserSpec extends AnyWordSpec with Matchers {
+class FlinkSqlParserSpec extends STSpec {
 
   "FlinkSqlParser" when {
 

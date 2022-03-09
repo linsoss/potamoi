@@ -1,13 +1,12 @@
 package com.github.potamois.potamoi.flinkgateway
 
+import com.github.potamois.potamoi.testkit.STSpec
 import org.apache.flink.table.api.{DataTypes, TableSchema}
 import org.apache.flink.types.{Row, RowKind}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.postfixOps
 
-class FlinkApiCovertToolSpec extends AnyWordSpec with Matchers {
+class FlinkApiCovertToolSpec extends STSpec {
 
   "FlinkApiCovertTool" should {
 

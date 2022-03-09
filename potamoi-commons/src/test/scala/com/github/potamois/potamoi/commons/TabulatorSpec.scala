@@ -1,11 +1,10 @@
 package com.github.potamois.potamoi.commons
 
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
+import com.github.potamois.potamoi.testkit.STSpec
 
 import scala.language.postfixOps
 
-class TabulatorSpec extends AnyWordSpec with Matchers {
+class TabulatorSpec extends STSpec {
 
   "Tabulator" should {
 
