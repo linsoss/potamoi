@@ -14,7 +14,7 @@ object FutureImplicits {
 
   val defaultTimeout: Duration = 30.seconds
 
-  implicit class FutureWrapper[T](future: Future[T]) {
+  implicit class Wrapper[T](future: Future[T]) {
     /**
      * Await the result of the Future.
      *
