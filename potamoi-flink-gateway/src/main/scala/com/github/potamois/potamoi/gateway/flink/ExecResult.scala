@@ -1,7 +1,8 @@
-package com.github.potamois.potamoi.flinkgateway
+package com.github.potamois.potamoi.gateway.flink
 
 import com.github.potamois.potamoi.commons.Tabulator
-import com.github.potamois.potamoi.flinkgateway.TrackOpsType.TrackOpsType
+import com.github.potamois.potamoi.flinkgateway.Error
+import com.github.potamois.potamoi.gateway.flink.TrackOpsType.TrackOpsType
 
 import scala.collection.SortedMap
 

@@ -1,7 +1,8 @@
-package com.github.potamois.potamoi.flinkgateway
+package com.github.potamois.potamoi.gateway.flink
 
-import com.github.potamois.potamoi.flinkgateway.EvictStrategy.EvictStrategy
-import com.github.potamois.potamoi.flinkgateway.ExecMode.ExecMode
+import com.github.potamois.potamoi.akka.CborSerializable
+import com.github.potamois.potamoi.gateway.flink.EvictStrategy.EvictStrategy
+import com.github.potamois.potamoi.gateway.flink.ExecMode.ExecMode
 
 import scala.collection.mutable
 
@@ -20,7 +21,7 @@ import scala.collection.mutable
 case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
                       remoteAddr: Option[RemoteAddr] = None,
                       flinkConfig: Map[String, String] = Map.empty,
-                      resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default) {
+                      resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default) extends CborSerializable {
 
   def toEffectiveExecConfig: EffectiveExecConfig = ExecConfig.convergeExecConfig(this)
 }
