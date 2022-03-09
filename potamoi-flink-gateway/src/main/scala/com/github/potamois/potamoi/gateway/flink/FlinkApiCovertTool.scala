@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink
 
-import org.apache.flink.table.api.TableSchema
+import org.apache.flink.table.api.{TableResult, TableSchema}
 import org.apache.flink.types.Row
 
 import scala.collection.JavaConverters._
@@ -11,6 +11,13 @@ import scala.collection.JavaConverters._
  * @author Al-assad
  */
 object FlinkApiCovertTool {
+
+
+  /**
+   * Extract schema information from Flink [[TableResult]].
+   * see [[covertTableSchema]]
+   */
+  def extractSchema(tableResult: TableResult): Seq[Column] = covertTableSchema(tableResult.getTableSchema)
 
   /**
    * Covert Flink [[TableSchema]] to Potamoi [[Column]] sequence.
@@ -29,14 +36,14 @@ object FlinkApiCovertTool {
     )
   }
 
-
   /**
    * Covert Flink [[Row]] to Potamoi [[RowData]].
    */
   def covertRow(row: Row): RowData = row match {
     case null => RowData.empty
     case _ =>
-      val rowDataValues = (0 until row.getArity).map(i => if (row.getField(i) != null) row.getField(i).toString else "null")
+      val rowDataValues = (0 until row.getArity)
+        .map(i => if (row.getField(i) != null) row.getField(i).toString else "null")
       RowData(row.getKind.shortString(), rowDataValues)
   }
 

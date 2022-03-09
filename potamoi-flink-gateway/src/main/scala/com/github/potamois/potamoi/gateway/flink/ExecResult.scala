@@ -1,55 +1,12 @@
 package com.github.potamois.potamoi.gateway.flink
 
 import com.github.potamois.potamoi.commons.Tabulator
-import com.github.potamois.potamoi.flinkgateway.Error
-import com.github.potamois.potamoi.gateway.flink.TrackOpsType.TrackOpsType
 
-import scala.collection.SortedMap
 
-case class ExecResult(sqlPlan: SortedMap[Int, String],
-                      resultData: SortedMap[Int, TableResultData] = SortedMap.empty,
-                      error: Option[(Int, Error)],
-                      trackOps: TrackOpsType = TrackOpsType.NONE,
-                      trackOpsId: Option[String] = None) {
 
-  def needTrack: Boolean = TrackOpsType.NONE != trackOps
-  def isValid: Boolean = error.isEmpty
-}
+case class ExecResult(
 
-/**
- * The type of operation for which the trace result is required.
- *
- * 1) NONE: The result does not need to be tracked;
- * 2) QUERY: Tracking of query results caused by statements like "select ...";
- * 3) MODIFY: Tracking of modify statements like "insert ...";
- *
- * @author Al-assad
- */
-object TrackOpsType extends Enumeration {
-  type TrackOpsType = Value
-  val NONE, QUERY, MODIFY = Value
-}
-
-case class QueryResult(trackOpsId: String,
-                       jobId: String,
-                       isEnded: Boolean,
-                       rowCount: Long,
-                       error: Option[Error],
-                       resultData: TableResultData,
-                       lastTs: Long) {
-  def hasErr: Boolean = error.isDefined
-}
-
-case class QueryResultPageSnapshot(result: QueryResult, page: PageRsp)
-
-case class ModifyResult(trackOpsId: String,
-                        jobId: String,
-                        isEnded: Boolean,
-                        error: Option[Error],
-                        resultData: TableResultData,
-                        ts: Long) {
-  def hasErr: Boolean = error.isDefined
-}
+                     )
 
 /**
  * Data records of a table that extracted from [[org.apache.flink.table.api.TableResult]].
@@ -64,6 +21,7 @@ case class TableResultData(cols: Seq[Column], data: Seq[RowData]) {
   def tabulateContent: String = Tabulator.format(Seq(cols, data))
 }
 
+
 /**
  * Meta information of a column, which extract from [[org.apache.flink.table.api.TableColumn]].
  *
@@ -72,6 +30,7 @@ case class TableResultData(cols: Seq[Column], data: Seq[RowData]) {
  * @author Al-assad
  */
 case class Column(name: String, dataType: String)
+
 
 /**
  * Record the content of a row of data, converted from [[org.apache.flink.types.Row]].
@@ -87,4 +46,3 @@ case class RowData(kind: String, values: Seq[String])
 object RowData {
   def empty: RowData = RowData("", Seq.empty)
 }
-
