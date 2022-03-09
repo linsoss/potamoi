@@ -1,5 +1,7 @@
 package com.github.potamois.potamoi.flinkgateway
 
+import com.github.potamois.potamoi.gateway.flink.ExecConfig
+
 /**
  * @author Al-assad
  */

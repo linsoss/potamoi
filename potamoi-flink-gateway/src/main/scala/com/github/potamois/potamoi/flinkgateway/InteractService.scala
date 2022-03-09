@@ -1,5 +1,7 @@
 package com.github.potamois.potamoi.flinkgateway
 
+import com.github.potamois.potamoi.gateway.flink.ExecConfig
+
 object InteractService extends InteractServiceTrait {
 
   override def executeStatements(sqlStatements: String, config: ExecConfig): ExecResult = {
