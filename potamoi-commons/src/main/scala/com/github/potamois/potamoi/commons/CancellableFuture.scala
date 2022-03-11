@@ -14,14 +14,14 @@ object CancellableFuture {
 
 class CancellableFuture[T](body: => T)(implicit executor: ExecutionContext) extends Future[T] {
   private val promise = Promise[T]()
-  private var thread: Thread = null
+  private var thread: Option[Thread] = None
   private val cancelled = new AtomicBoolean()
 
   promise tryCompleteWith Future {
     if (promise.isCompleted) null.asInstanceOf[T]
     else {
       this.synchronized {
-        thread = Thread.currentThread
+        thread = Some(Thread.currentThread)
       }
       try {
         body
@@ -29,7 +29,7 @@ class CancellableFuture[T](body: => T)(implicit executor: ExecutionContext) exte
         this.synchronized {
           // Clears the interrupt flag
           Thread.interrupted()
-          thread = null
+          thread = None
         }
       }
     }
@@ -47,7 +47,7 @@ class CancellableFuture[T](body: => T)(implicit executor: ExecutionContext) exte
       promise.tryComplete(Failure(new CancellationException()))
       if (interrupt) {
         this.synchronized {
-          if (thread != null) thread.interrupt()
+          thread.foreach(_.interrupt())
         }
       }
       true
