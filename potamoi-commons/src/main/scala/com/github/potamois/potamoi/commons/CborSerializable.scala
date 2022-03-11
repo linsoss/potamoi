@@ -1,7 +1,7 @@
-package com.github.potamois.potamoi.akka
+package com.github.potamois.potamoi.commons
 
 /**
- * Akka event serialization.
+ * Cbor serialization trait.
  *
  * @author Al-assad
  */
