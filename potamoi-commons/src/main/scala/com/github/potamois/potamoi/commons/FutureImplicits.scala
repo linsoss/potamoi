@@ -22,6 +22,7 @@ object FutureImplicits {
      * @throws TimeoutException when the call times out
      */
     @throws(classOf[TimeoutException])
+    @throws(classOf[InterruptedException])
     def waitResult(timeout: Duration = defaultTimeout): T = Await.result(future, timeout)
 
     /**
