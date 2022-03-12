@@ -29,10 +29,11 @@ import scala.util.{Failure, Success, Try}
 object SqlSerialExecutor {
 
   sealed trait Command
-  final case class ExecuteSqls(sqlStatements: String, replyTo: ActorRef[SerialStmtsResult]) extends Command
+  final case class ExecuteSqls(sqlStatements: String, replyTo: ActorRef[Either[ExecReject, SerialStmtsResult]]) extends Command
 
   sealed trait Internal extends Command
-  final case object RemoteOperationProcessDone extends Internal
+  private final case object RemoteOperationProcessDone extends Internal
+
 
   def apply(sessionId: String, props: ExecConfig): Behavior[Command] = Behaviors.setup { ctx =>
     new SqlSerialExecutor(sessionId, props, ctx)
@@ -40,7 +41,6 @@ object SqlSerialExecutor {
       .action()
   }
 }
-
 
 class SqlSerialExecutor(sessionId: String,
                         props: ExecConfig,
@@ -79,7 +79,6 @@ class SqlSerialExecutor(sessionId: String,
 
     case RemoteOperationProcessDone =>
       // release the ProcessSignal
-      // todo release the remote actor resource
       inProcessSignal = None
       ctx.log.info(s"SqlSerialExecutor's remote process done, it is ready to receive new non-immediate operation. " +
                    s"[sessionId]=$sessionId " +
@@ -87,19 +86,27 @@ class SqlSerialExecutor(sessionId: String,
       Behaviors.same
 
     case ExecuteSqls(statements, replyTo) =>
-      // todo check inProcessSignal
+      // when the previous flink modify or query operation is not done, it's not allowed
+      // to execute new operation.
+      // todo
+//      if (inProcessSignal.isDefined) {
+//        replyTo ! Left(BusyInProcess(
+//          "The executor is busy in process, please cancel it or wait until it is complete",
+//          inProcessSignal.get.stmt, inProcessSignal.get.launchTs))
+//        return Behaviors.same
+//      }
 
       val startTs = curTs
       // split statements by semicolon
       val stmts = FlinkSqlParser.extractSqlStatements(statements)
       if (stmts.isEmpty) {
-        replyTo ! SerialStmtsResult(Seq.empty, TrackOpType.NONE, startTs, curTs)
+        replyTo ! Right(SerialStmtsResult(Seq.empty, TrackOpType.NONE, startTs, curTs))
         return Behaviors.same
       }
       // parse and execute immediate statements
       val (execRs, stashOps) = parseAndExecImmediateOps(stmts)
       if (stashOps.isEmpty || execRs.exists(_.rs.isLeft)) {
-        replyTo ! SerialStmtsResult(execRs, TrackOpType.NONE, startTs, curTs)
+        replyTo ! Right(SerialStmtsResult(execRs, TrackOpType.NONE, startTs, curTs))
         return Behaviors.same
       }
       // execute stashed operations
@@ -113,30 +120,34 @@ class SqlSerialExecutor(sessionId: String,
           ctx.watch(collector)
           execRs += SingleStmtResult.success(stmt, SubmitQueryOpDone(collector))
 
-          replyTo ! SerialStmtsResult(execRs, TrackOpType.QUERY, startTs, curTs)
+          // execute query operation in future
+          val process = submitQueryOpAndCollectRs(stashQueryOp, stmt, collector)
+          inProcessSignal = Some(ProcessSignal.queryOp(collector, process, stmt))
+          ctx.pipeToSelf(process)(_ => RemoteOperationProcessDone)
+          replyTo ! Right(SerialStmtsResult(execRs, TrackOpType.QUERY, startTs, curTs))
 
         // modify operations
         case Right(stashModifyOps) =>
           lazy val stmts = stashModifyOps.map(_._1).mkString(";")
           val modifyOps = stashModifyOps.map(_._2)
           // spawn TableResult collector actor
-          val collector = ctx.spawn(ModifyOpRsCollector(sessionId), s"flinkSqlSerialExecutor-collector-modifyOps-$sessionId")
-          ctx.watch(collector)
+            val collector = ctx.spawn(ModifyOpRsCollector(sessionId), s"flinkSqlSerialExecutor-collector-modifyOps-$sessionId")
+            ctx.watch(collector)
           execRs += SingleStmtResult.success(stmts, SubmitModifyOpDone(collector))
 
           // exec modify operations in future
           val process = submitModifyOpsAndCollectRs(modifyOps, stmts, collector)
           inProcessSignal = Some(ProcessSignal.modifyOp(collector, process, stmts))
           ctx.pipeToSelf(process)(_ => RemoteOperationProcessDone)
-          replyTo ! SerialStmtsResult(execRs, TrackOpType.MODIFY, startTs, curTs)
+          replyTo ! Right(SerialStmtsResult(execRs, TrackOpType.MODIFY, startTs, curTs))
       }
       Behaviors.same
   }
 
 
   /**
-   * Parse sql statements to Flink Operation, then execute all of them except for the [[QueryOperation]] and [[ModifyOperation]],
-   * which will be stashed in [[StashOpToken]].
+   * Parse sql statements to Flink Operation, then execute all of them except for the
+   * [[QueryOperation]] and [[ModifyOperation]], which will be stashed in [[StashOpToken]].
    */
   private def parseAndExecImmediateOps(stmts: Seq[String]): (mutable.Buffer[SingleStmtResult], StashOpToken) = {
     val execRs = mutable.Buffer.empty[SingleStmtResult]
@@ -175,12 +186,12 @@ class SqlSerialExecutor(sessionId: String,
 
 
   /**
-   * todo
+   * Submit and execute flink modify operation in the cancelled future, the TableResult
+   * collected from Flink will be sent to the [[ModifyOpRsCollector]] actor.
    */
   //noinspection DuplicatedCode
   private def submitModifyOpsAndCollectRs(modifyOps: Seq[ModifyOperation],
-                                          stmts: String,
-                                          collector: ActorRef[ModifyOpRsCollector.Command]): CancellableFuture[Done] = CancellableFuture {
+                                          stmts: String): CancellableFuture[Done] = CancellableFuture {
     import ModifyOpRsCollector._
 
     Try(flinkCtx.tEnvInternal.executeInternal(modifyOps.asJava)) match {
@@ -204,8 +215,18 @@ class SqlSerialExecutor(sessionId: String,
     }
   }
 
+  /**
+   * Submit and execute flink query operation in the cancelled future, the
+   * TableResult collected from Flink will be sent to the [[QueryOpRsCollector]] actor.
+   *
+   * Regarding the result termination control strategy, the [[EvictStrategy.DROP_TAIL]]
+   * strategy takes effect during this process, while [[EvictStrategy.DROP_TAIL]] often
+   * means an infinite stream of data with the [[QueryOpRsCollector]] doing the element
+   * discard process.
+   */
   //noinspection DuplicatedCode
-  private def submitQueryOpAndCollectRs(queryOp: ModifyOperation, stmt: String,
+  private def submitQueryOpAndCollectRs(queryOp: QueryOperation,
+                                        stmt: String,
                                         collector: ActorRef[QueryOpRsCollector.Command]): CancellableFuture[Done] = CancellableFuture {
     import QueryOpRsCollector._
 
@@ -256,12 +277,15 @@ class SqlSerialExecutor(sessionId: String,
   private case class FlinkContext(tEnv: StreamTableEnvironment, tEnvInternal: TableEnvironmentInternal, parser: Parser)
 
   /**
-   * Signal of Non-immediate operation execution process.
+   * Signal of non-immediate operation execution process.
    */
   private case class ProcessSignal(collector: Either[ActorRef[ModifyOpRsCollector.Command], ActorRef[QueryOpRsCollector.Command]],
                                    process: CancellableFuture[Done],
                                    stmt: String,
-                                   launchTs: Long)
+                                   launchTs: Long) {
+
+  }
+
   private object ProcessSignal {
 
     def modifyOp(collector: ActorRef[ModifyOpRsCollector.Command], process: CancellableFuture[Done], stmt: String): ProcessSignal =
