@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink
 
-import com.github.potamois.potamoi.akka.CborSerializable
+import com.github.potamois.potamoi.commons.CborSerializable
 import com.github.potamois.potamoi.gateway.flink.EvictStrategy.EvictStrategy
 import com.github.potamois.potamoi.gateway.flink.ExecMode.ExecMode
 
@@ -14,14 +14,14 @@ import scala.collection.mutable
  * @param executeMode           execution mode of flink job, see [[ExecMode]]
  * @param remoteAddr            remote flink cluster rest endpoint when use [[ExecMode.REMOTE]]
  * @param flinkConfig           extra flink configuration
- * @param resultCollectStrategy result collector strategy, see [[ResultCollectStrategy]]
+ * @param resultCollectStrategy result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  *
  */
 case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
                       remoteAddr: Option[RemoteAddr] = None,
                       flinkConfig: Map[String, String] = Map.empty,
-                      resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default) extends CborSerializable {
+                      resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default) extends CborSerializable {
 
   def toEffectiveExecConfig: EffectiveExecConfig = ExecConfig.convergeExecConfig(this)
 }
@@ -30,11 +30,11 @@ case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
  * Effective execution configuration of Flink interactive operation.
  *
  * @param flinkConfig           extra flink configuration
- * @param resultCollectStrategy result collector strategy, see [[ResultCollectStrategy]]
+ * @param resultCollectStrategy result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  */
 case class EffectiveExecConfig(flinkConfig: Map[String, String] = Map.empty,
-                               resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default)
+                               resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default)
 
 /**
  * Flink remote cluster address.
@@ -48,33 +48,33 @@ case class RemoteAddr(host: String, port: Int)
 /**
  * Strategy to collect result of Flink interactive operation.
  *
- * @param evictStrategy eviction strategy, see [[ResultCollectStrategy]]
- * @param size          result buffer size
+ * @param evictStrategy eviction strategy, see [[RsCollectStrategy]]
+ * @param limit          result buffer size
  * @author Al-assad
  */
-case class ResultCollectStrategy(evictStrategy: EvictStrategy, size: Long)
+case class RsCollectStrategy(evictStrategy: EvictStrategy, limit: Int)
 
-object ResultCollectStrategy {
-  val default: ResultCollectStrategy = ResultCollectStrategy(EvictStrategy.WINDOW, 1000L)
+object RsCollectStrategy {
+  val default: RsCollectStrategy = RsCollectStrategy(EvictStrategy.DROP_HEAD, 1000)
 }
 
 /**
- * Eviction strategy of result buffer, see [[ResultCollectStrategy]].
+ * Eviction strategy of result buffer, see [[RsCollectStrategy]].
  * The eviction strategy determines how to evict the excess elements when
  * the result reaches the buffer limit:
  *
- * 1) BARRIER
+ * 1) DROP_TAIL
  * No new elements would be accepted, and the result collection process would
  * be terminated.
  *
- * 2) WINDOW: Evict the oldest element in the buffer, while continuing to accept
+ * 2) DROP_HEAD: Evict the oldest element in the buffer, while continuing to accept
  * the new elements.
  *
  * @author Al-assad
  */
 object EvictStrategy extends Enumeration {
   type EvictStrategy = Value
-  val BARRIER, WINDOW = Value
+  val DROP_HEAD, DROP_TAIL = Value
 }
 
 /**
@@ -102,7 +102,7 @@ object ExecConfig {
    * Create a local-execution environment config instance.
    */
   def localEnv(flinkConfig: Map[String, String] = Map.empty,
-               resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default): ExecConfig = {
+               resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default): ExecConfig = {
     ExecConfig(ExecMode.LOCAL, None, flinkConfig, resultCollectStrategy)
   }
 
@@ -111,7 +111,7 @@ object ExecConfig {
    */
   def remoteEnv(remoteAddr: RemoteAddr,
                 flinkConfig: Map[String, String] = Map.empty,
-                resultCollectStrategy: ResultCollectStrategy = ResultCollectStrategy.default): ExecConfig = {
+                resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default): ExecConfig = {
     ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, resultCollectStrategy)
   }
 
@@ -147,7 +147,7 @@ object ExecConfig {
       rsConf.toMap
     }
     // resultCollectStrategy
-    val collectStrategy = Option(config.resultCollectStrategy) getOrElse ResultCollectStrategy.default
+    val collectStrategy = Option(config.resultCollectStrategy) getOrElse RsCollectStrategy.default
     EffectiveExecConfig(convergedConfig, collectStrategy)
   }
 

@@ -1,20 +1,43 @@
 package com.github.potamois.potamoi.gateway.flink
 
-import com.github.potamois.potamoi.akka.CborSerializable
 import com.github.potamois.potamoi.commons.Tabulator
+import com.github.potamois.potamoi.gateway.flink.TrackOpType.TrackOpType
 
 
 /**
+ *
+ * @param result
+ * @param trackOp
+ * @param startTs
+ * @param endTs
  * @author Al-assad
  */
-trait TraceableExecResult extends CborSerializable
+case class SerialStmtsResult(result: Seq[SingleStmtResult], trackOp: TrackOpType, startTs: Long, endTs: Long)
 
-case class ImmediateExecDone(data: TableResultData) extends TraceableExecResult
+case class SingleStmtResult(stmt: String, rs: Either[Error, TraceableExecRs], ts: Long)
 
-case object SubmitModifyOpDone extends TraceableExecResult
+object SingleStmtResult {
+  def fail(stmt: String, error: Error): SingleStmtResult =
+    SingleStmtResult(stmt, Left(error), System.currentTimeMillis)
 
-case object SubmitQueryOpDone extends TraceableExecResult
+  def success(stmt: String, rs: TraceableExecRs): SingleStmtResult =
+    SingleStmtResult(stmt, Right(rs), System.currentTimeMillis)
+}
 
+
+/**
+ * The type of operation for which the trace result is required.
+ *
+ * 1) NONE: The result does not need to be tracked;
+ * 2) QUERY: Tracking of query results caused by statements like "select ...";
+ * 3) MODIFY: Tracking of modify statements like "insert ...";
+ *
+ * @author Al-assad
+ */
+object TrackOpType extends Enumeration {
+  type TrackOpType = Value
+  val NONE, QUERY, MODIFY = Value
+}
 
 /**
  * Data records of a table that extracted from [[org.apache.flink.table.api.TableResult]].
