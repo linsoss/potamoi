@@ -2,7 +2,7 @@ package com.github.potamois.potamoi.gateway.flink
 
 import akka.Done
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.TryImplicits.Wrapper
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink.SqlSerialExecutor.Command
@@ -26,16 +26,20 @@ import scala.util.{Failure, Success, Try}
 /**
  * Flink sqls serial executor actor.
  *
+ * todo operation history
+ *
  * @author Al-assad
  */
 object SqlSerialExecutor {
 
   sealed trait Command
   final case class ExecuteSqls(sqlStatements: String, replyTo: ActorRef[Either[ExecReject, SerialStmtsResult]]) extends Command
+  final case object CancelQueryInProcess extends Command
 
   sealed trait Internal extends Command
   private final case object NonImmediateOpProcessDone extends Internal
 
+  // Internal TableResult collection process events
   sealed trait CollectResult extends Internal
   private final case class ResetRsBuffer(opType: TrackOpType, statement: String) extends CollectResult
   private final case class EmitError(error: Error) extends CollectResult
@@ -44,13 +48,14 @@ object SqlSerialExecutor {
   private final case class EmitResultRow(row: RowData) extends CollectResult
 
 
-  def apply(sessionId: String, props: ExecConfig): Behavior[Command] = Behaviors.setup { ctx =>
-    Behaviors.same
+  def apply(sessionId: String, props: ExecConfig): Behavior[Command] = Behaviors.setup { implicit ctx =>
+    ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
+    new SqlSerialExecutor(sessionId, props).init().action()
   }
 }
 
 
-class SqlSerialExecutor(sessionId: String, props: ExecConfig, ctx: ActorContext[Command]) {
+class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: ActorContext[Command]) {
 
   import SqlSerialExecutor._
 
@@ -144,8 +149,25 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig, ctx: ActorContext[
       inProcessSignal = None
       Behaviors.same
 
+    case CancelQueryInProcess =>
+      inProcessSignal.foreach(_.process.cancel(true))
+      inProcessSignal = None
+      rsBuffer.foreach { rs =>
+        rs.isFinished = true
+        rs.ts = curTs
+      }
+      Behaviors.same
+
     case _: CollectResult => collectResultBehavior()
 
+  }.receiveSignal {
+    case (context, PostStop) =>
+      context.log.info(s"SqlSerialExecutor[$sessionId] stopped.")
+      inProcessSignal.foreach { signal =>
+        signal.process.cancel(true)
+        context.log.info(s"SqlSerialExecutor[$sessionId] interrupt in-process statement: ${signal.statement}")
+      }
+      Behaviors.same
   }
 
   /**
@@ -158,15 +180,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig, ctx: ActorContext[
         case RsCollectStrategy(EvictStrategy.DROP_HEAD, limit) => FiniteQueue[RowData](limit)
         case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => new ArrayBuffer[RowData](limit + 10)
       }
-      rsBuffer = Some(ResultBuffer(
-        opType, stmt,
-        jobId = "",
-        cols = Seq.empty,
-        rows = rowsBuffer,
-        error = None,
-        isFinished = false,
-        startTs = inProcessSignal.get.startTs,
-        ts = curTs))
+      rsBuffer = Some(ResultBuffer(opType, stmt, rows = rowsBuffer, startTs = inProcessSignal.get.startTs))
       Behaviors.same
 
     case EmitError(error) =>
@@ -307,12 +321,12 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig, ctx: ActorContext[
    * Flink TableResult buffer for non-immediate operation.
    */
   private case class ResultBuffer(opType: TrackOpType, statement: String,
-                                  var jobId: String,
-                                  var cols: Seq[Column],
+                                  var jobId: String = "",
+                                  var cols: Seq[Column] = Seq.empty,
                                   rows: DataRowBuffer,
-                                  var error: Option[Error],
-                                  var isFinished: Boolean,
+                                  var error: Option[Error] = None,
+                                  var isFinished: Boolean = false,
                                   startTs: Long,
-                                  var ts: Long)
+                                  var ts: Long = curTs)
 }
 
