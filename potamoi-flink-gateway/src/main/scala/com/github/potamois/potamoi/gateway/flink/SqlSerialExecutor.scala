@@ -96,12 +96,11 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
     case ExecuteSqls(statements, replyTo) =>
       // when the previous flink modify or query operation is not done,
       // it's not allowed to execute new operation.
-      inProcessSignal match {
-        case Some(signal) => replyTo ! Left(
-          BusyInProcess(
-            "The executor is busy in process, please cancel it or wait until it is complete",
-            signal.statement, signal.startTs))
-          return Behaviors.same
+      if (inProcessSignal.isDefined) {
+        replyTo ! Left(BusyInProcess(
+          "The executor is busy in process, please cancel it or wait until it is complete",
+          inProcessSignal.get.statement, inProcessSignal.get.startTs))
+        return Behaviors.same
       }
       val startTs = curTs
       // split statements by semicolon
