@@ -49,7 +49,7 @@ case class RemoteAddr(host: String, port: Int)
  * Strategy to collect result of Flink interactive operation.
  *
  * @param evictStrategy eviction strategy, see [[RsCollectStrategy]]
- * @param limit          result buffer size
+ * @param limit         result buffer size
  * @author Al-assad
  */
 case class RsCollectStrategy(evictStrategy: EvictStrategy, limit: Int)
@@ -80,15 +80,15 @@ object EvictStrategy extends Enumeration {
 /**
  * Execution mode of Flink job.
  */
-// noinspection TypeAnnotation
+//noinspection TypeAnnotation
 object ExecMode extends Enumeration {
   type ExecMode = Value
 
-  /** LOCAL mode will launch a miniCluster within current JVM. */
+  // LOCAL mode will launch a miniCluster within current JVM.
   val LOCAL = Value("local")
 
-  /** REMOTE mode includes all Flink session mode likes standalone,
-   * session-yarn, session-kubernetes. */
+  // REMOTE mode includes all Flink session mode likes standalone,
+  // session-yarn, session-kubernetes.
   val REMOTE = Value("remote")
 }
 
@@ -100,20 +100,20 @@ object ExecConfig {
 
   /**
    * Create a local-execution environment config instance.
+   * Refer to [[ExecConfig]] for params details.
    */
   def localEnv(flinkConfig: Map[String, String] = Map.empty,
-               resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default): ExecConfig = {
+               resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
     ExecConfig(ExecMode.LOCAL, None, flinkConfig, resultCollectStrategy)
-  }
 
   /**
    * Create a remote-execution environment config instance.
+   * Refer to [[ExecConfig]] for params details.
    */
   def remoteEnv(remoteAddr: RemoteAddr,
                 flinkConfig: Map[String, String] = Map.empty,
-                resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default): ExecConfig = {
+                resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
     ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, resultCollectStrategy)
-  }
 
   /**
    * default flink configuration
