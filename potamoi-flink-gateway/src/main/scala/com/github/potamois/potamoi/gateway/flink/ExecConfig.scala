@@ -147,7 +147,7 @@ object ExecConfig {
       rsConf.toMap
     }
     // resultCollectStrategy
-    val collectStrategy = Option(config.resultCollectStrategy) getOrElse RsCollectStrategy.default
+    val collectStrategy = Option(config.resultCollectStrategy).getOrElse(RsCollectStrategy.default)
     EffectiveExecConfig(convergedConfig, collectStrategy)
   }
 
