@@ -137,10 +137,9 @@ object ExecConfig {
       // set execution mode
       if (config.executeMode != null) rsConf += "execution.target" -> config.executeMode.toString
       // set remote address
-      config.remoteAddr match {
-        case Some(RemoteAddr(host, port)) =>
-          rsConf += "rest.address" -> host
-          rsConf += "rest.port" -> port.toString
+      config.remoteAddr.foreach { addr =>
+        rsConf += "rest.address" -> addr.host
+        rsConf += "rest.port" -> addr.port.toString
       }
       // override with user-defined flink config
       rsConf ++= config.flinkConfig
