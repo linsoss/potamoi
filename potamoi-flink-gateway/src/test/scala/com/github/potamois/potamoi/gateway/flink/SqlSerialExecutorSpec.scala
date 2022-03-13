@@ -9,10 +9,10 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit with STAkkaSpec {
 
   "SqlSerialExecutor" should {
 
-    val localProps = ExecConfig(executeMode = ExecMode.LOCAL)
+    val props = ExecConfig.localEnv()
 
     "execute immediate queries correctly" in {
-      val executor = spawn(SqlSerialExecutor("2333", localProps))
+      val executor = spawn(SqlSerialExecutor("114514", props))
       val sqls =
         """create temporary table datagen_source (
           |    f_sequence int,
