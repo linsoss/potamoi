@@ -89,7 +89,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
 
 
   /**
-   * Activate actor behavior
+   * SqlSerialExecutor actor receive message behavior.
    */
   def action(): Behavior[Command] = Behaviors.receiveMessage {
 
