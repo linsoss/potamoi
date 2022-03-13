@@ -14,6 +14,11 @@ trait TraceableExecRs extends CborSerializable
 
 case class ImmediateOpDone(data: TableResultData) extends TraceableExecRs
 
+case object SubmitModifyOpDone extends TraceableExecRs
+
+case object SubmitQueryOpDone extends TraceableExecRs
+
+
 case class SubmitModifyOpDone(collector: ActorRef[ModifyOpRsCollector.Command]) extends TraceableExecRs
 
 case class SubmitQueryOpDone(collector: ActorRef[QueryOpRsCollector.Command]) extends TraceableExecRs

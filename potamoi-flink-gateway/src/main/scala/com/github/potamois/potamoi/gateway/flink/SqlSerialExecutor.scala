@@ -88,13 +88,12 @@ class SqlSerialExecutor(sessionId: String,
     case ExecuteSqls(statements, replyTo) =>
       // when the previous flink modify or query operation is not done, it's not allowed
       // to execute new operation.
-      // todo
-//      if (inProcessSignal.isDefined) {
-//        replyTo ! Left(BusyInProcess(
-//          "The executor is busy in process, please cancel it or wait until it is complete",
-//          inProcessSignal.get.stmt, inProcessSignal.get.launchTs))
-//        return Behaviors.same
-//      }
+      if (inProcessSignal.isDefined) {
+        replyTo ! Left(BusyInProcess(
+          "The executor is busy in process, please cancel it or wait until it is complete",
+          inProcessSignal.get.stmt, inProcessSignal.get.launchTs))
+        return Behaviors.same
+      }
 
       val startTs = curTs
       // split statements by semicolon
@@ -131,8 +130,8 @@ class SqlSerialExecutor(sessionId: String,
           lazy val stmts = stashModifyOps.map(_._1).mkString(";")
           val modifyOps = stashModifyOps.map(_._2)
           // spawn TableResult collector actor
-            val collector = ctx.spawn(ModifyOpRsCollector(sessionId), s"flinkSqlSerialExecutor-collector-modifyOps-$sessionId")
-            ctx.watch(collector)
+          val collector = ctx.spawn(ModifyOpRsCollector(sessionId), s"flinkSqlSerialExecutor-collector-modifyOps-$sessionId")
+          ctx.watch(collector)
           execRs += SingleStmtResult.success(stmts, SubmitModifyOpDone(collector))
 
           // exec modify operations in future
@@ -191,7 +190,8 @@ class SqlSerialExecutor(sessionId: String,
    */
   //noinspection DuplicatedCode
   private def submitModifyOpsAndCollectRs(modifyOps: Seq[ModifyOperation],
-                                          stmts: String): CancellableFuture[Done] = CancellableFuture {
+                                          stmts: String,
+                                          collector: ActorRef[ModifyOpRsCollector.Command]): CancellableFuture[Done] = CancellableFuture {
     import ModifyOpRsCollector._
 
     Try(flinkCtx.tEnvInternal.executeInternal(modifyOps.asJava)) match {

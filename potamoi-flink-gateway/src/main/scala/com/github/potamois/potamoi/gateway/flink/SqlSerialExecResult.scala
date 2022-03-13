@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink
 
-import com.github.potamois.potamoi.commons.Tabulator
+import com.github.potamois.potamoi.commons.{Tabulator, curTs}
 import com.github.potamois.potamoi.gateway.flink.TrackOpType.TrackOpType
 
 
@@ -17,12 +17,11 @@ case class SerialStmtsResult(result: Seq[SingleStmtResult], trackOp: TrackOpType
 case class SingleStmtResult(stmt: String, rs: Either[Error, TraceableExecRs], ts: Long)
 
 object SingleStmtResult {
-  def fail(stmt: String, error: Error): SingleStmtResult =
-    SingleStmtResult(stmt, Left(error), System.currentTimeMillis)
-
-  def success(stmt: String, rs: TraceableExecRs): SingleStmtResult =
-    SingleStmtResult(stmt, Right(rs), System.currentTimeMillis)
+  def fail(stmt: String, error: Error): SingleStmtResult = SingleStmtResult(stmt, Left(error), curTs)
+  def success(stmt: String, rs: TraceableExecRs): SingleStmtResult = SingleStmtResult(stmt, Right(rs), curTs)
 }
+
+
 
 
 /**
