@@ -3,8 +3,6 @@ package com.github.potamois.potamoi.gateway.flink
 import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import com.github.potamois.potamoi.testkit.akka.STAkkaSpec
 
-import scala.concurrent.duration.DurationInt
-
 class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit with STAkkaSpec {
 
   import SqlSerialExecutor._
@@ -35,10 +33,6 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit with STAkkaSpec {
           |  );
           |explain select * from datagen_source;
           |""".stripMargin
-      testProbe[SerialStmtsResult] { probe =>
-        executor ! ExecuteSqls(sqls, probe.ref)
-        println(probe.receiveMessage(30.seconds))
-      }
     }
   }
 

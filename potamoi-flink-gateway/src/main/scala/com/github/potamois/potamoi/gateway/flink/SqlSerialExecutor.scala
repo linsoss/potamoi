@@ -171,7 +171,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
   }
 
   /**
-   * TableResult collecting behavior
+   * TableResult collection behavior
    */
   private def collectResultBehavior(): Behavior[Command] = Behaviors.receiveMessage {
 
