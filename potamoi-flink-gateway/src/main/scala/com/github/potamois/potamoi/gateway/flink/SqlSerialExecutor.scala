@@ -116,6 +116,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig, ctx: ActorContext[
         case Left((stmt, queryOp)) =>
           execRs += SingleStmtResult.success(stmt, SubmitQueryOpDone)
           replyTo ! Right(SerialStmtsResult(execRs, TrackOpType.QUERY, startTs, curTs))
+
           // clear result buffer and submit query operation in future
           ctx.self ! ResetRsBuffer(TrackOpType.QUERY, stmt)
           val process = submitNonImmediateOpAndCollectRs(Left(queryOp), stmt)
@@ -126,6 +127,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig, ctx: ActorContext[
           val (stmts, modifyOps) = stashModifyOps.map(_._1).mkString(";") -> stashModifyOps.map(_._2)
           execRs += SingleStmtResult.success(stmts, SubmitModifyOpDone)
           replyTo ! Right(SerialStmtsResult(execRs, TrackOpType.MODIFY, startTs, curTs))
+
           // clear result buffer and submit modify operation in future
           ctx.self ! ResetRsBuffer(TrackOpType.MODIFY, stmts)
           val process = submitNonImmediateOpAndCollectRs(Right(modifyOps), stmts)
@@ -200,7 +202,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig, ctx: ActorContext[
 
   /**
    * Parse sql statements to Flink Operation, then execute all of them except for the
-   * [[QueryOperation]] and [[ModifyOperation]], which will be stashed in [[StashOpToken]].
+   * [[QueryOperation]] and [[ModifyOperation]] which will be stashed in [[StashOpToken]].
    */
   private def parseAndExecImmediateOps(stmts: Seq[String]): (mutable.Buffer[SingleStmtResult], StashOpToken) = {
     val execRs = mutable.Buffer.empty[SingleStmtResult]
@@ -289,7 +291,6 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig, ctx: ActorContext[
                                   modifyOps: mutable.Buffer[(String, ModifyOperation)] = mutable.Buffer.empty) {
 
     def isEmpty: Boolean = queryOp.isEmpty && modifyOps.isEmpty
-
     def toEither: Either[(String, QueryOperation), Seq[(String, ModifyOperation)]] =
       if (queryOp.isDefined) Left(queryOp.get) else Right(modifyOps)
   }
