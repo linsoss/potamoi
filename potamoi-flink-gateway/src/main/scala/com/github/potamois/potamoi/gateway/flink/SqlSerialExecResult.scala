@@ -1,19 +1,26 @@
 package com.github.potamois.potamoi.gateway.flink
 
-import com.github.potamois.potamoi.commons.{Tabulator, curTs}
+import com.github.potamois.potamoi.commons.{CborSerializable, Tabulator, curTs}
 import com.github.potamois.potamoi.gateway.flink.TrackOpType.TrackOpType
 
-
 /**
+ * Flink sqls serial execution result.
  *
- * @param result
- * @param trackOp
- * @param startTs
- * @param endTs
+ * @param result  flink TableResult data
+ * @param trackOp see [[TrackOpType]]
+ * @param startTs start timestamp
+ * @param endTs   end timestamp
  * @author Al-assad
  */
 case class SerialStmtsResult(result: Seq[SingleStmtResult], trackOp: TrackOpType, startTs: Long, endTs: Long)
 
+/**
+ * Single sql statement result for [[SerialStmtsResult]]
+ *
+ * @param stmt sql statement
+ * @param rs   flink TableResult data for this statement
+ * @param ts   result received timestamp
+ */
 case class SingleStmtResult(stmt: String, rs: Either[Error, TraceableExecRs], ts: Long)
 
 object SingleStmtResult {
@@ -22,6 +29,25 @@ object SingleStmtResult {
 }
 
 
+/**
+ * Flink sql serial traceable execution result trait
+ */
+trait TraceableExecRs extends CborSerializable
+
+/**
+ * flink sql immediate operation execution result like "create ...","explain ..."
+ */
+case class ImmediateOpDone(data: TableResultData) extends TraceableExecRs
+
+/**
+ * submit flink modify operation(like "insert...") done
+ */
+case object SubmitModifyOpDone extends TraceableExecRs
+
+/**
+ * submit flink query operation(like "select...") done
+ */
+case object SubmitQueryOpDone extends TraceableExecRs
 
 
 /**
@@ -38,11 +64,12 @@ object TrackOpType extends Enumeration {
   val NONE, QUERY, MODIFY = Value
 }
 
+
 /**
  * Data records of a table that extracted from [[org.apache.flink.table.api.TableResult]].
  *
- * @param cols meta info of columns
- * @param data rows data
+ * @param cols meta info of columns, see [[Column]]
+ * @param data rows data, see[[RowData]]
  * @author Al-assad
  */
 case class TableResultData(cols: Seq[Column], data: Seq[RowData]) {
@@ -50,7 +77,6 @@ case class TableResultData(cols: Seq[Column], data: Seq[RowData]) {
   /** Formatted as tabulated content string for console-like output */
   def tabulateContent: String = Tabulator.format(Seq(cols, data))
 }
-
 
 /**
  * Meta information of a column, which extract from [[org.apache.flink.table.api.TableColumn]].
@@ -60,7 +86,6 @@ case class TableResultData(cols: Seq[Column], data: Seq[RowData]) {
  * @author Al-assad
  */
 case class Column(name: String, dataType: String)
-
 
 /**
  * Record the content of a row of data, converted from [[org.apache.flink.types.Row]].
