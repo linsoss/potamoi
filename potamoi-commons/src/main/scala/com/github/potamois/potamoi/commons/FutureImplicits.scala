@@ -12,7 +12,7 @@ import scala.util.Try
  */
 object FutureImplicits {
 
-  val defaultTimeout: Duration = 30.seconds
+  private val defaultTimeout: Duration = 30.seconds
 
   implicit class Wrapper[T](future: Future[T]) {
     /**
