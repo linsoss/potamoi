@@ -91,7 +91,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
   /**
    * SqlSerialExecutor actor receive message behavior.
    */
-  def action(): Behavior[Command] = Behaviors.receiveMessage {
+  def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
 
     case ExecuteSqls(statements, replyTo) =>
       // when the previous flink modify or query operation is not done,
