@@ -11,6 +11,7 @@ import com.github.potamois.potamoi.commons.{CborSerializable, curTs}
  */
 case class Error(summary: String, stack: Throwable) extends CborSerializable {
   def toTsError(ts: Long = curTs): TsError = TsError(summary, stack, ts)
+  def printStackTrace(): Unit = stack.printStackTrace()
 }
 
 /**
@@ -22,4 +23,5 @@ case class Error(summary: String, stack: Throwable) extends CborSerializable {
  */
 case class TsError(summary: String, stack: Throwable, ts: Long) extends CborSerializable {
   def toError: Error = Error(summary, stack)
+  def printStackTrace(): Unit = stack.printStackTrace()
 }

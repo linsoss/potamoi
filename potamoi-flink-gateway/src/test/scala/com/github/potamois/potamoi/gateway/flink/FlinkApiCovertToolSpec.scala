@@ -46,7 +46,7 @@ class FlinkApiCovertToolSpec extends STSpec {
     }
 
     "covertRow with null row correctly" in {
-      FlinkApiCovertTool.covertRow(null) shouldBe RowData.empty
+      FlinkApiCovertTool.covertRow(null) shouldBe Row.empty
     }
   }
 

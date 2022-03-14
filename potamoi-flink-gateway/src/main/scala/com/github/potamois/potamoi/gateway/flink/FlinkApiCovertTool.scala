@@ -1,8 +1,5 @@
 package com.github.potamois.potamoi.gateway.flink
 
-import org.apache.flink.table.api.{TableResult, TableSchema}
-import org.apache.flink.types.Row
-
 import scala.collection.JavaConverters._
 
 /**
@@ -14,13 +11,13 @@ object FlinkApiCovertTool {
 
 
   /**
-   * Extract schema information from Flink [[TableResult]].
+   * Extract schema information from Flink [[org.apache.flink.table.api.TableResult]].
    * see [[covertTableSchema]]
    */
-  def extractSchema(tableResult: TableResult): Seq[Column] = covertTableSchema(tableResult.getTableSchema)
+  def extractSchema(tableResult: org.apache.flink.table.api.TableResult): Seq[Column] = covertTableSchema(tableResult.getTableSchema)
 
   /**
-   * Covert Flink [[TableSchema]] to Potamoi [[Column]] sequence.
+   * Covert Flink [[org.apache.flink.table.api.TableSchema]] to Potamoi [[Column]] sequence.
    * Since ResolvedSchema is only available since flink-1.13, to maintain compatibility with the
    * deprecated TableSchema API.
    *
@@ -28,7 +25,7 @@ object FlinkApiCovertTool {
    *       is from 1.13.
    */
   // noinspection ScalaDeprecation
-  def covertTableSchema(schema: TableSchema): Seq[Column] = schema match {
+  def covertTableSchema(schema: org.apache.flink.table.api.TableSchema): Seq[Column] = schema match {
     case null => Seq.empty
     case _ => schema.getTableColumns.asScala.map(col =>
       if (col == null) Column("", "")
@@ -37,14 +34,14 @@ object FlinkApiCovertTool {
   }
 
   /**
-   * Covert Flink [[Row]] to Potamoi [[RowData]].
+   * Covert Flink [[org.apache.flink.types.Row]] to Potamoi [[Row]].
    */
-  def covertRow(row: Row): RowData = row match {
-    case null => RowData.empty
+  def covertRow(row: org.apache.flink.types.Row): Row = row match {
+    case null => Row.empty
     case _ =>
       val rowDataValues = (0 until row.getArity)
         .map(i => if (row.getField(i) != null) row.getField(i).toString else "null")
-      RowData(row.getKind.shortString(), rowDataValues)
+      Row(row.getKind.shortString(), rowDataValues)
   }
 
 

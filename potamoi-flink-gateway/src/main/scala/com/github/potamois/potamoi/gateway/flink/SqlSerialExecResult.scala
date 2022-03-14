@@ -21,11 +21,36 @@ case class SerialStmtsResult(result: Seq[SingleStmtResult], trackOp: TrackOpType
  * @param rs   flink TableResult data for this statement
  * @param ts   result received timestamp
  */
-case class SingleStmtResult(stmt: String, rs: Either[Error, TrackableExecRs], ts: Long)
+case class SingleStmtResult(stmt: String, rs: Either[Error, OperationDone], ts: Long)
 
 object SingleStmtResult {
   def fail(stmt: String, error: Error): SingleStmtResult = SingleStmtResult(stmt, Left(error), curTs)
-  def success(stmt: String, rs: TrackableExecRs): SingleStmtResult = SingleStmtResult(stmt, Right(rs), curTs)
+  def success(stmt: String, rs: OperationDone): SingleStmtResult = SingleStmtResult(stmt, Right(rs), curTs)
+}
+
+
+/**
+ * Flink sql serial operation execution result trait
+ */
+trait OperationDone extends CborSerializable
+
+/**
+ * flink sql immediate operation execution result like "create ...","explain ..."
+ */
+case class ImmediateOpDone(data: TableResultData) extends OperationDone
+
+/**
+ * submit flink modify operation(like "insert...") done
+ */
+case class SubmitModifyOpDone(jobId: String) extends OperationDone {
+  def toLog: String = s"Submit modify statement to Flink cluster successfully, jobId = $jobId"
+}
+
+/**
+ * submit flink query operation(like "select...") done
+ */
+case class SubmitQueryOpDone(jobId: String) extends OperationDone {
+  def toLog: String = s"Submit query statement to Flink cluster successfully, jobId = $jobId"
 }
 
 
@@ -43,28 +68,6 @@ object SingleStmtResult {
  */
 case class TrackStmtResult(opType: TrackOpType, statement: String, result: Either[Error, TableResultData],
                            jobId: Option[String], isFinished: Boolean, startTs: Long, ts: Long)
-
-
-/**
- * Flink sql serial traceable execution result trait
- */
-trait TrackableExecRs extends CborSerializable
-
-/**
- * flink sql immediate operation execution result like "create ...","explain ..."
- */
-case class ImmediateOpDone(data: TableResultData) extends TrackableExecRs
-
-/**
- * submit flink modify operation(like "insert...") done
- */
-case object SubmitModifyOpDone extends TrackableExecRs
-
-/**
- * submit flink query operation(like "select...") done
- */
-case object SubmitQueryOpDone extends TrackableExecRs
-
 
 /**
  * The type of operation for which the trace result is required.
@@ -85,13 +88,13 @@ object TrackOpType extends Enumeration {
  * Data records of a table that extracted from [[org.apache.flink.table.api.TableResult]].
  *
  * @param cols meta info of columns, see [[Column]]
- * @param data rows data, see[[RowData]]
+ * @param rows rows data, see[[Row]]
  * @author Al-assad
  */
-case class TableResultData(cols: Seq[Column], data: Seq[RowData]) {
+case class TableResultData(cols: Seq[Column], rows: Seq[Row]) {
 
   /** Formatted as tabulated content string for console-like output */
-  def tabulateContent: String = Tabulator.format(Seq(cols, data))
+  def tabulateContent: String = Tabulator.format(Seq(cols, rows))
 }
 
 /**
@@ -112,10 +115,10 @@ case class Column(name: String, dataType: String)
  *               the null value will be converted to "null".
  * @author Al-assad
  */
-case class RowData(kind: String, values: Seq[String])
+case class Row(kind: String, values: Seq[String])
 
-object RowData {
-  def empty: RowData = RowData("", Seq.empty)
+object Row {
+  def empty: Row = Row("", Seq.empty)
 }
 
 

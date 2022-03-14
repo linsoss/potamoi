@@ -20,7 +20,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.{AbstractSeq, mutable}
 import scala.compat.java8.OptionConverters.RichOptionalGeneric
 import scala.concurrent.ExecutionContext
-import scala.util.control.Breaks.break
+import scala.util.control.Breaks.{break, breakable}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -36,6 +36,7 @@ object SqlSerialExecutor {
   final case class ExecuteSqls(sqlStatements: String, replyTo: ActorRef[Either[ExecReject, SerialStmtsResult]]) extends Command
   final case object CancelQueryInProcess extends Command
   final case class GetTrackStmtResult(replyTo: ActorRef[Option[TrackStmtResult]]) extends Command
+  final case class IsTrackStmtFinished(replyTo: ActorRef[Boolean]) extends Command
 
   sealed trait Internal extends Command
   private final case object NonImmediateOpProcessDone extends Internal
@@ -46,7 +47,7 @@ object SqlSerialExecutor {
   private final case class EmitError(error: Error) extends CollectResult
   private final case class EmitJobId(jobId: String) extends CollectResult
   private final case class EmitResultColumns(cols: Seq[Column]) extends CollectResult
-  private final case class EmitResultRow(row: RowData) extends CollectResult
+  private final case class EmitResultRow(row: Row) extends CollectResult
 
 
   def apply(sessionId: String, props: ExecConfig): Behavior[Command] = Behaviors.setup { implicit ctx =>
@@ -119,25 +120,27 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
       // execute stashed operations
       stashOps.toEither match {
         case Left((stmt, queryOp)) =>
-          execRs += SingleStmtResult.success(stmt, SubmitQueryOpDone)
+//          execRs += SingleStmtResult.success(stmt, SubmitQueryOpDone)
           replyTo ! Right(SerialStmtsResult(execRs, TrackOpType.QUERY, startTs, curTs))
 
           // clear result buffer and submit query operation in future
           ctx.self ! ResetRsBuffer(TrackOpType.QUERY, stmt)
           val process = submitNonImmediateOpAndCollectRs(Left(queryOp), stmt)
           inProcessSignal = Some(ProcessSignal(TrackOpType.QUERY, stmt, process, curTs))
+          ctx.log.info(s"SqlSerialExecutor[$sessionId] submit query operation: $stmt")
           ctx.pipeToSelf(process)(_ => NonImmediateOpProcessDone)
 
         case Right(stashModifyOps) =>
           val (stmts, modifyOps) = stashModifyOps.map(_._1).mkString(";") -> stashModifyOps.map(_._2)
-          execRs += SingleStmtResult.success(stmts, SubmitModifyOpDone)
-          replyTo ! Right(SerialStmtsResult(execRs, TrackOpType.MODIFY, startTs, curTs))
-
           // clear result buffer and submit modify operation in future
           ctx.self ! ResetRsBuffer(TrackOpType.MODIFY, stmts)
           val process = submitNonImmediateOpAndCollectRs(Right(modifyOps), stmts)
           inProcessSignal = Some(ProcessSignal(TrackOpType.MODIFY, stmts, process, curTs))
+          ctx.log.info(s"SqlSerialExecutor[$sessionId] submit modify operation: $stmts")
           ctx.pipeToSelf(process)(_ => NonImmediateOpProcessDone)
+
+//          execRs += SingleStmtResult.success(stmts, SubmitModifyOpDone)
+          replyTo ! Right(SerialStmtsResult(execRs, TrackOpType.MODIFY, startTs, curTs))
       }
       Behaviors.same
 
@@ -162,7 +165,18 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
       replyTo ! rsBuffer.map(_.toTrackStmtResult)
       Behaviors.same
 
-    case _: CollectResult => collectResultBehavior()
+    case IsTrackStmtFinished(replyTo) =>
+      val isFinished = inProcessSignal match {
+        case None => false
+        case Some(_) => rsBuffer match {
+          case None => false
+          case Some(rs) => rs.isFinished
+        }
+      }
+      replyTo ! isFinished
+      Behaviors.same
+
+    case cmd: CollectResult => collectResultBehavior(cmd)
 
   }.receiveSignal {
     case (context, PostStop) =>
@@ -177,12 +191,12 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
   /**
    * TableResult collection behavior
    */
-  private def collectResultBehavior(): Behavior[Command] = Behaviors.receiveMessage {
+  private def collectResultBehavior(command: CollectResult): Behavior[Command] = command match {
 
     case ResetRsBuffer(opType, stmt) =>
       val rowsBuffer = props.resultCollectStrategy match {
-        case RsCollectStrategy(EvictStrategy.DROP_HEAD, limit) => FiniteQueue[RowData](limit)
-        case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => new ArrayBuffer[RowData](limit + 10)
+        case RsCollectStrategy(EvictStrategy.DROP_HEAD, limit) => FiniteQueue[Row](limit)
+        case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => new ArrayBuffer[Row](limit + 10)
       }
       rsBuffer = Some(ResultBuffer(opType, stmt, rows = rowsBuffer, startTs = inProcessSignal.get.startTs))
       Behaviors.same
@@ -193,6 +207,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
         rs.isFinished = true
         rs.ts = curTs
       }
+      ctx.log.error(s"SqlSerialExecutor[$sessionId] receive error: ${error.summary}", error.stack)
       Behaviors.same
 
     case EmitJobId(jobId) =>
@@ -225,33 +240,35 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
   private def parseAndExecImmediateOps(stmts: Seq[String]): (mutable.Buffer[SingleStmtResult], StashOpToken) = {
     val execRs = mutable.Buffer.empty[SingleStmtResult]
     val stashToken = StashOpToken()
-    for (stmt <- stmts) {
-      // when a QueryOperation has been staged, the remaining statement would be skipped.
-      if (stashToken.queryOp.isDefined) break
-      // parse statement
-      val op = Try(flinkCtx.parser.parse(stmt).get(0)).foldIdentity { err =>
-        execRs += SingleStmtResult.fail(stmt, Error(s"Fail to parse statement: $stmt", err))
-        break
-      }
-      // execute statement
-      op match {
-        case op: QueryOperation => stashToken.queryOp = Some(stmt -> op)
-        case op: ModifyOperation => stashToken.modifyOps += stmt -> op
-        case op =>
-          // when a ModifyOperation has been staged, the remaining normal statement would be skipped.
-          if (stashToken.modifyOps.nonEmpty) break
-          val tableResult: TableResult = Try(flinkCtx.tEnvInternal.executeInternal(op)).foldIdentity { err =>
-            execRs += SingleStmtResult.fail(stmt, Error(s"Fail to execute statement: $stmt", err))
-            break
-          }
-          // collect result from flink TableResult immediately
-          val cols = FlinkApiCovertTool.extractSchema(tableResult)
-          val rows = Using(tableResult.collect)(iter => iter.asScala.map(row => FlinkApiCovertTool.covertRow(row)).toSeq)
-            .foldIdentity { err =>
-              execRs += SingleStmtResult.fail(stmt, Error(s"Fail to collect result from statement: $stmt", err))
+    breakable {
+      for (stmt <- stmts) {
+        // when a QueryOperation has been staged, the remaining statement would be skipped.
+        if (stashToken.queryOp.isDefined) break
+        // parse statement
+        val op = Try(flinkCtx.parser.parse(stmt).get(0)).foldIdentity { err =>
+          execRs += SingleStmtResult.fail(stmt, Error(s"Fail to parse statement: $stmt", err))
+          break
+        }
+        // execute statement
+        op match {
+          case op: QueryOperation => stashToken.queryOp = Some(stmt -> op)
+          case op: ModifyOperation => stashToken.modifyOps += stmt -> op
+          case op =>
+            // when a ModifyOperation has been staged, the remaining normal statement would be skipped.
+            if (stashToken.modifyOps.nonEmpty) break
+            val tableResult: TableResult = Try(flinkCtx.tEnvInternal.executeInternal(op)).foldIdentity { err =>
+              execRs += SingleStmtResult.fail(stmt, Error(s"Fail to execute statement: $stmt", err))
               break
             }
-          execRs += SingleStmtResult.success(stmt, ImmediateOpDone(TableResultData(cols, rows)))
+            // collect result from flink TableResult immediately
+            val cols = FlinkApiCovertTool.extractSchema(tableResult)
+            val rows = Using(tableResult.collect)(iter => iter.asScala.map(row => FlinkApiCovertTool.covertRow(row)).toSeq)
+              .foldIdentity { err =>
+                execRs += SingleStmtResult.fail(stmt, Error(s"Fail to collect result from statement: $stmt", err))
+                break
+              }
+            execRs += SingleStmtResult.success(stmt, ImmediateOpDone(TableResultData(cols, rows)))
+        }
       }
     }
     (execRs, stashToken)
@@ -271,7 +288,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
     }
     tryGetTableResult match {
       case Failure(err) =>
-        ctx.self ! EmitError(Error(s"Fail to execute the query statement: $stmt", err))
+        ctx.self ! EmitError(Error(s"Fail to execute the statement: $stmt", err))
         Done.done
 
       case Success(tableResult) =>
@@ -319,7 +336,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
   private case class ProcessSignal(opType: TrackOpType, statement: String, process: CancellableFuture[Done], startTs: Long)
 
 
-  type DataRowBuffer = AbstractSeq[RowData] with mutable.Builder[RowData, AbstractSeq[RowData]]
+  type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]]
 
   /**
    * Flink TableResult buffer for non-immediate operation.
@@ -335,7 +352,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
     def toTrackStmtResult: TrackStmtResult =
       TrackStmtResult(
         opType, statement,
-        Either.cond(error.isDefined, TableResultData(cols, Seq(rows: _*)), error.get),
+        Either.cond(error.isEmpty, TableResultData(cols, Seq(rows: _*)), error.get),
         jobId, isFinished, startTs, ts)
   }
 

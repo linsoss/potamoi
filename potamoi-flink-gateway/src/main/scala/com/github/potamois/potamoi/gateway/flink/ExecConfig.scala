@@ -30,11 +30,11 @@ case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
  * Effective execution configuration of Flink interactive operation.
  *
  * @param flinkConfig           extra flink configuration
- * @param resultCollectStrategy result collector strategy, see [[RsCollectStrategy]]
+ * @param rsCollectStrategy result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  */
 case class EffectiveExecConfig(flinkConfig: Map[String, String] = Map.empty,
-                               resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default)
+                               rsCollectStrategy: RsCollectStrategy = RsCollectStrategy.default)
 
 /**
  * Flink remote cluster address.
