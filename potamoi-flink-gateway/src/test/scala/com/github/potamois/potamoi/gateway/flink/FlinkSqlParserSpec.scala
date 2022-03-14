@@ -2,14 +2,13 @@ package com.github.potamois.potamoi.gateway.flink
 
 import com.github.potamois.potamoi.testkit.STSpec
 
-import scala.language.postfixOps
-
 class FlinkSqlParserSpec extends STSpec {
+
+  import FlinkSqlParser._
 
   "FlinkSqlParser" when {
 
     "extractSqlStatements" should {
-      def extract = FlinkSqlParser.extractSqlStatements _
 
       "split normal sql content" in {
         val sql =
@@ -30,7 +29,7 @@ class FlinkSqlParserSpec extends STSpec {
             |explain SELECT * FROM datagen_source;
             |
             |""".stripMargin
-        val extractedSqls = extract(sql)
+        val extractedSqls = extractSqlStatements(sql)
 
         extractedSqls.size shouldBe 4
         extractedSqls shouldBe Seq(
@@ -49,21 +48,21 @@ class FlinkSqlParserSpec extends STSpec {
       }
 
       "split empty sql content" in {
-        extract(null) shouldBe Seq.empty
-        extract("") shouldBe Seq.empty
-        extract("   ") shouldBe Seq.empty
-        extract("\n \n") shouldBe Seq.empty
-        extract(";") shouldBe Seq.empty
-        extract("  ;  ") shouldBe Seq.empty
-        extract("  ;  ;  ") shouldBe Seq.empty
-        extract("\n ; \n ; \n") shouldBe Seq.empty
+        extractSqlStatements(null) shouldBe Seq.empty
+        extractSqlStatements("") shouldBe Seq.empty
+        extractSqlStatements("   ") shouldBe Seq.empty
+        extractSqlStatements("\n \n") shouldBe Seq.empty
+        extractSqlStatements(";") shouldBe Seq.empty
+        extractSqlStatements("  ;  ") shouldBe Seq.empty
+        extractSqlStatements("  ;  ;  ") shouldBe Seq.empty
+        extractSqlStatements("\n ; \n ; \n") shouldBe Seq.empty
       }
 
       "split sql content with single line comment using '//'" in {
-        extract("// comment") shouldBe Seq.empty
-        extract("// comment \n select * from table1") shouldBe Seq("select * from table1")
-        extract("select * from table1 // comment ") shouldBe Seq("select * from table1")
-        extract(
+        extractSqlStatements("// comment") shouldBe Seq.empty
+        extractSqlStatements("// comment \n select * from table1") shouldBe Seq("select * from table1")
+        extractSqlStatements("select * from table1 // comment ") shouldBe Seq("select * from table1")
+        extractSqlStatements(
           """
             |// comment
             |   //comment 2
@@ -84,24 +83,24 @@ class FlinkSqlParserSpec extends STSpec {
             |
             |////comment9
             |""".stripMargin) shouldBe
-          Seq(
-            """CREATE TABLE datagen_source (
-              |    f_sequence INT,
-              |    f_random INT,
-              |    f_random_str STRING
-              |  ) WITH (
-              |    'connector' = 'datagen',
-              |    'rows-per-second'= '25'
-              |  )""".stripMargin,
-            "DESCRIBE datagen_source",
-            "show CATALOGS")
+        Seq(
+          """CREATE TABLE datagen_source (
+            |    f_sequence INT,
+            |    f_random INT,
+            |    f_random_str STRING
+            |  ) WITH (
+            |    'connector' = 'datagen',
+            |    'rows-per-second'= '25'
+            |  )""".stripMargin,
+          "DESCRIBE datagen_source",
+          "show CATALOGS")
       }
 
       "split sql content with single line comment using '--'" in {
-        extract("-- comment") shouldBe Seq.empty
-        extract("-- comment \n select * from table1") shouldBe Seq("select * from table1")
-        extract("select * from table1 -- comment ") shouldBe Seq("select * from table1")
-        extract(
+        extractSqlStatements("-- comment") shouldBe Seq.empty
+        extractSqlStatements("-- comment \n select * from table1") shouldBe Seq("select * from table1")
+        extractSqlStatements("select * from table1 -- comment ") shouldBe Seq("select * from table1")
+        extractSqlStatements(
           """
             |-- comment
             |   --comment 2
@@ -122,26 +121,26 @@ class FlinkSqlParserSpec extends STSpec {
             |
             |------- comment9
             |""".stripMargin) shouldBe
-          Seq(
-            """CREATE TABLE datagen_source (
-              |    f_sequence INT,
-              |    f_random INT,
-              |    f_random_str STRING
-              |  ) WITH (
-              |    'connector' = 'datagen',
-              |    'rows-per-second'= '25'
-              |  )""".stripMargin,
-            "DESCRIBE datagen_source",
-            "show CATALOGS")
+        Seq(
+          """CREATE TABLE datagen_source (
+            |    f_sequence INT,
+            |    f_random INT,
+            |    f_random_str STRING
+            |  ) WITH (
+            |    'connector' = 'datagen',
+            |    'rows-per-second'= '25'
+            |  )""".stripMargin,
+          "DESCRIBE datagen_source",
+          "show CATALOGS")
       }
 
       "split sql content with multiple lines comment using '/* */'" in {
-        extract("/* comment */") shouldBe Seq.empty
-        extract("/* comment \n comment \n */") shouldBe Seq.empty
-        extract("/* comment \n comment */ select * from table1") shouldBe Seq("select * from table1")
-        extract("select * from table1 /* comment \n comment */ ") shouldBe Seq("select * from table1")
+        extractSqlStatements("/* comment */") shouldBe Seq.empty
+        extractSqlStatements("/* comment \n comment \n */") shouldBe Seq.empty
+        extractSqlStatements("/* comment \n comment */ select * from table1") shouldBe Seq("select * from table1")
+        extractSqlStatements("select * from table1 /* comment \n comment */ ") shouldBe Seq("select * from table1")
 
-        extract(
+        extractSqlStatements(
           """
             |/* comment 1 */
             |/*comment2*/
@@ -170,22 +169,22 @@ class FlinkSqlParserSpec extends STSpec {
             |explain SELECT * FROM datagen_source /* comment 8 */;
             |/**/
             |""".stripMargin) shouldBe
-          Seq(
-            """CREATE TABLE datagen_source (
-              |    f_sequence INT,
-              |    f_random INT,
-              |    f_random_str STRING
-              |  ) WITH (
-              |    'connector' = 'datagen',
-              |    'rows-per-second'= '25'
-              |  )""".stripMargin,
-            "DESCRIBE datagen_source",
-            "show CATALOGS",
-            "explain SELECT * FROM datagen_source")
+        Seq(
+          """CREATE TABLE datagen_source (
+            |    f_sequence INT,
+            |    f_random INT,
+            |    f_random_str STRING
+            |  ) WITH (
+            |    'connector' = 'datagen',
+            |    'rows-per-second'= '25'
+            |  )""".stripMargin,
+          "DESCRIBE datagen_source",
+          "show CATALOGS",
+          "explain SELECT * FROM datagen_source")
       }
 
       "split sql content with multiple lines comment using unclosed '/* */" in {
-        extract(
+        extractSqlStatements(
           """
             |/* comment 1 */
             |DESCRIBE datagen_source;
@@ -193,7 +192,7 @@ class FlinkSqlParserSpec extends STSpec {
             |  show CATALOGS;
             |""".stripMargin) shouldBe Seq.empty
 
-        extract(
+        extractSqlStatements(
           """
             |DESCRIBE datagen_source;
              comment2 */
@@ -202,7 +201,7 @@ class FlinkSqlParserSpec extends STSpec {
       }
 
       "split sql content with comments of mixed use '//', '--' and '/**/'" in {
-        extract(
+        extractSqlStatements(
           """ /* comment 1
             |  comment 1 */
             | -- comment 2
@@ -232,19 +231,33 @@ class FlinkSqlParserSpec extends STSpec {
             |     // comment 15
             |*/
             |""".stripMargin) shouldBe
-          Seq(
-            """CREATE TABLE datagen_source (
-              |    f_sequence INT,
-              |    f_random INT,
-              |    f_random_str STRING
-              |  ) WITH (
-              |    'connector' = 'datagen',
-              |    'rows-per-second'= '25'
-              |  )""".stripMargin,
-            "DESCRIBE datagen_source",
-            "show CATALOGS",
-            "explain SELECT * FROM datagen_source")
+        Seq(
+          """CREATE TABLE datagen_source (
+            |    f_sequence INT,
+            |    f_random INT,
+            |    f_random_str STRING
+            |  ) WITH (
+            |    'connector' = 'datagen',
+            |    'rows-per-second'= '25'
+            |  )""".stripMargin,
+          "DESCRIBE datagen_source",
+          "show CATALOGS",
+          "explain SELECT * FROM datagen_source")
       }
+    }
+
+    "flattenSql" in {
+      val sql =
+        """  CREATE TABLE datagen_source (
+          |    f_sequence INT,
+          |    f_random INT,
+          |    f_random_str STRING
+          |  ) WITH (
+          |    'connector' = 'datagen',
+          |    'rows-per-second'= '25'
+          |  );""".stripMargin
+      flattenSql(sql) shouldBe "CREATE TABLE datagen_source (f_sequence INT,f_random INT,f_random_str STRING)" +
+                               " WITH ('connector' = 'datagen','rows-per-second'= '25');"
     }
 
   }
