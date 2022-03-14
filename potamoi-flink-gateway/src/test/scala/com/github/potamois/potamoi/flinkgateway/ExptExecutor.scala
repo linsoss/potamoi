@@ -3,9 +3,9 @@ package com.github.potamois.potamoi.flinkgateway
 import akka.Done
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import com.github.potamois.potamoi.commons.StringImplicits.StringWrapper
 import com.github.potamois.potamoi.commons.TryImplicits.Wrapper
-import com.github.potamois.potamoi.commons.{CancellableFuture, Using, curTs}
-import com.github.potamois.potamoi.gateway.flink.TrackOpType.TrackOpType
+import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink._
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
@@ -16,6 +16,7 @@ import org.apache.flink.table.delegation.Parser
 import org.apache.flink.table.operations.{ModifyOperation, QueryOperation}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.{AbstractSeq, mutable}
 import scala.compat.java8.OptionConverters.RichOptionalGeneric
 import scala.util.control.Breaks.{break, breakable}
@@ -24,25 +25,43 @@ import scala.util.{Failure, Success, Try}
 object ExptExecutor {
 
   sealed trait Command
-  final case class Subscribe(actorRef: ActorRef[CollectResult]) extends Command
+//  final case class Subscribe(actorRef: ActorRef[_]) extends Command
   final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[Done]) extends Command
+  final case class IsInProcess(replyTo: ActorRef[Boolean]) extends Command
+  final case object CancelCurProcess extends Command
 
   sealed trait Internal extends Command
-  final case class ProcessFinished(replyTo: ActorRef[Done]) extends Internal
+  private final case class ProcessFinished(replyTo: ActorRef[Done]) extends Internal
+  private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
+  private final case class InitQueryRsBuffer(collStrategy: RsCollectStrategy) extends Internal
+  private final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
+  private final case class CollectQueryOpRow(row: Row) extends Internal
+  private final case class ErrorWhenCollectQueryOpRow(error: Error) extends Internal
 
-  sealed trait CollectResult extends Internal
-  final case class ExecError() extends CollectResult
+  sealed trait QueryResult extends Command
+
 
 
   def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
 
-    // todo replace
+    // todo replace with standalone dispatcher
     implicit val ec = ctx.system.executionContext
 
     var process: Option[CancellableFuture[Done]] = None
     var rsBuffer: Option[StmtsRsBuffer] = None
+    var queryRsBuffer: Option[QueryRsBuffer] = None
 
     Behaviors.receiveMessage {
+
+      case IsInProcess(replyTo) =>
+        replyTo ! process.isDefined
+        Behaviors.same
+
+      case CancelCurProcess =>
+        process.foreach(_.cancel(interrupt = true))
+        ctx.log.info(s"session[$sessionId] current process cancelled.")
+        ctx.self ! ProcessFinished(ctx.system.ignoreRef)
+        Behaviors.same
 
       case ExecuteSqls(statements, props, replyTo) =>
         // covert ExecConfig and split statements
@@ -52,16 +71,73 @@ object ExptExecutor {
             replyTo ! Done
           case stmts =>
             // reset result buffer
-            rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs, curTs))
+            rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
+            queryRsBuffer = None
             // execute statements in Future
             process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
             ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
         }
         Behaviors.same
 
-      case ProcessFinished(replyTo) =>
-        replyTo ! Done
-        Behaviors.same
+      case cmd: Internal => cmd match {
+
+        case ProcessFinished(replyTo) =>
+          replyTo ! Done
+          process = None
+          queryRsBuffer.foreach { buf =>
+            buf.isFinished = true
+            buf.ts = curTs
+          }
+          Behaviors.same
+
+        case SingleStmtFinished(stmtRs) =>
+          rsBuffer.foreach { buffer =>
+            buffer.result += stmtRs
+            // log result
+            stmtRs.rs match {
+              case Left(err) =>
+                ctx.log.error(s"session[$sessionId] ${err.summary}", err.stack)
+              case Right(result) =>
+                ctx.log.debug(s"session[$sessionId] Execute: ${stmtRs.stmt} => \n${
+                  result match {
+                    case ImmediateOpDone(data) => data.tabulateContent
+                    case r: SubmitModifyOpDone => r.toLog
+                    case r: SubmitQueryOpDone => r.toLog
+                  }
+                }")
+            }
+          }
+          Behaviors.same
+
+        case InitQueryRsBuffer(strategy) =>
+          val rowsBuffer = strategy match {
+            case RsCollectStrategy(EvictStrategy.DROP_HEAD, limit) => FiniteQueue[Row](limit)
+            case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => new ArrayBuffer[Row](limit + 10)
+          }
+          queryRsBuffer = Some(QueryRsBuffer(rows = rowsBuffer, startTs = curTs))
+          Behaviors.same
+
+        case CollectQueryOpColsRs(cols) =>
+          queryRsBuffer.foreach { buf =>
+            buf.cols = cols
+            buf.ts = curTs
+          }
+          Behaviors.same
+
+        case CollectQueryOpRow(row) =>
+          queryRsBuffer.foreach { buf =>
+            buf.rows += row
+            buf.ts = curTs
+          }
+          Behaviors.same
+
+        case ErrorWhenCollectQueryOpRow(err) =>
+          queryRsBuffer.foreach { buf =>
+            buf.error = Some(err)
+            buf.ts = curTs
+          }
+          Behaviors.same
+      }
     }
   }
 
@@ -77,7 +153,7 @@ object ExptExecutor {
         if (stashToken.queryOp.isDefined) break
         // parse statement
         val op = Try(flinkCtx.parser.parse(stmt).get(0)).foldIdentity { err =>
-          err.printStackTrace()
+          ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to parse statement: ${stmt.compact}", err)))
           return Done
         }
         op match {
@@ -87,65 +163,66 @@ object ExptExecutor {
             // when a ModifyOperation has been staged, the remaining normal statement would be skipped.
             if (stashToken.modifyOps.nonEmpty) break
             val tableResult: TableResult = Try(flinkCtx.tEnvInternal.executeInternal(op)).foldIdentity { err =>
-              err.printStackTrace()
+              ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to execute statement: ${stmt.compact}", err)))
               return Done
             }
             // collect result from flink TableResult immediately
             val cols = FlinkApiCovertTool.extractSchema(tableResult)
             val rows = Using(tableResult.collect)(iter => iter.asScala.map(row => FlinkApiCovertTool.covertRow(row)).toSeq)
               .foldIdentity { err =>
-                err.printStackTrace()
+                ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to collect table result: ${stmt.compact}", err)))
                 return Done
               }
-            // todo
-            println(TableResultData(cols, rows).tabulateContent)
+            ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, ImmediateOpDone(TableResultData(cols, rows))))
         }
       }
     }
-
     if (stashToken.isEmpty) return Done
+
     // execute stashed operations
     stashToken.toEither match {
       case Right(stashModifyOps) =>
         val (stmts, modifyOps) = stashModifyOps.map(_._1).mkString(";") -> stashModifyOps.map(_._2)
         Try(flinkCtx.tEnvInternal.executeInternal(modifyOps.asJava)) match {
           case Failure(err) =>
-            err.printStackTrace()
+            ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmts, Error(s"Fail to execute modify statements: ${stmts.compact}", err)))
             Done
           case Success(tableResult) =>
             val jobId: Option[String] = tableResult.getJobClient.asScala.map(_.getJobID.toString)
-            println(s"Submit modify statements to Flink cluster successfully, jobId = $jobId") // todo
+            ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmts, SubmitModifyOpDone(jobId.get)))
             Done
         }
 
       case Left((stmt, queryOp)) =>
         Try(flinkCtx.tEnvInternal.executeInternal(queryOp)) match {
           case Failure(err) =>
-            err.printStackTrace()
+            ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to execute query statement: ${stmt.compact}", err)))
             Done
+
           case Success(tableResult) =>
             val jobId: Option[String] = tableResult.getJobClient.asScala.map(_.getJobID.toString)
-            println(s"Submit query statement to Flink cluster successfully, jobId = $jobId") // todo
+            ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, SubmitModifyOpDone(jobId.get)))
+            ctx.self ! InitQueryRsBuffer(effectProps.rsCollectStrategy)
+
             val cols = FlinkApiCovertTool.extractSchema(tableResult)
-            println(s"cols: $cols") // todo
+            ctx.self ! CollectQueryOpColsRs(cols)
+
             Using(tableResult.collect) { iter =>
-              effectProps.resultCollectStrategy match {
+              effectProps.rsCollectStrategy match {
                 case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) =>
-                  iter.asScala.take(limit).foreach(row => println(s"row: ${FlinkApiCovertTool.covertRow(row)}")) // todo
+                  iter.asScala.take(limit).foreach(row => ctx.self ! CollectQueryOpRow(FlinkApiCovertTool.covertRow(row)))
                 case _ =>
-                  iter.asScala.foreach(row => println(s"row: ${FlinkApiCovertTool.covertRow(row)}")) // todo
+                  iter.asScala.foreach(row => ctx.self ! CollectQueryOpRow(FlinkApiCovertTool.covertRow(row)))
               }
             } match {
               case Failure(err) =>
-                err.printStackTrace()
+                ctx.self ! ErrorWhenCollectQueryOpRow(Error("Fail to collect table result", err))
                 Done
               case Success(_) =>
-                println("collect result finished")
                 Done
             }
         }
     }
-
   }
 
 
@@ -180,17 +257,19 @@ object ExptExecutor {
   /**
    * Flink sql statements execution result buffer.
    */
-  case class StmtsRsBuffer(result: mutable.Seq[SingleStmtResult], startTs: Long, lastTs: Long)
+  case class StmtsRsBuffer(result: mutable.Buffer[SingleStmtResult], startTs: Long) {
+    def lastTs: Long = result.lastOption.map(_.ts).getOrElse(startTs)
+  }
 
-  type DataRowBuffer = AbstractSeq[RowData] with mutable.Builder[RowData, AbstractSeq[RowData]]
+  type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]]
 
-  case class ResultBuffer(opType: TrackOpType,
-                          statement: String,
-                          var jobId: Option[String] = None,
-                          var cols: Seq[Column] = Seq.empty,
-                          rows: DataRowBuffer,
-                          var error: Option[Error] = None,
-                          var isFinished: Boolean = false,
-                          startTs: Long,
-                          var ts: Long = curTs)
+  /**
+   * Flink query statements execution result buffer.
+   */
+  case class QueryRsBuffer(var cols: Seq[Column] = Seq.empty,
+                           rows: DataRowBuffer,
+                           var error: Option[Error] = None,
+                           var isFinished: Boolean = false,
+                           startTs: Long,
+                           var ts: Long = curTs)
 }
