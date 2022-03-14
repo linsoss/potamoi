@@ -246,20 +246,6 @@ class FlinkSqlParserSpec extends STSpec {
       }
     }
 
-    "flattenSql" in {
-      val sql =
-        """  CREATE TABLE datagen_source (
-          |    f_sequence INT,
-          |    f_random INT,
-          |    f_random_str STRING
-          |  ) WITH (
-          |    'connector' = 'datagen',
-          |    'rows-per-second'= '25'
-          |  );""".stripMargin
-      flattenSql(sql) shouldBe "CREATE TABLE datagen_source (f_sequence INT,f_random INT,f_random_str STRING)" +
-                               " WITH ('connector' = 'datagen','rows-per-second'= '25');"
-    }
-
   }
 
 }

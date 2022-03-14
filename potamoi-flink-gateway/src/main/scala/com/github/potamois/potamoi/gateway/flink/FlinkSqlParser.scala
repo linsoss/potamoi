@@ -40,13 +40,5 @@ object FlinkSqlParser {
         .split(";").map(_.trim).filter(_.nonEmpty).toList
   }
 
-  /**
-   * Remove space characters such as \n, \t, \r, etc. in sql string.
-   */
-  def flattenSql(sql: String): String = sql match {
-    case null => ""
-    case _ => sql.split("\n").map(_.trim).filter(_.nonEmpty).mkString("")
-  }
-
 
 }
