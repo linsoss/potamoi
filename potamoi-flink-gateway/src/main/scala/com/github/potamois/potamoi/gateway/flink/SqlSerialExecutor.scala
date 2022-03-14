@@ -35,6 +35,7 @@ object SqlSerialExecutor {
   sealed trait Command
   final case class ExecuteSqls(sqlStatements: String, replyTo: ActorRef[Either[ExecReject, SerialStmtsResult]]) extends Command
   final case object CancelQueryInProcess extends Command
+  final case class GetTrackStmtResult(replyTo: ActorRef[Option[TrackStmtResult]]) extends Command
 
   sealed trait Internal extends Command
   private final case object NonImmediateOpProcessDone extends Internal
@@ -157,6 +158,10 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
       }
       Behaviors.same
 
+    case GetTrackStmtResult(replyTo) =>
+      replyTo ! rsBuffer.map(_.toTrackStmtResult)
+      Behaviors.same
+
     case _: CollectResult => collectResultBehavior()
 
   }.receiveSignal {
@@ -192,7 +197,7 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
 
     case EmitJobId(jobId) =>
       rsBuffer.foreach { rs =>
-        rs.jobId = jobId
+        rs.jobId = Some(jobId)
         rs.ts = curTs
       }
       Behaviors.same
@@ -320,12 +325,19 @@ class SqlSerialExecutor(sessionId: String, props: ExecConfig)(implicit ctx: Acto
    * Flink TableResult buffer for non-immediate operation.
    */
   private case class ResultBuffer(opType: TrackOpType, statement: String,
-                                  var jobId: String = "",
+                                  var jobId: Option[String] = None,
                                   var cols: Seq[Column] = Seq.empty,
                                   rows: DataRowBuffer,
                                   var error: Option[Error] = None,
                                   var isFinished: Boolean = false,
                                   startTs: Long,
-                                  var ts: Long = curTs)
+                                  var ts: Long = curTs) {
+    def toTrackStmtResult: TrackStmtResult =
+      TrackStmtResult(
+        opType, statement,
+        Either.cond(error.isDefined, TableResultData(cols, Seq(rows: _*)), error.get),
+        jobId, isFinished, startTs, ts)
+  }
+
 }
 

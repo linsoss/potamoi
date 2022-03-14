@@ -21,33 +21,49 @@ case class SerialStmtsResult(result: Seq[SingleStmtResult], trackOp: TrackOpType
  * @param rs   flink TableResult data for this statement
  * @param ts   result received timestamp
  */
-case class SingleStmtResult(stmt: String, rs: Either[Error, TraceableExecRs], ts: Long)
+case class SingleStmtResult(stmt: String, rs: Either[Error, TrackableExecRs], ts: Long)
 
 object SingleStmtResult {
   def fail(stmt: String, error: Error): SingleStmtResult = SingleStmtResult(stmt, Left(error), curTs)
-  def success(stmt: String, rs: TraceableExecRs): SingleStmtResult = SingleStmtResult(stmt, Right(rs), curTs)
+  def success(stmt: String, rs: TrackableExecRs): SingleStmtResult = SingleStmtResult(stmt, Right(rs), curTs)
 }
+
+
+/**
+ * Tracking statement result.
+ *
+ * @param opType     sql statement type, see[[TrackOpType]]
+ * @param statement  sql statement
+ * @param result     result data
+ * @param jobId      flink job id for this statement
+ * @param isFinished whether this statement is finished
+ * @param startTs    start timestamp
+ * @param ts         state updated timestamp
+ * @author Al-assad
+ */
+case class TrackStmtResult(opType: TrackOpType, statement: String, result: Either[Error, TableResultData],
+                           jobId: Option[String], isFinished: Boolean, startTs: Long, ts: Long)
 
 
 /**
  * Flink sql serial traceable execution result trait
  */
-trait TraceableExecRs extends CborSerializable
+trait TrackableExecRs extends CborSerializable
 
 /**
  * flink sql immediate operation execution result like "create ...","explain ..."
  */
-case class ImmediateOpDone(data: TableResultData) extends TraceableExecRs
+case class ImmediateOpDone(data: TableResultData) extends TrackableExecRs
 
 /**
  * submit flink modify operation(like "insert...") done
  */
-case object SubmitModifyOpDone extends TraceableExecRs
+case object SubmitModifyOpDone extends TrackableExecRs
 
 /**
  * submit flink query operation(like "select...") done
  */
-case object SubmitQueryOpDone extends TraceableExecRs
+case object SubmitQueryOpDone extends TrackableExecRs
 
 
 /**
