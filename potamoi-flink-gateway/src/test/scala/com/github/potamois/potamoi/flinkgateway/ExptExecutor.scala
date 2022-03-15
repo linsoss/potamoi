@@ -19,7 +19,7 @@ import org.apache.flink.table.operations.{ModifyOperation, QueryOperation}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.{AbstractSeq, mutable}
+import scala.collection.{AbstractSeq, TraversableLike, mutable}
 import scala.compat.java8.OptionConverters.RichOptionalGeneric
 import scala.util.control.Breaks.{break, breakable}
 import scala.util.{Failure, Success, Try}
@@ -39,7 +39,12 @@ object ExptExecutor {
   final case object CancelCurProcess extends Command
 
   sealed trait QueryResult extends Command
-  final case class GetCurExecResult(replyTo: ActorRef[Option[SerialStmtsResult]]) extends QueryResult
+  // Get the snapshot result of current sqls plan that has been executed.
+  final case class GetExecPlanRsSnapshot(replyTo: ActorRef[Option[SerialStmtsResult]]) extends QueryResult
+  // Get the snapshot TableResult that has been collected.
+  final case class GetQueryRsSnapshot(limit: Int = -1, replyTo: ActorRef[Option[TableResultSnapshot]]) extends QueryResult
+  // Get the snapshot collected TableResult by pagination.
+  final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[Option[PageableTableResultSnapshot]]) extends QueryResult
 
   sealed trait Internal extends Command
   private final case class ProcessFinished(replyTo: ActorRef[Done]) extends Internal
@@ -56,7 +61,7 @@ object ExptExecutor {
 }
 
 
-import ExptExecutor._
+import com.github.potamois.potamoi.flinkgateway.ExptExecutor._
 
 class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
 
@@ -96,26 +101,14 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
       }
       Behaviors.same
 
-    case GetCurExecResult(replyTo) =>
-      val snapshot = rsBuffer match {
-        case None => None
-        case Some(buf) => Some(SerialStmtsResult(
-          result = Seq(buf.result: _*),
-          isFinished = process.isEmpty,
-          lastOpType = buf.lastOpType,
-          startTs = buf.startTs,
-          lastTs = buf.lastTs))
-      }
-      replyTo ! snapshot
-      Behaviors.same
-
-
     case cmd: Internal => internalBehavior(cmd)
+    case cmd: QueryResult => queryResultBehavior(cmd)
   }
 
-
+  /**
+   * [[Internal]] command received behavior
+   */
   private def internalBehavior(command: Internal): Behavior[Command] = command match {
-
     case ProcessFinished(replyTo) =>
       replyTo ! Done
       process = None
@@ -145,7 +138,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
       Behaviors.same
 
     case InitQueryRsBuffer(strategy) =>
-      val rowsBuffer = strategy match {
+      val rowsBuffer: DataRowBuffer = strategy match {
         case RsCollectStrategy(EvictStrategy.DROP_HEAD, limit) => FiniteQueue[Row](limit)
         case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => new ArrayBuffer[Row](limit + 10)
       }
@@ -172,6 +165,71 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
         buf.ts = curTs
       }
       Behaviors.same
+  }
+
+
+  /**
+   * [[QueryResult]] command received behavior
+   */
+  private def queryResultBehavior(command: QueryResult): Behavior[Command] = command match {
+    case GetExecPlanRsSnapshot(replyTo) =>
+      val snapshot = rsBuffer match {
+        case None => None
+        case Some(buf) => Some(SerialStmtsResult(
+          result = Seq(buf.result: _*),
+          isFinished = process.isEmpty,
+          lastOpType = buf.lastOpType,
+          startTs = buf.startTs,
+          lastTs = buf.lastTs))
+      }
+      replyTo ! snapshot
+      Behaviors.same
+
+    case GetQueryRsSnapshot(limit, replyTo) =>
+      val snapshot = queryRsBuffer match {
+        case None => None
+        case Some(buf) =>
+          val rows = limit match {
+            case Int.MaxValue | size if size < 0 => buf.rows
+            case size => buf.rows.take(size)
+          }
+          Some(TableResultSnapshot(
+            data = TableResultData(buf.cols, Seq(rows: _*)),
+            error = buf.error,
+            isFinished = buf.isFinished,
+            lastTs = buf.ts
+          ))
+      }
+      replyTo ! snapshot
+      Behaviors.same
+
+    case GetQueryRsSnapshotByPage(PageReq(pageIndex, pageSize), replyTo) =>
+      val snapshot = queryRsBuffer match {
+        case None => None
+        case Some(buf) =>
+          val payload = {
+            val rowsCount = buf.rows.size
+            val pages = (rowsCount.toDouble / pageSize).ceil.toInt
+            val offset = pageIndex * pageSize
+            val rowsSlice = buf.rows.slice(offset, offset + pageSize)
+            PageRsp(
+              index = pageIndex,
+              size = rowsSlice.size,
+              totalPages = pages,
+              totalRow = rowsCount,
+              hasNext = pageIndex < pages - 1,
+              data = TableResultData(buf.cols, Seq(rowsSlice: _*))
+            )
+          }
+          Some(PageableTableResultSnapshot(
+            data = payload,
+            error = buf.error,
+            isFinished = buf.isFinished,
+            lastTs = buf.ts))
+      }
+      replyTo ! snapshot
+      Behaviors.same
+
   }
 
 
@@ -312,7 +370,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
     def lastOpType: OpType = result.lastOption.map(_.opType).getOrElse(OpType.UNKNOWN)
   }
 
-  type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]]
+  type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]] with TraversableLike[Row, AbstractSeq[Row]]
 
   /**
    * Flink query statements execution result buffer.
@@ -325,5 +383,6 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
                                    var ts: Long = curTs)
 
 }
+
 
 

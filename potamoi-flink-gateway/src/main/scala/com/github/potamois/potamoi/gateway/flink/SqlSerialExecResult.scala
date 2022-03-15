@@ -44,6 +44,20 @@ object SingleStmtResult {
 
 
 /**
+ * Snapshot of Flink TableResult data for [[org.apache.flink.table.operations.QueryOperation]].
+ *
+ * @param data       table result data
+ * @param error      error message that causes the failure of result collection.
+ * @param isFinished whether the collection process is finished
+ * @param lastTs     state last updated timestamp
+ * @author Al-assad
+ */
+case class TableResultSnapshot(data: TableResultData, error: Option[Error], isFinished: Boolean, lastTs: Long)
+
+
+case class PageableTableResultSnapshot(data: PageRsp[TableResultData], error: Option[Error], isFinished: Boolean, lastTs: Long)
+
+/**
  * Flink sql serial operation execution result trait
  */
 trait OperationDone extends CborSerializable
@@ -66,7 +80,6 @@ case class SubmitModifyOpDone(jobId: String) extends OperationDone {
 case class SubmitQueryOpDone(jobId: String) extends OperationDone {
   def toLog: String = s"Submit query statement to Flink cluster successfully, jobId = $jobId"
 }
-
 
 /**
  * Tracking statement result.
