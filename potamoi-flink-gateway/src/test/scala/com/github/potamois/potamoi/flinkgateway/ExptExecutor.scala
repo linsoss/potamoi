@@ -7,6 +7,7 @@ import com.github.potamois.potamoi.commons.StringImplicits.StringWrapper
 import com.github.potamois.potamoi.commons.TryImplicits.Wrapper
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, Using, curTs}
 import com.github.potamois.potamoi.flinkgateway.ExptExecutor.Command
+import com.github.potamois.potamoi.gateway.flink.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink._
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
@@ -24,6 +25,7 @@ import scala.util.control.Breaks.{break, breakable}
 import scala.util.{Failure, Success, Try}
 
 /**
+ * Flink sqls serial executor actor.
  *
  * @author Al-assad
  */
@@ -36,6 +38,9 @@ object ExptExecutor {
   final case class IsInProcess(replyTo: ActorRef[Boolean]) extends Command
   final case object CancelCurProcess extends Command
 
+  sealed trait QueryResult extends Command
+  final case class GetCurExecResult(replyTo: ActorRef[Option[SerialStmtsResult]]) extends QueryResult
+
   sealed trait Internal extends Command
   private final case class ProcessFinished(replyTo: ActorRef[Done]) extends Internal
   private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
@@ -43,9 +48,6 @@ object ExptExecutor {
   private final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
   private final case class CollectQueryOpRow(row: Row) extends Internal
   private final case class ErrorWhenCollectQueryOpRow(error: Error) extends Internal
-
-  sealed trait QueryResult extends Command
-  // todo
 
 
   def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
@@ -93,6 +95,20 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
           ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
       }
       Behaviors.same
+
+    case GetCurExecResult(replyTo) =>
+      val snapshot = rsBuffer match {
+        case None => None
+        case Some(buf) => Some(SerialStmtsResult(
+          result = Seq(buf.result: _*),
+          isFinished = process.isEmpty,
+          lastOpType = buf.lastOpType,
+          startTs = buf.startTs,
+          lastTs = buf.lastTs))
+      }
+      replyTo ! snapshot
+      Behaviors.same
+
 
     case cmd: Internal => internalBehavior(cmd)
   }
@@ -259,6 +275,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
       }
   }
 
+
   /**
    * Flink environment context.
    */
@@ -292,6 +309,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
    */
   private case class StmtsRsBuffer(result: mutable.Buffer[SingleStmtResult], startTs: Long) {
     def lastTs: Long = result.lastOption.map(_.ts).getOrElse(startTs)
+    def lastOpType: OpType = result.lastOption.map(_.opType).getOrElse(OpType.UNKNOWN)
   }
 
   type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]]
