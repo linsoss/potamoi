@@ -2,7 +2,7 @@ package com.github.potamois.potamoi.flinkgateway
 
 import akka.Done
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.StringImplicits.StringWrapper
 import com.github.potamois.potamoi.commons.TryImplicits.Wrapper
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, Using, curTs}
@@ -32,11 +32,10 @@ import scala.util.{Failure, Success, Try}
 object ExptExecutor {
 
   sealed trait Command
-  // todo
-  //  final case class Subscribe(actorRef: ActorRef[_]) extends Command
-  final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[Done]) extends Command
+  final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[Either[ExecReject, Done]]) extends Command
   final case class IsInProcess(replyTo: ActorRef[Boolean]) extends Command
   final case object CancelCurProcess extends Command
+  // todo final case class Subscribe(actorRef: ActorRef[_]) extends Command
 
   sealed trait QueryResult extends Command
   // Get the snapshot result of current sqls plan that has been executed.
@@ -47,7 +46,7 @@ object ExptExecutor {
   final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[Option[PageableTableResultSnapshot]]) extends QueryResult
 
   sealed trait Internal extends Command
-  private final case class ProcessFinished(replyTo: ActorRef[Done]) extends Internal
+  private final case class ProcessFinished(replyTo: ActorRef[Either[ExecReject, Done]]) extends Internal
   private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
   private final case class InitQueryRsBuffer(collStrategy: RsCollectStrategy) extends Internal
   private final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
@@ -56,6 +55,7 @@ object ExptExecutor {
 
 
   def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
+    ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
     new ExptExecutor(sessionId).action()
   }
 }
@@ -72,45 +72,65 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
   private var rsBuffer: Option[StmtsRsBuffer] = None
   private var queryRsBuffer: Option[QueryRsBuffer] = None
 
-  def action(): Behavior[Command] = Behaviors.receiveMessage {
+  def action(): Behavior[Command] = Behaviors
+    .receiveMessage {
+      case IsInProcess(replyTo) =>
+        replyTo ! process.isDefined
+        Behaviors.same
 
-    case IsInProcess(replyTo) =>
-      replyTo ! process.isDefined
-      Behaviors.same
+      case CancelCurProcess =>
+        process.foreach(_.cancel(interrupt = true))
+        ctx.log.info(s"session[$sessionId] current process cancelled.")
+        ctx.self ! ProcessFinished(ctx.system.ignoreRef)
+        Behaviors.same
 
-    case CancelCurProcess =>
-      process.foreach(_.cancel(interrupt = true))
-      ctx.log.info(s"session[$sessionId] current process cancelled.")
-      ctx.self ! ProcessFinished(ctx.system.ignoreRef)
-      Behaviors.same
+      case ExecuteSqls(statements, props, replyTo) =>
+        // when the previous statements execution process has not been done,
+        // it's not allowed to execute new operation.
+        if (process.isDefined) {
+          val rejectReason = BusyInProcess(
+            "The executor is busy in process, please cancel it first or wait until it is complete",
+            rsBuffer.map(_.startTs).get)
+          replyTo ! Left(rejectReason)
+          return Behaviors.same
+        }
+        // extract effective execution config
+        val effectProps = props.toEffectiveExecConfig
+        //  split sql statements and execute each one
+        FlinkSqlParser.extractSqlStatements(statements) match {
+          case stmts if stmts.isEmpty =>
+            replyTo ! Right(Done)
+          case stmts =>
+            // reset result buffer
+            rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
+            queryRsBuffer = None
+            // parse and execute statements in cancelable future
+            process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
+            ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
+        }
+        Behaviors.same
 
-    case ExecuteSqls(statements, props, replyTo) =>
-      // extract effective execution config
-      val effectProps = props.toEffectiveExecConfig
-      //  split sql statements and execute each one
-      FlinkSqlParser.extractSqlStatements(statements) match {
-        case stmts if stmts.isEmpty =>
-          replyTo ! Done
-        case stmts =>
-          // reset result buffer
-          rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
-          queryRsBuffer = None
-          // parse and execute statements in cancelable future
-          process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
-          ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
-      }
-      Behaviors.same
+      case cmd: Internal => internalBehavior(cmd)
+      case cmd: QueryResult => queryResultBehavior(cmd)
+    }
+    .receiveSignal {
+      case (context, PostStop) =>
+        process.foreach { ps =>
+          ps.cancel(true)
+          context.log.info(s"SqlSerialExecutor[$sessionId] interrupt the running statements execution process.")
+        }
+        context.log.info(s"SqlSerialExecutor[$sessionId] stopped.")
+        Behaviors.same
+    }
 
-    case cmd: Internal => internalBehavior(cmd)
-    case cmd: QueryResult => queryResultBehavior(cmd)
-  }
 
   /**
    * [[Internal]] command received behavior
    */
   private def internalBehavior(command: Internal): Behavior[Command] = command match {
+
     case ProcessFinished(replyTo) =>
-      replyTo ! Done
+      replyTo ! Right(Done)
       process = None
       queryRsBuffer.foreach { buf =>
         buf.isFinished = true
@@ -172,6 +192,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
    * [[QueryResult]] command received behavior
    */
   private def queryResultBehavior(command: QueryResult): Behavior[Command] = command match {
+
     case GetExecPlanRsSnapshot(replyTo) =>
       val snapshot = rsBuffer match {
         case None => None
