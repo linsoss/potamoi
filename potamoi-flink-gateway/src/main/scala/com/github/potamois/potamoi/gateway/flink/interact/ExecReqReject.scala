@@ -5,7 +5,7 @@ package com.github.potamois.potamoi.gateway.flink.interact
  *
  * @author Al-assad
  */
-sealed trait ExecReject {
+sealed trait ExecReqReject {
   def reason: String
 }
 
@@ -17,7 +17,7 @@ sealed trait ExecReject {
  * @param startTs start timestamp of the sql statements execution plan in process
  * @author Al-assad
  */
-case class BusyInProcess(reason: String, startTs: Long) extends ExecReject
+case class BusyInProcess(reason: String, startTs: Long) extends ExecReqReject
 
 
 
