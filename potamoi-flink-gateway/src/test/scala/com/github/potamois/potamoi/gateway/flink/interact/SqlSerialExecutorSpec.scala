@@ -1,23 +1,21 @@
-package com.github.potamois.potamoi.flinkgateway
+package com.github.potamois.potamoi.gateway.flink.interact
 
-import akka.Done
-import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
-import com.github.potamois.potamoi.gateway.flink.{EvictStrategy, ExecConfig, RemoteAddr, RsCollectStrategy}
+import akka.actor.testkit.typed.scaladsl.{LogCapturing, ScalaTestWithActorTestKit, TestProbe}
 import com.github.potamois.potamoi.testkit.akka.STAkkaSpec
 
 import scala.concurrent.duration.DurationInt
 
-class ExptExecutorSpec extends ScalaTestWithActorTestKit with STAkkaSpec {
+class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit with STAkkaSpec with LogCapturing {
 
-  import ExptExecutor._
+  import SqlSerialExecutor._
 
-  "Executor" should {
+  "SqlSerialExecutor" should {
 
     val props = ExecConfig.remoteEnv(RemoteAddr("hs.assad.site", 32241),
-      resultCollectStrategy=RsCollectStrategy(EvictStrategy.DROP_TAIL, 10))
+      resultCollectStrategy = RsCollectStrategy(EvictStrategy.DROP_TAIL, 10))
 
     "test1" in {
-      val executor = spawn(ExptExecutor("114514"))
+      val executor = spawn(SqlSerialExecutor("114514"))
       val sqls =
         """create temporary table datagen_source (
           |    f_sequence int,
@@ -28,13 +26,13 @@ class ExptExecutorSpec extends ScalaTestWithActorTestKit with STAkkaSpec {
           |  );
           |explain select * from datagen_source;
           |""".stripMargin
-      val probe = TestProbe[Done]()
+      val probe = TestProbe[RejectableDone]()
       executor ! ExecuteSqls(sqls, props, probe.ref)
       println(probe.receiveMessage(60.seconds))
     }
 
     "test2" in {
-      val executor = spawn(ExptExecutor("114514"))
+      val executor = spawn(SqlSerialExecutor("114514"))
       val sqls =
         """create temporary table datagen_source (
           |    f_sequence int,
@@ -52,14 +50,14 @@ class ExptExecutorSpec extends ScalaTestWithActorTestKit with STAkkaSpec {
           |);
           |insert into print_table select * from datagen_source;
           |""".stripMargin
-      val probe = TestProbe[Done]()
+      val probe = TestProbe[RejectableDone]()
       executor ! ExecuteSqls(sqls, props, probe.ref)
       probe.receiveMessage(60.seconds)
     }
 
 
     "test3" in {
-      val executor = spawn(ExptExecutor("114514"))
+      val executor = spawn(SqlSerialExecutor("114514"))
       val sqls =
         """create temporary table datagen_source (
           |    f_sequence int,
@@ -77,7 +75,7 @@ class ExptExecutorSpec extends ScalaTestWithActorTestKit with STAkkaSpec {
           |);
           |select * from datagen_source;
           |""".stripMargin
-      val probe = TestProbe[Done]()
+      val probe = TestProbe[RejectableDone]()
       executor ! ExecuteSqls(sqls, props, probe.ref)
       probe.receiveMessage(60.seconds)
     }

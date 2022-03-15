@@ -1,5 +1,7 @@
 package com.github.potamois.potamoi.gateway.flink
 
+import com.github.potamois.potamoi.gateway.flink.interact.{Column, Row}
+
 import scala.collection.JavaConverters._
 
 /**

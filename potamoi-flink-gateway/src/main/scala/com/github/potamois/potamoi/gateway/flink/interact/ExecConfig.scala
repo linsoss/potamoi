@@ -1,8 +1,8 @@
-package com.github.potamois.potamoi.gateway.flink
+package com.github.potamois.potamoi.gateway.flink.interact
 
 import com.github.potamois.potamoi.commons.CborSerializable
-import com.github.potamois.potamoi.gateway.flink.EvictStrategy.EvictStrategy
-import com.github.potamois.potamoi.gateway.flink.ExecMode.ExecMode
+import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy.EvictStrategy
+import com.github.potamois.potamoi.gateway.flink.interact.ExecMode.ExecMode
 
 import scala.collection.mutable
 

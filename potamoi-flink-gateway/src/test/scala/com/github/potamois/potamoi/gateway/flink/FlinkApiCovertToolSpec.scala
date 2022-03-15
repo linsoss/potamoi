@@ -1,8 +1,9 @@
 package com.github.potamois.potamoi.gateway.flink
 
+import com.github.potamois.potamoi.gateway.flink.interact.{Column, Row}
 import com.github.potamois.potamoi.testkit.STSpec
 import org.apache.flink.table.api.{DataTypes, TableSchema}
-import org.apache.flink.types.{Row, RowKind}
+import org.apache.flink.types.{RowKind, Row => FlinkRow}
 
 import scala.language.postfixOps
 
@@ -33,7 +34,7 @@ class FlinkApiCovertToolSpec extends STSpec {
     }
 
     "covertRow correctly" in {
-      val row = Row.ofKind(RowKind.INSERT,
+      val row = FlinkRow.ofKind(RowKind.INSERT,
         "1",
         java.lang.Integer.valueOf(2),
         java.lang.Long.valueOf(3L),

@@ -1,4 +1,4 @@
-package com.github.potamois.potamoi.flinkgateway
+package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.Done
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
@@ -6,9 +6,8 @@ import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.StringImplicits.StringWrapper
 import com.github.potamois.potamoi.commons.TryImplicits.Wrapper
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, Using, curTs}
-import com.github.potamois.potamoi.flinkgateway.ExptExecutor.Command
-import com.github.potamois.potamoi.gateway.flink.OpType.OpType
-import com.github.potamois.potamoi.gateway.flink._
+import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
+import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, FlinkSqlParser, PageReq, PageRsp, interact}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.table.api.TableResult
@@ -29,10 +28,12 @@ import scala.util.{Failure, Success, Try}
  *
  * @author Al-assad
  */
-object ExptExecutor {
+object SqlSerialExecutor {
+
+  type RejectableDone = Either[ExecReject, Done]
 
   sealed trait Command
-  final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[Either[ExecReject, Done]]) extends Command
+  final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[RejectableDone]) extends Command
   final case class IsInProcess(replyTo: ActorRef[Boolean]) extends Command
   final case object CancelCurProcess extends Command
   // todo final case class Subscribe(actorRef: ActorRef[_]) extends Command
@@ -56,14 +57,14 @@ object ExptExecutor {
 
   def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
     ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
-    new ExptExecutor(sessionId).action()
+    new SqlSerialExecutor(sessionId).action()
   }
 }
 
 
-import com.github.potamois.potamoi.flinkgateway.ExptExecutor._
+import SqlSerialExecutor._
 
-class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
+class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
 
   // todo replace with standalone dispatcher
   implicit val ec = ctx.system.executionContext
@@ -73,7 +74,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
   private var queryRsBuffer: Option[QueryRsBuffer] = None
 
   def action(): Behavior[Command] = Behaviors
-    .receiveMessage {
+    .receiveMessage[Command] {
       case IsInProcess(replyTo) =>
         replyTo ! process.isDefined
         Behaviors.same
@@ -211,7 +212,8 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
         case None => None
         case Some(buf) =>
           val rows = limit match {
-            case Int.MaxValue | size if size < 0 => buf.rows
+            case Int.MaxValue => buf.rows
+            case size if size < 0 => buf.rows
             case size => buf.rows.take(size)
           }
           Some(TableResultSnapshot(
@@ -242,7 +244,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
               data = TableResultData(buf.cols, Seq(rowsSlice: _*))
             )
           }
-          Some(PageableTableResultSnapshot(
+          Some(interact.PageableTableResultSnapshot(
             data = payload,
             error = buf.error,
             isFinished = buf.isFinished,
@@ -298,7 +300,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
                 ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to collect table result: ${stmt.compact}", err)))
                 return Left(Done)
               }
-            ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, ImmediateOpDone(TableResultData(cols, rows))))
+            ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, ImmediateOpDone(interact.TableResultData(cols, rows))))
         }
       }
     }
@@ -391,7 +393,7 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
     def lastOpType: OpType = result.lastOption.map(_.opType).getOrElse(OpType.UNKNOWN)
   }
 
-  type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]] with TraversableLike[Row, AbstractSeq[Row]]
+  private type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]] with TraversableLike[Row, AbstractSeq[Row]]
 
   /**
    * Flink query statements execution result buffer.
@@ -404,6 +406,4 @@ class ExptExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
                                    var ts: Long = curTs)
 
 }
-
-
 
