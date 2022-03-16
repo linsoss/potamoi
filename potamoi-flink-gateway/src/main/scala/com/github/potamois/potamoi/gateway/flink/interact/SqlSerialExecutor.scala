@@ -176,8 +176,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           case Left(err) =>
             ctx.log.error(s"session[$sessionId] ${err.summary}", err.stack)
           case Right(result) => result match {
-            case r: SubmitModifyOpDone => r.toLog
-            case r: SubmitQueryOpDone => r.toLog
+            case r: SubmitModifyOpDone => r.toFriendlyString
+            case r: SubmitQueryOpDone => r.toFriendlyString
             case _ =>
           }
         }
