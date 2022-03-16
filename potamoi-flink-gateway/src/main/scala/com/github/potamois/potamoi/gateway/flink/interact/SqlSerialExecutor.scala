@@ -1,12 +1,14 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.Done
+import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.StringImplicits.StringWrapper
 import com.github.potamois.potamoi.commons.TryImplicits.Wrapper
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
+import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, FlinkSqlParser, PageReq, PageRsp, interact}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
@@ -30,14 +32,23 @@ import scala.util.{Failure, Success, Try}
  */
 object SqlSerialExecutor {
 
-  type RejectableDone = Either[ExecReject, Done]
+  type RejectableDone = Either[ExecReqReject, Done]
 
   sealed trait Command
   final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[RejectableDone]) extends Command
   final case class IsInProcess(replyTo: ActorRef[Boolean]) extends Command
   final case object CancelCurProcess extends Command
-  // todo final case class Subscribe(actorRef: ActorRef[_]) extends Command
 
+  /**
+   * Subscribe the result change events from this executor, see [[ResultChange]].
+   */
+  final case class SubscribeResult(listener: ActorRef[ResultChange]) extends Command
+  /**
+   * Unsubscribe the result change events from this executor.
+   */
+  final case class UnsubscribeResult(listener: ActorRef[ResultChange]) extends Command
+
+  // Query result command
   sealed trait QueryResult extends Command
   // Get the snapshot result of current sqls plan that has been executed.
   final case class GetExecPlanRsSnapshot(replyTo: ActorRef[Option[SerialStmtsResult]]) extends QueryResult
@@ -46,8 +57,9 @@ object SqlSerialExecutor {
   // Get the snapshot collected TableResult by pagination.
   final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[Option[PageableTableResultSnapshot]]) extends QueryResult
 
+
   sealed trait Internal extends Command
-  private final case class ProcessFinished(replyTo: ActorRef[Either[ExecReject, Done]]) extends Internal
+  private final case class ProcessFinished(replyTo: ActorRef[Either[ExecReqReject, Done]]) extends Internal
   private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
   private final case class InitQueryRsBuffer(collStrategy: RsCollectStrategy) extends Internal
   private final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
@@ -62,16 +74,23 @@ object SqlSerialExecutor {
 }
 
 
-import SqlSerialExecutor._
-
 class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
+
+  import ResultChangeEvent._
+  import SqlSerialExecutor._
 
   // todo replace with standalone dispatcher
   implicit val ec = ctx.system.executionContext
-
+  // running process
   private var process: Option[CancellableFuture[Done]] = None
+  // executed statements result buffer
   private var rsBuffer: Option[StmtsRsBuffer] = None
+  // collected table result buffer
   private var queryRsBuffer: Option[QueryRsBuffer] = None
+
+  // result change topic
+  protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] =
+    ctx.spawn(Topic[ResultChange](topicName = s"flink-sql-executor-rs-$sessionId"), name = s"flink-sql-executor-rs-topic-$sessionId")
 
   def action(): Behavior[Command] = Behaviors
     .receiveMessage[Command] {
@@ -93,12 +112,14 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
             "The executor is busy in process, please cancel it first or wait until it is complete",
             rsBuffer.map(_.startTs).get)
           replyTo ! Left(rejectReason)
+          rsChangeTopic ! Topic.Publish(RejectStmtsExecPlan(statements, rejectReason))
           return Behaviors.same
         }
-        // extract effective execution config
+        // extract effective execution config, split sql statements and execute each one.
         val effectProps = props.toEffectiveExecConfig
-        //  split sql statements and execute each one
-        FlinkSqlParser.extractSqlStatements(statements) match {
+        val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
+        rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan))
+        stmtsPlan match {
           case stmts if stmts.isEmpty =>
             replyTo ! Right(Done)
           case stmts =>
@@ -109,6 +130,14 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
             process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
             ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
         }
+        Behaviors.same
+
+      case SubscribeResult(listener) =>
+        rsChangeTopic ! Topic.Subscribe(listener)
+        Behaviors.same
+
+      case UnsubscribeResult(listener) =>
+        rsChangeTopic ! Topic.Unsubscribe(listener)
         Behaviors.same
 
       case cmd: Internal => internalBehavior(cmd)
@@ -137,6 +166,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         buf.isFinished = true
         buf.ts = curTs
       }
+      rsChangeTopic ! Topic.Publish(AllStmtsDone(rsBuffer.forall(_.allPass)))
       Behaviors.same
 
     case SingleStmtFinished(stmtRs) =>
@@ -156,6 +186,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
             }")
         }
       }
+      rsChangeTopic ! Topic.Publish(SingleStmtDone(stmtRs.stmt, stmtRs.rs))
       Behaviors.same
 
     case InitQueryRsBuffer(strategy) =>
@@ -171,6 +202,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         buf.cols = cols
         buf.ts = curTs
       }
+      rsChangeTopic ! Topic.Publish(ReceiveQueryOpColumns(cols))
       Behaviors.same
 
     case CollectQueryOpRow(row) =>
@@ -178,6 +210,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         buf.rows += row
         buf.ts = curTs
       }
+      rsChangeTopic ! Topic.Publish(ReceiveQueryOpRow(row))
       Behaviors.same
 
     case ErrorWhenCollectQueryOpRow(err) =>
@@ -185,6 +218,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         buf.error = Some(err)
         buf.ts = curTs
       }
+      rsChangeTopic ! Topic.Publish(ErrorDuringQueryOp(err))
       Behaviors.same
   }
 
@@ -289,6 +323,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           case op =>
             // when a ModifyOperation has been staged, the remaining normal statement would be skipped.
             if (stashToken.modifyOps.nonEmpty) break
+            rsChangeTopic ! Topic.Publish(SingleStmtStart(stmt))
             val tableResult: TableResult = Try(flinkCtx.tEnvInternal.executeInternal(op)).foldIdentity { err =>
               ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to execute statement: ${stmt.compact}", err)))
               return Left(Done)
@@ -311,10 +346,12 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
    * Execute the stashed non-immediate operations such as  [[QueryOperation]] and [[ModifyOperation]],
    * and collect the result from TableResult.
    */
+  //noinspection DuplicatedCode
   private def execStashedOps(stashOp: StashOpToken, rsCollStrategy: RsCollectStrategy)
                             (implicit flinkCtx: FlinkContext): Done = stashOp.toEither match {
     case Right(stashModifyOps) =>
       val (stmts, modifyOps) = stashModifyOps.map(_._1).mkString(";") -> stashModifyOps.map(_._2)
+      rsChangeTopic ! Topic.Publish(SingleStmtStart(stmts))
       Try(flinkCtx.tEnvInternal.executeInternal(modifyOps.asJava)) match {
         case Failure(err) =>
           ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmts, Error(s"Fail to execute modify statements: ${stmts.compact}", err)))
@@ -322,10 +359,12 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         case Success(tableResult) =>
           val jobId: Option[String] = tableResult.getJobClient.asScala.map(_.getJobID.toString)
           ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmts, SubmitModifyOpDone(jobId.get)))
+          rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.MODIFY, jobId.get))
           Done
       }
 
     case Left((stmt, queryOp)) =>
+      rsChangeTopic ! Topic.Publish(SingleStmtStart(stmt))
       Try(flinkCtx.tEnvInternal.executeInternal(queryOp)) match {
         case Failure(err) =>
           ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to execute query statement: ${stmt.compact}", err)))
@@ -335,6 +374,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           val jobId: Option[String] = tableResult.getJobClient.asScala.map(_.getJobID.toString)
           ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, SubmitModifyOpDone(jobId.get)))
           ctx.self ! InitQueryRsBuffer(rsCollStrategy)
+          rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.QUERY, jobId.get))
 
           val cols = FlinkApiCovertTool.extractSchema(tableResult)
           ctx.self ! CollectQueryOpColsRs(cols)
@@ -391,6 +431,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   private case class StmtsRsBuffer(result: mutable.Buffer[SingleStmtResult], startTs: Long) {
     def lastTs: Long = result.lastOption.map(_.ts).getOrElse(startTs)
     def lastOpType: OpType = result.lastOption.map(_.opType).getOrElse(OpType.UNKNOWN)
+    def allPass: Boolean = !result.exists(_.rs.isLeft)
   }
 
   private type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]] with TraversableLike[Row, AbstractSeq[Row]]
@@ -406,4 +447,3 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
                                    var ts: Long = curTs)
 
 }
-

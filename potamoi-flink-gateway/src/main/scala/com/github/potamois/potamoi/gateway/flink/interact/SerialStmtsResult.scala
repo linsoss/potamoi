@@ -24,7 +24,6 @@ case class SerialStmtsResult(result: Seq[SingleStmtResult], isFinished: Boolean,
  * @param ts   result received timestamp
  */
 case class SingleStmtResult(stmt: String, rs: Either[Error, OperationDone], ts: Long) {
-
   // get operation type of this statement result.
   def opType: OpType = rs match {
     case Left(_) => OpType.UNKNOWN
@@ -40,20 +39,4 @@ object SingleStmtResult {
   def fail(stmt: String, error: Error): SingleStmtResult = SingleStmtResult(stmt, Left(error), curTs)
   def success(stmt: String, rs: OperationDone): SingleStmtResult = SingleStmtResult(stmt, Right(rs), curTs)
 }
-
-
-/**
- * Flink sql operation type.
- *
- * 1) NORMAL: normal sql statement that executed in local, like "create ..., explain...";
- * 2) QUERY: query sql statement that executed in flink cluster, like "select ...";
- * 3) MODIFY: modify sql statement, like "insert ...";
- *
- * @author Al-assad
- */
-object OpType extends Enumeration {
-  type OpType = Value
-  val UNKNOWN, NORMAL, QUERY, MODIFY = Value
-}
-
 
