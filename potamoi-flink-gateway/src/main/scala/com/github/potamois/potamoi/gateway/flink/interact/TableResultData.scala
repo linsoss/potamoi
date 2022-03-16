@@ -10,9 +10,17 @@ import com.github.potamois.potamoi.commons.Tabulator
  * @author Al-assad
  */
 case class TableResultData(cols: Seq[Column], rows: Seq[Row]) {
-
-  /** Formatted as tabulated content string for console-like output */
-  def tabulateContent: String = Tabulator.format(Seq(cols, rows))
+  /**
+   * Formatted as tabulated content string for console-like output
+   *
+   * @param escapeJava escapes the characters in a String using Java String rules
+   */
+  def tabulateContent(escapeJava: Boolean): String = {
+    val headers = "op" +: cols.map(_.name)
+    val lines = rows.map(r => r.kind +: r.values)
+    Tabulator.format(headers +: lines, escapeJava)
+  }
+  def tabulateContent: String = tabulateContent(escapeJava = true)
 }
 
 /**
