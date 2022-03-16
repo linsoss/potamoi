@@ -48,10 +48,15 @@ class PackageToolSpec extends STSpec {
     }
   }
 
+
   "RichThrowable" should {
     "getStackTraceAsString" in {
       val e = new RuntimeException("boom")
       e.getStackTraceAsString should startWith("java.lang.RuntimeException: boom")
+    }
+    "getStackTraceAsString from null Throwable object" in {
+      val e: Throwable = null
+      e.getStackTraceAsString shouldBe ""
     }
   }
 

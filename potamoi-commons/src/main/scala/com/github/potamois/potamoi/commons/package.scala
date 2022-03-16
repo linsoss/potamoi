@@ -44,10 +44,13 @@ package object commons {
      * Get stack trace as string from Throwable
      */
     def getStackTraceAsString: String = {
-      val sw = new StringWriter
-      val pw = new PrintWriter(sw)
-      e.printStackTrace(pw)
-      sw.getBuffer.toString
+      if (e == null) ""
+      else {
+        val sw = new StringWriter
+        val pw = new PrintWriter(sw)
+        e.printStackTrace(pw)
+        sw.getBuffer.toString
+      }
     }
   }
 
