@@ -29,7 +29,7 @@ case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
 /**
  * Effective execution configuration of Flink interactive operation.
  *
- * @param flinkConfig           extra flink configuration
+ * @param flinkConfig       extra flink configuration
  * @param rsCollectStrategy result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  */
@@ -116,11 +116,12 @@ object ExecConfig {
     ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, resultCollectStrategy)
 
   /**
-   * default flink configuration
-   * todo initialize from hocon
+   * Default flink configuration for interactive query scenario.
    */
   lazy val DEFAULT_FLINK_CONFIG = Map(
     "rest.retry.max-attempts" -> "1",
+    "execution.attached" -> "true",
+    "execution.shutdown-on-attached-exit" -> "true"
   )
 
   /**

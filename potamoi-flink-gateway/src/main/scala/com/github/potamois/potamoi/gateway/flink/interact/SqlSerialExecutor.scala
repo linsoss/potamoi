@@ -11,6 +11,7 @@ import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, FlinkSqlParser, PageReq, PageRsp, interact}
 import org.apache.flink.configuration.Configuration
+import org.apache.flink.core.execution.JobClient
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.table.api.TableResult
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment
@@ -342,6 +343,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   /**
    * Execute the stashed non-immediate operations such as  [[QueryOperation]] and [[ModifyOperation]],
    * and collect the result from TableResult.
+   *
+   * This process can lead to long thread blocking.
    */
   //noinspection DuplicatedCode
   private def execStashedOps(stashOp: StashOpToken, rsCollStrategy: RsCollectStrategy)
@@ -354,9 +357,12 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmts, Error(s"Fail to execute modify statements: ${stmts.compact}", err)))
           Done
         case Success(tableResult) =>
-          val jobId: Option[String] = tableResult.getJobClient.asScala.map(_.getJobID.toString)
+          val jobClient: Option[JobClient] = tableResult.getJobClient.asScala
+          val jobId: Option[String] = jobClient.map(_.getJobID.toString)
           ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmts, SubmitModifyOpDone(jobId.get)))
           rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.MODIFY, jobId.get))
+          // blocking until the insert operation job is finished
+          jobClient.get.getJobExecutionResult.get()
           Done
       }
 
@@ -369,13 +375,14 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
 
         case Success(tableResult) =>
           val jobId: Option[String] = tableResult.getJobClient.asScala.map(_.getJobID.toString)
-          ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, SubmitModifyOpDone(jobId.get)))
+          ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, SubmitQueryOpDone(jobId.get)))
           ctx.self ! InitQueryRsBuffer(rsCollStrategy)
           rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.QUERY, jobId.get))
 
           val cols = FlinkApiCovertTool.extractSchema(tableResult)
           ctx.self ! CollectQueryOpColsRs(cols)
 
+          // blocking until the select operation job is finished
           Using(tableResult.collect) { iter =>
             rsCollStrategy match {
               case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) =>
