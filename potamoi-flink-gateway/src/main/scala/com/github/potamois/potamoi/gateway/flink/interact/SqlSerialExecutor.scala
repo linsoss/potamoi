@@ -176,14 +176,11 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         stmtRs.rs match {
           case Left(err) =>
             ctx.log.error(s"session[$sessionId] ${err.summary}", err.stack)
-          case Right(result) =>
-            ctx.log.debug(s"session[$sessionId] Execute: ${stmtRs.stmt} => \n${
-              result match {
-                case ImmediateOpDone(data) => data.tabulateContent
-                case r: SubmitModifyOpDone => r.toLog
-                case r: SubmitQueryOpDone => r.toLog
-              }
-            }")
+          case Right(result) => result match {
+            case r: SubmitModifyOpDone => r.toLog
+            case r: SubmitQueryOpDone => r.toLog
+            case _ =>
+          }
         }
       }
       rsChangeTopic ! Topic.Publish(SingleStmtDone(stmtRs.stmt, stmtRs.rs))
