@@ -8,7 +8,7 @@ class TabulatorSpec extends STSpec {
 
   "Tabulator" should {
 
-    "format a tablbe 2" in {
+    "format a table 2" in {
       val table = Seq(
         Seq("f1", "f2", "f3", "f4", "f5", "f6"),
         Seq("d", 302.087, 133L, 2333, true, "hello world"),
