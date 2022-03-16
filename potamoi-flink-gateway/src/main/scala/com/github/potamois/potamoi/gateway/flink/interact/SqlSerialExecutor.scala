@@ -4,9 +4,7 @@ import akka.Done
 import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
-import com.github.potamois.potamoi.commons.StringImplicits.StringWrapper
-import com.github.potamois.potamoi.commons.TryImplicits.Wrapper
-import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, Using, curTs}
+import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichString, RichTry, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, FlinkSqlParser, PageReq, PageRsp, interact}
