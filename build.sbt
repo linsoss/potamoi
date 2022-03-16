@@ -1,6 +1,6 @@
 lazy val scala = "2.12.15"
 lazy val akkaVersion = "2.6.18"
-lazy val akkaHttpVersion = "10.2.8"
+lazy val akkaHttpVersion = "10.2.9"
 lazy val flinkVersion = 14
 
 lazy val commonSettings = Seq(
@@ -16,12 +16,13 @@ lazy val commonSettings = Seq(
   Test / parallelExecution := false,
 
   libraryDependencies ++= Seq(
-    "ch.qos.logback" % "logback-classic" % "1.2.10",
+    "ch.qos.logback" % "logback-classic" % "1.2.11",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
-    "org.scalatest" %% "scalatest" % "3.2.9" % Test,
+    "org.scalatest" %% "scalatest" % "3.2.11" % Test,
 
     "io.spray" %% "spray-json" % "1.3.6",
-    "com.github.nscala-time" %% "nscala-time" % "2.30.0"
+    "com.github.nscala-time" %% "nscala-time" % "2.30.0",
+    "org.apache.commons" % "commons-text" % "1.9"
   )
 )
 
