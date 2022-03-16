@@ -1,7 +1,13 @@
 package com.github.potamois.potamoi
 
+import java.io.{PrintWriter, StringWriter}
 import scala.util.Try
 
+/**
+ * commons tools
+ *
+ * @author Al-assad
+ */
 package object commons {
 
   /**
@@ -13,10 +19,11 @@ package object commons {
    * Enhancement for [[String]]
    */
   implicit class RichString(str: String) {
-    // remove "\n" from string
+    /**
+     * Remove "\n" from string
+     */
     def compact: String = str.split("\n").map(_.trim).filter(_.nonEmpty).mkString(" ")
   }
-
 
   /**
    * Enhancement for [[Try]]
@@ -29,6 +36,19 @@ package object commons {
   }
 
 
-
+  /**
+   * Enhancement for [[Throwable]]
+   */
+  implicit class RichThrowable(e: Throwable) {
+    /**
+     * Get stack trace as string from Throwable
+     */
+    def getStackTraceAsString: String = {
+      val sw = new StringWriter
+      val pw = new PrintWriter(sw)
+      e.printStackTrace(pw)
+      sw.getBuffer.toString
+    }
+  }
 
 }
