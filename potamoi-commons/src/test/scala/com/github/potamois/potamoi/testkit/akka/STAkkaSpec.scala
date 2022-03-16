@@ -6,6 +6,8 @@ import com.typesafe.scalalogging.Logger
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
 
+import scala.concurrent.duration.FiniteDuration
+
 /**
  * Actor standard testkit enhanced trait for use with
  * [[akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit]].
@@ -46,6 +48,25 @@ trait STAkkaSpec extends AnyWordSpecLike with BeforeAndAfterEach {
     val probe = TestProbe[M]()
     func(probe.ref)
     probe
+  }
+
+
+  /**
+   * Enhancement for TestProbe
+   */
+  implicit class TestProbeWrapper[M](probe: TestProbe[M]) {
+
+    def receiveMessagePF(max: FiniteDuration)(assert: M => Any): M = {
+      val r = probe.receiveMessage(max)
+      assert(r)
+      r
+    }
+
+    def receiveMessagePF(assert: M => Any): M = {
+      val r = probe.receiveMessage()
+      assert(r)
+      r
+    }
   }
 
 
