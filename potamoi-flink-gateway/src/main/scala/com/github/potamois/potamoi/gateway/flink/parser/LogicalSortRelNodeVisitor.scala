@@ -10,7 +10,7 @@ import scala.collection.mutable
  *
  * @author Al-assad
  */
-class LogicalSortNodeRelVisitor extends CalciteRelShuttle {
+class LogicalSortRelNodeVisitor extends CalciteRelShuttle {
 
   private val sortNodes = mutable.Buffer.empty[LogicalSort]
 

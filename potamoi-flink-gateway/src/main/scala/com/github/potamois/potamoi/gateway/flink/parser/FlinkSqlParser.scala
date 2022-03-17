@@ -49,7 +49,7 @@ object FlinkSqlParser {
    * Get the value of topmost fetch RexNode if exists from Flink [[PlannerQueryOperation]].
    */
   def getTopmostLimitRexFromOp(operation: PlannerQueryOperation): Option[Int] = {
-    val visitor = new LogicalSortNodeRelVisitor
+    val visitor = new LogicalSortRelNodeVisitor
     operation.getCalciteTree.accept(visitor)
     val sortNodes = visitor.getSortNodes
     Try(sortNodes.headOption.map(node => node.fetch.toString.toInt)).getOrElse(None)
