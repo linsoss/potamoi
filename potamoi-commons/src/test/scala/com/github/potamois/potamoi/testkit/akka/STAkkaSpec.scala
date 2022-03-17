@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import scala.concurrent.duration.FiniteDuration
 
 /**
- * Actor standard testkit enhanced trait for use with
+ * Actor standard testkit enhanced trait for use alongside
  * [[akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit]].
  *
  * @author Al-assad
