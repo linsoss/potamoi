@@ -26,6 +26,9 @@ case class TableResultData(cols: Seq[Column], rows: Seq[Row]) {
 /**
  * Meta information of a column, which extract from [[org.apache.flink.table.api.TableColumn]].
  *
+ * @note After the minimum flink version supported by potamoi is from 1.13, it will extracting
+ *       from [[org.apache.flink.table.catalog.Column]].
+ *       See [[com.github.potamois.potamoi.gateway.flink.FlinkApiCovertTool.covertTableSchema]].
  * @param name     column name
  * @param dataType data type of this column
  * @author Al-assad

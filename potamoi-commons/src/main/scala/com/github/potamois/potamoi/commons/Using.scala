@@ -136,7 +136,7 @@ object Using {
      * }
      * }}}
      *
-     * See the main doc for [[Using `Using`]] for full details of suppression behavior.
+     * See the main doc for [[Using]] for full details of suppression behavior.
      *
      * @param op the operation to perform using the manager
      * @tparam A the return type of the operation
@@ -163,7 +163,7 @@ object Using {
     }
 
     @inline def suppress(t: Throwable, suppressed: Throwable): Throwable = {
-      t.addSuppressed(suppressed);
+      t.addSuppressed(suppressed)
       t
     }
 
@@ -308,7 +308,7 @@ object Using {
    * the stream after it is finished being used.
    *
    * An instance of `Releasable` is needed in order to automatically manage a resource
-   * with [[Using `Using`]]. An implicit instance is provided for all types extending
+   * with [[Using]]. An implicit instance is provided for all types extending
    * [[java.lang.AutoCloseable]].
    *
    * @tparam R the type of the resource
@@ -319,7 +319,7 @@ object Using {
   }
 
   object Releasable {
-    /** An implicit `Releasable` for [[java.lang.AutoCloseable `AutoCloseable`s]]. */
+    /** An implicit `Releasable` for [[java.lang.AutoCloseable]]. */
     implicit object AutoCloseableIsReleasable extends Releasable[AutoCloseable] {
       def release(resource: AutoCloseable): Unit = resource.close()
     }

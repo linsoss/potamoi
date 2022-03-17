@@ -22,6 +22,6 @@ class LogicalSortRelNodeVisitor extends CalciteRelShuttle {
   /**
    * Get all [[LogicalSort]] RexNodes that find.
    */
-  def getSortNodes: Seq[LogicalSort] = sortNodes.toSeq
+  def getSortNodes: Seq[LogicalSort] = sortNodes
 
 }

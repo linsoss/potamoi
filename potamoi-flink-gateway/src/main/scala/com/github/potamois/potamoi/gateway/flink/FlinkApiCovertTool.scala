@@ -26,7 +26,6 @@ object FlinkApiCovertTool {
    * @note Please replace it with ResolvedSchema when the minimum flink version supported by potamoi
    *       is from 1.13.
    */
-  // noinspection ScalaDeprecation
   def covertTableSchema(schema: org.apache.flink.table.api.TableSchema): Seq[Column] = schema match {
     case null => Seq.empty
     case _ => schema.getTableColumns.asScala.map(col =>
