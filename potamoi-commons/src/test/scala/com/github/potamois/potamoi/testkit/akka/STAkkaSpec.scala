@@ -56,13 +56,13 @@ trait STAkkaSpec extends AnyWordSpecLike with BeforeAndAfterEach {
    */
   implicit class TestProbeWrapper[M](probe: TestProbe[M]) {
 
-    def receiveMessagePF(max: FiniteDuration)(assert: M => Any): M = {
+    def receiveMessagePfIn(max: FiniteDuration)(assert: M => Any): M = {
       val r = probe.receiveMessage(max)
       assert(r)
       r
     }
 
-    def receiveMessagePF(assert: M => Any): M = {
+    def receiveMessagePf(assert: M => Any): M = {
       val r = probe.receiveMessage()
       assert(r)
       r
