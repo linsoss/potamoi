@@ -6,7 +6,7 @@ import org.apache.calcite.rel.logical.LogicalSort
 import scala.collection.mutable
 
 /**
- * CalciteRelShuttle for visiting the [[LogicalSort]]
+ * CalciteRelShuttle for visiting the [[LogicalSort]] RelNode.
  *
  * @author Al-assad
  */
