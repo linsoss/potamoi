@@ -67,6 +67,7 @@ object SqlSerialExecutor {
   private final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
   private final case class CollectQueryOpRow(row: Row) extends Internal
   private final case class ErrorWhenCollectQueryOpRow(error: Error) extends Internal
+  private final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
 
 
   def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
@@ -93,6 +94,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   private var rsBuffer: Option[StmtsRsBuffer] = None
   // collected table result buffer
   private var queryRsBuffer: Option[QueryRsBuffer] = None
+  // hook flink job client for force cancel job if necessary
+  private var jobClientHook: Option[JobClient] = None
 
   // result change topic
   protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] =
@@ -158,6 +161,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           ps.cancel(true)
           context.log.info(s"SqlSerialExecutor[$sessionId] interrupt the running statements execution process.")
         }
+        Try(jobClientHook.map(_.cancel))
+          .failed.foreach(ctx.log.error(s"session[$sessionId] Fail to cancel from Flink JobClient.", _))
         context.log.info(s"SqlSerialExecutor[$sessionId] stopped.")
         Behaviors.same
     }
@@ -168,6 +173,10 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
    */
   private def internalBehavior(command: Internal): Behavior[Command] = command match {
 
+    case HookFlinkJobClient(jobClient) =>
+      jobClientHook = Some(jobClient)
+      Behaviors.same
+
     case ProcessFinished(replyTo) =>
       replyTo ! Right(Done)
       process = None
@@ -176,6 +185,9 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         buf.ts = curTs
       }
       rsChangeTopic ! Topic.Publish(AllStmtsDone(rsBuffer.forall(_.allPass)))
+      // cancel flink job if necessary
+      Try(jobClientHook.map(_.cancel))
+        .failed.foreach(ctx.log.error(s"session[$sessionId] Fail to cancel from Flink JobClient.", _))
       Behaviors.same
 
     case SingleStmtFinished(stmtRs) =>
@@ -367,6 +379,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           Done
         case Success(tableResult) =>
           val jobClient: Option[JobClient] = tableResult.getJobClient.asScala
+          ctx.self ! HookFlinkJobClient(jobClient.get)
+
           val jobId: Option[String] = jobClient.map(_.getJobID.toString)
           ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmts, SubmitModifyOpDone(jobId.get)))
           rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.MODIFY, jobId.get))
@@ -383,7 +397,10 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           Done
 
         case Success(tableResult) =>
-          val jobId: Option[String] = tableResult.getJobClient.asScala.map(_.getJobID.toString)
+          val jobClient: Option[JobClient] = tableResult.getJobClient.asScala
+          ctx.self ! HookFlinkJobClient(jobClient.get)
+
+          val jobId: Option[String] = jobClient.map(_.getJobID.toString)
           ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, SubmitQueryOpDone(jobId.get)))
           ctx.self ! InitQueryRsBuffer(rsCollStrategy)
           rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.QUERY, jobId.get))
