@@ -7,7 +7,8 @@ import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichString, RichTry, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
-import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, FlinkSqlParser, PageReq, PageRsp, interact}
+import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser
+import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, PageReq, PageRsp, interact}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.core.execution.JobClient
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
@@ -16,6 +17,7 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment
 import org.apache.flink.table.api.internal.TableEnvironmentInternal
 import org.apache.flink.table.delegation.Parser
 import org.apache.flink.table.operations.{ModifyOperation, QueryOperation}
+import org.apache.flink.table.planner.operations.PlannerQueryOperation
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -380,14 +382,19 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           val cols = FlinkApiCovertTool.extractSchema(tableResult)
           ctx.self ! CollectQueryOpColsRs(cols)
 
+          // get the topmost fetch rex from query operation
+          val limitRex = queryOp match {
+            case op: PlannerQueryOperation => FlinkSqlParser.getTopmostLimitRexFromOp(op)
+            case _ => None
+          }
           // blocking until the select operation job is finished
           Using(tableResult.collect) { iter =>
-            rsCollStrategy match {
-              case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) =>
-                iter.asScala.take(limit).foreach(row => ctx.self ! CollectQueryOpRow(FlinkApiCovertTool.covertRow(row)))
-              case _ =>
-                iter.asScala.foreach(row => ctx.self ! CollectQueryOpRow(FlinkApiCovertTool.covertRow(row)))
+            val stream = rsCollStrategy match {
+              case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => iter.asScala.take(limit.min(limitRex.getOrElse(Int.MaxValue)))
+              case RsCollectStrategy(EvictStrategy.DROP_HEAD, _) =>
+                if (limitRex.isDefined) iter.asScala.take(limitRex.get) else iter.asScala
             }
+            stream.foreach(row => ctx.self ! CollectQueryOpRow(FlinkApiCovertTool.covertRow(row)))
           } match {
             case Failure(err) =>
               ctx.self ! ErrorWhenCollectQueryOpRow(Error("Fail to collect table result", err))

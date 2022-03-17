@@ -1,5 +1,8 @@
-package com.github.potamois.potamoi.gateway.flink
+package com.github.potamois.potamoi.gateway.flink.parser
 
+import org.apache.flink.table.planner.operations.PlannerQueryOperation
+
+import scala.util.Try
 import scala.util.matching.Regex
 
 /**
@@ -9,6 +12,7 @@ import scala.util.matching.Regex
  */
 object FlinkSqlParser {
 
+  // sql statements splitter pattern
   private val SINGLE_CMT_PATTERN_1: Regex = "//.*".r
   private val SINGLE_CMT_PATTERN_2: Regex = "--.*".r
   private val MULTI_CMT_PATTERN: Regex = "/\\*[\\s\\S]*?\\*/".r
@@ -41,4 +45,17 @@ object FlinkSqlParser {
   }
 
 
+  /**
+   * Get the value of topmost fetch RexNode if exists from Flink [[PlannerQueryOperation]].
+   */
+  def getTopmostLimitRexFromOp(operation: PlannerQueryOperation): Option[Int] = {
+    val visitor = new LogicalSortNodeRelVisitor
+    operation.getCalciteTree.accept(visitor)
+    val sortNodes = visitor.getSortNodes
+    Try(sortNodes.headOption.map(node => node.fetch.toString.toInt)).getOrElse(None)
+  }
+
+
 }
+
+

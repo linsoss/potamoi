@@ -4,7 +4,7 @@ import com.github.potamois.potamoi.testkit.STSpec
 
 class FlinkSqlParserSpec extends STSpec {
 
-  import FlinkSqlParser._
+  import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser._
 
   "FlinkSqlParser" when {
 
