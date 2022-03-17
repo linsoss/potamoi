@@ -275,7 +275,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
               index = pageIndex,
               size = rowsSlice.size,
               totalPages = pages,
-              totalRow = rowsCount,
+              totalRows = rowsCount,
               hasNext = pageIndex < pages - 1,
               data = TableResultData(buf.cols, Seq(rowsSlice: _*))
             )

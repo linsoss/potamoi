@@ -15,9 +15,9 @@ case class PageReq(index: Int, size: Int)
  * @param index      current page index
  * @param size       current number of rows per page
  * @param totalPages total page count
- * @param totalRow   total row count
+ * @param totalRows   total row count
  * @param hasNext    whether has next page
  * @param data       data payload
  * @author Al-assad
  */
-case class PageRsp[T](index: Int, size: Int, totalPages: Int, totalRow: Int, hasNext: Boolean, data: T)
+case class PageRsp[T](index: Int, size: Int, totalPages: Int, totalRows: Int, hasNext: Boolean, data: T)
