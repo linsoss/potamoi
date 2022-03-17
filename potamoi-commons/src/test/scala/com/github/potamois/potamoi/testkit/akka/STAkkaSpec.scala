@@ -36,6 +36,11 @@ trait STAkkaSpec extends AnyWordSpecLike with BeforeAndAfterEach {
   }
 
   /**
+   * Shortened of [[testProbe]]
+   */
+  def probe[M](func: TestProbe[M] => Any)(implicit system: ActorSystem[_]): TestProbe[M] = testProbe(func)
+
+  /**
    * Create a TestProbe and use it's ActorRef directly on specified function.
    * For example:
    *
@@ -50,23 +55,45 @@ trait STAkkaSpec extends AnyWordSpecLike with BeforeAndAfterEach {
     probe
   }
 
+  /**
+   * Shortened of [[testProbeRef]]
+   */
+  def probeRef[M](func: ActorRef[M] => Any)(implicit system: ActorSystem[_]): TestProbe[M] = testProbeRef(func)
+
 
   /**
    * Enhancement for TestProbe
    */
-  implicit class TestProbeWrapper[M](probe: TestProbe[M]) {
+  implicit class RichTestProbe[M](probe: TestProbe[M]) {
 
+    /**
+     * Wrap the return of [[TestProbe.receiveMessage()]] to partition function.
+     */
+    def receiveMessagePf(assert: M => Any): M = {
+      val r = probe.receiveMessage()
+      assert(r)
+      r
+    }
+
+    /**
+     * Shortened of [[receiveMessagePf]]
+     */
+    def receivePf(assert: M => Any): M = receiveMessagePf(assert)
+
+    /**
+     * Wrap the return of [[TestProbe.receiveMessage(max: FiniteDuration)]]
+     * to partition function.
+     */
     def receiveMessagePfIn(max: FiniteDuration)(assert: M => Any): M = {
       val r = probe.receiveMessage(max)
       assert(r)
       r
     }
 
-    def receiveMessagePf(assert: M => Any): M = {
-      val r = probe.receiveMessage()
-      assert(r)
-      r
-    }
+    /**
+     * Shortened of [[receiveMessagePfIn]]
+     */
+    def receivePfIn(max: FiniteDuration)(assert: M => Any): M = receiveMessagePfIn(max)(assert)
   }
 
 
