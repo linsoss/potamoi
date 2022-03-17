@@ -69,31 +69,31 @@ trait STAkkaSpec extends AnyWordSpecLike with BeforeAndAfterEach {
     /**
      * Wrap the return of [[TestProbe.receiveMessage()]] to partition function.
      */
-    def receiveMessagePf(assert: M => Any): M = {
+    def receiveMessagePF(assert: M => Any): M = {
       val r = probe.receiveMessage()
       assert(r)
       r
     }
 
     /**
-     * Shortened of [[receiveMessagePf]]
+     * Shortened of [[receiveMessagePF]]
      */
-    def receivePf(assert: M => Any): M = receiveMessagePf(assert)
+    def receivePF(assert: M => Any): M = receiveMessagePF(assert)
 
     /**
      * Wrap the return of [[TestProbe.receiveMessage(max: FiniteDuration)]]
      * to partition function.
      */
-    def receiveMessagePfIn(max: FiniteDuration)(assert: M => Any): M = {
+    def receiveMessagePFIn(max: FiniteDuration)(assert: M => Any): M = {
       val r = probe.receiveMessage(max)
       assert(r)
       r
     }
 
     /**
-     * Shortened of [[receiveMessagePfIn]]
+     * Shortened of [[receiveMessagePFIn]]
      */
-    def receivePfIn(max: FiniteDuration)(assert: M => Any): M = receiveMessagePfIn(max)(assert)
+    def receivePFIn(max: FiniteDuration)(assert: M => Any): M = receiveMessagePFIn(max)(assert)
   }
 
 
