@@ -297,7 +297,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
     // parse and execute sql statements
     execImmediateOpsAndStashNonImmediateOps(stmts) match {
       case Left(done) => Done
-      case Right(stashOp) => if (stashOp.isEmpty) Done else execStashedOps(stashOp, effectProps.rsCollectStrategy)
+      case Right(stashOp) => if (stashOp.isEmpty) Done else execStashedOps(stashOp, effectProps.rsCollectSt)
     }
   }
 

@@ -11,17 +11,17 @@ import scala.collection.mutable
  * It is recommended to use the factory creation method in the ExecConfig object
  * such as ExecConfig.localEnv or ExecConfig.remoteEnv.
  *
- * @param executeMode           execution mode of flink job, see [[ExecMode]]
- * @param remoteAddr            remote flink cluster rest endpoint when use [[ExecMode.REMOTE]]
- * @param flinkConfig           extra flink configuration
- * @param resultCollectStrategy result collector strategy, see [[RsCollectStrategy]]
+ * @param executeMode execution mode of flink job, see [[ExecMode]]
+ * @param remoteAddr  remote flink cluster rest endpoint when use [[ExecMode.REMOTE]]
+ * @param flinkConfig extra flink configuration
+ * @param rsCollectSt result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  *
  */
 case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
                       remoteAddr: Option[RemoteAddr] = None,
                       flinkConfig: Map[String, String] = Map.empty,
-                      resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default) extends CborSerializable {
+                      rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) extends CborSerializable {
 
   def toEffectiveExecConfig: EffectiveExecConfig = ExecConfig.convergeExecConfig(this)
 }
@@ -29,12 +29,12 @@ case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
 /**
  * Effective execution configuration of Flink interactive operation.
  *
- * @param flinkConfig       extra flink configuration
- * @param rsCollectStrategy result collector strategy, see [[RsCollectStrategy]]
+ * @param flinkConfig extra flink configuration
+ * @param rsCollectSt result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  */
 case class EffectiveExecConfig(flinkConfig: Map[String, String] = Map.empty,
-                               rsCollectStrategy: RsCollectStrategy = RsCollectStrategy.default)
+                               rsCollectSt: RsCollectStrategy = RsCollectStrategy.default)
 
 /**
  * Flink remote cluster address.
@@ -48,11 +48,11 @@ case class RemoteAddr(host: String, port: Int)
 /**
  * Strategy to collect result of Flink interactive operation.
  *
- * @param evictStrategy eviction strategy, see [[RsCollectStrategy]]
- * @param limit         result buffer size
+ * @param evictSt eviction strategy, see [[RsCollectStrategy]]
+ * @param limit   result buffer size
  * @author Al-assad
  */
-case class RsCollectStrategy(evictStrategy: EvictStrategy, limit: Int)
+case class RsCollectStrategy(evictSt: EvictStrategy, limit: Int)
 
 object RsCollectStrategy {
   val default: RsCollectStrategy = RsCollectStrategy(EvictStrategy.DROP_HEAD, 1000)
@@ -103,8 +103,8 @@ object ExecConfig {
    * Refer to [[ExecConfig]] for params details.
    */
   def localEnv(flinkConfig: Map[String, String] = Map.empty,
-               resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
-    ExecConfig(ExecMode.LOCAL, None, flinkConfig, resultCollectStrategy)
+               rsCollectSt: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
+    ExecConfig(ExecMode.LOCAL, None, flinkConfig, rsCollectSt)
 
   /**
    * Create a remote-execution environment config instance.
@@ -112,8 +112,8 @@ object ExecConfig {
    */
   def remoteEnv(remoteAddr: RemoteAddr,
                 flinkConfig: Map[String, String] = Map.empty,
-                resultCollectStrategy: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
-    ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, resultCollectStrategy)
+                rsCollectSt: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
+    ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, rsCollectSt)
 
   /**
    * Default flink configuration for interactive query scenario.
@@ -147,7 +147,7 @@ object ExecConfig {
       rsConf.toMap
     }
     // resultCollectStrategy
-    val collectStrategy = Option(config.resultCollectStrategy).getOrElse(RsCollectStrategy.default)
+    val collectStrategy = Option(config.rsCollectSt).getOrElse(RsCollectStrategy.default)
     EffectiveExecConfig(convergedConfig, collectStrategy)
   }
 
