@@ -63,7 +63,7 @@ object Tabulator {
       unfoldTable
     }
 
-  private def formatRow(row: Seq[Any], colSizes: Seq[Int]): String = row.zip(colSizes)
+  private def formatRow(row: Seq[String], colSizes: Seq[Int]): String = row.zip(colSizes)
     .map {
       case (_, size: Int) if size == 0 => ""
       case (item, size) => (" %-" + (size - CellPadding) + "s ").format(item)
