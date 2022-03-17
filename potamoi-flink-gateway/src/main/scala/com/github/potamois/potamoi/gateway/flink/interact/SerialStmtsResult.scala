@@ -27,7 +27,9 @@ case class SerialStmtsResult(result: Seq[SingleStmtResult], isFinished: Boolean,
        | => lastUpdated: ${lastTs.toDateTime.toString("yyyy-MM-dd HH:mm:ss.SSS")}
        | => isFinished: $isFinished
        |
-       |""".stripMargin.concat(result.zipWithIndex.map(e => s"[${e._2 + 1}] => " + e._1.toFriendlyString).mkString("\n\n"))
+       |""".stripMargin
+      .concat(result.zipWithIndex.map(e => s"[${e._2 + 1}] => " + e._1.toFriendlyString).mkString("\n\n"))
+      .concat("\n")
 }
 
 /**
