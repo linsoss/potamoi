@@ -80,6 +80,10 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   import ResultChangeEvent._
   import SqlSerialExecutor._
 
+  // todo config from hocon
+  // whether log the parsing statements error
+  private val logParseStmtErr = false
+
   // todo replace with standalone dispatcher
   implicit val ec = ctx.system.executionContext
   // running process
@@ -176,7 +180,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         // log result
         stmtRs.rs match {
           case Left(err) =>
-            ctx.log.error(s"session[$sessionId] ${err.summary}", err.stack)
+            if (logParseStmtErr) ctx.log.error(s"session[$sessionId] ${err.summary}", err.stack)
           case Right(result) => result match {
             case r: SubmitModifyOpDone => r.toFriendlyString
             case r: SubmitQueryOpDone => r.toFriendlyString
