@@ -5,6 +5,7 @@ import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy.EvictStr
 import com.github.potamois.potamoi.gateway.flink.interact.ExecMode.ExecMode
 
 import scala.collection.mutable
+import scala.language.implicitConversions
 
 /**
  * Flink interactive operation execution configuration.
@@ -45,6 +46,11 @@ case class EffectiveExecConfig(flinkConfig: Map[String, String] = Map.empty,
  */
 case class RemoteAddr(host: String, port: Int)
 
+object RemoteAddr {
+  // implicit conversion
+  implicit def toRemoteAddr(pair: (String, Int)): RemoteAddr = RemoteAddr(pair._1, pair._2)
+}
+
 /**
  * Strategy to collect result of Flink interactive operation.
  *
@@ -56,6 +62,9 @@ case class RsCollectStrategy(evictSt: EvictStrategy, limit: Int)
 
 object RsCollectStrategy {
   val default: RsCollectStrategy = RsCollectStrategy(EvictStrategy.DROP_HEAD, 1000)
+
+  // implicit conversion
+  implicit def toRsCollectStrategy(pair: (EvictStrategy, Int)): RsCollectStrategy = RsCollectStrategy(pair._1, pair._2)
 }
 
 /**
