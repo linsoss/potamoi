@@ -23,6 +23,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.{AbstractSeq, TraversableLike, mutable}
 import scala.compat.java8.OptionConverters.RichOptionalGeneric
+import scala.concurrent.ExecutionContextExecutor
 import scala.util.control.Breaks.{break, breakable}
 import scala.util.{Failure, Success, Try}
 
@@ -85,7 +86,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   private val logParseStmtErr = false
 
   // todo replace with standalone dispatcher
-  implicit val ec = ctx.system.executionContext
+  implicit val ec: ExecutionContextExecutor = ctx.system.executionContext
   // running process
   private var process: Option[CancellableFuture[Done]] = None
   // executed statements result buffer
@@ -104,9 +105,12 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         Behaviors.same
 
       case CancelCurProcess =>
-        process.foreach(_.cancel(interrupt = true))
-        ctx.log.info(s"session[$sessionId] current process cancelled.")
-        ctx.self ! ProcessFinished(ctx.system.ignoreRef)
+        if (process.isDefined) {
+          process.get.cancel(interrupt = true)
+          process = None
+          ctx.log.info(s"session[$sessionId] current process cancelled.")
+          ctx.self ! ProcessFinished(ctx.system.ignoreRef)
+        }
         Behaviors.same
 
       case ExecuteSqls(statements, props, replyTo) =>
@@ -195,6 +199,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
       val rowsBuffer: DataRowBuffer = strategy match {
         case RsCollectStrategy(EvictStrategy.DROP_HEAD, limit) => FiniteQueue[Row](limit)
         case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => new ArrayBuffer[Row](limit + 10)
+        case _ => new ArrayBuffer[Row]()
       }
       queryRsBuffer = Some(QueryRsBuffer(rows = rowsBuffer, startTs = curTs))
       Behaviors.same
@@ -300,7 +305,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
     implicit val flinkCtx: FlinkContext = createFlinkContext(effectProps.flinkConfig)
     // parse and execute sql statements
     execImmediateOpsAndStashNonImmediateOps(stmts) match {
-      case Left(done) => Done
+      case Left(_) => Done
       case Right(stashOp) => if (stashOp.isEmpty) Done else execStashedOps(stashOp, effectProps.rsCollectSt)
     }
   }
@@ -397,6 +402,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
               case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => iter.asScala.take(limit.min(limitRex.getOrElse(Int.MaxValue)))
               case RsCollectStrategy(EvictStrategy.DROP_HEAD, _) =>
                 if (limitRex.isDefined) iter.asScala.take(limitRex.get) else iter.asScala
+              case _ => iter.asScala
             }
             stream.foreach(row => ctx.self ! CollectQueryOpRow(FlinkApiCovertTool.covertRow(row)))
           } match {
