@@ -20,6 +20,8 @@ import scala.concurrent.duration.DurationInt
  *
  * What's more, when running remote flink cluster test cases, it requires a
  * flink cluster that already exists.
+ *
+ * @author Al-assad
  */
 class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) with STAkkaSpec {
 
@@ -482,7 +484,8 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
         |    f_random int,
         |    f_random_str string
         |  ) with (
-        |    'connector' = 'datagen'
+        |    'connector' = 'datagen',
+        |     'rows-per-second'='3'
         |  );
         |select * from datagen_source;
         |""".stripMargin
@@ -491,15 +494,19 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
     "rejects another execution plan when the current plan is running" in {
       val executor = newExecutor
-      executor ! ExecuteSqls(sql, prop, system.ignoreRef)
+      executor ! SubscribeState(spawn(RsEventChangePrinter("114514", printEachRowReceived = true)))
+      val probe = TestProbe[RejectableDone]
+      executor ! ExecuteSqls(sql, prop, probe.ref)
       probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) receivePF {
         case Left(reject) => reject.isInstanceOf[BusyInProcess] shouldBe true
         case _ => fail
       }
+      executor ! CancelCurProcess
     }
 
     "cancel the current execution plan process" in {
       val executor = newExecutor
+      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       executor ! CancelCurProcess
       val probe = TestProbe[Boolean]()
@@ -510,6 +517,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
     "test execute -> cancel -> execute process" in {
       val executor = newExecutor
+      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
       // execute
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       // be rejected
@@ -519,17 +527,14 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           log.info(reject.asInstanceOf[BusyInProcess].reason)
         case _ => fail
       }
-      // todo bug can not receive cancel command
-      //      probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(true)
-      //      // cancel
-      sleep(5.seconds)
+      probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(true)
+      // cancel
       executor ! CancelCurProcess
-      sleep(10.seconds)
-      //      probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(false)
-      //      // execute
-      //      executor ! ExecuteSqls(sql, prop, system.ignoreRef)
-      //      probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(true)
-      //      executor ! CancelCurProcess
+      probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(false)
+      // execute
+      executor ! ExecuteSqls(sql, prop, system.ignoreRef)
+      probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(true)
+      executor ! CancelCurProcess
     }
 
   }
