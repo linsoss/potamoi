@@ -2,6 +2,7 @@ package com.github.potamois.potamoi.commons
 
 import com.github.potamois.potamoi.testkit.STSpec
 
+import scala.collection.mutable
 import scala.util.Try
 
 /**
@@ -62,22 +63,22 @@ class PackageToolSpec extends STSpec {
 
 
   "RichMap" should {
-    "softSet" in {
-      var map = Map("a" -> 1, "b" -> 2)
-      map.softSet("a", 3) shouldBe Map("a" -> 1, "b" -> 2)
-      map.softSet("c", 3) shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
-
-      map = Map("a" -> 1, "b" -> 2)
-      map.softSet("a" -> 3) shouldBe Map("a" -> 1, "b" -> 2)
-      map.softSet("c" -> 3) shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
-
-      map = Map("a" -> 1, "b" -> 2)
-      map ?+ ("a", 3) shouldBe Map("a" -> 1, "b" -> 2)
-      map ?+ ("c", 3) shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
-
-      map = Map("a" -> 1, "b" -> 2)
+    "softSet for Immutable Map" in {
+      val map = Map("a" -> 1, "b" -> 2)
       map ?+ ("a" -> 3) shouldBe Map("a" -> 1, "b" -> 2)
       map ?+ ("c" -> 3) shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
+    }
+    "softSet for Mutable Map" in {
+      var map = mutable.Map("a" -> 1, "b" -> 2)
+      map ?+= "a" -> 3
+      map shouldBe Map("a" -> 1, "b" -> 2)
+      map ?+= "c" -> 3
+      map shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
+
+      // chain
+      map = mutable.Map("a" -> 1, "b" -> 2)
+      map ?+= "a" -> 3 ?+= "c" -> 3 += "d" -> 5
+      map shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3, "d" -> 5)
     }
   }
 

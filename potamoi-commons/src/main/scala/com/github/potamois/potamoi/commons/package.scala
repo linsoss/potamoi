@@ -1,6 +1,7 @@
 package com.github.potamois.potamoi
 
 import java.io.{PrintWriter, StringWriter}
+import scala.collection.mutable
 import scala.util.Try
 
 /**
@@ -57,27 +58,20 @@ package object commons {
    * Enhancement for [[Map]]
    */
   implicit class RichMap[K, V](map: Map[K, V]) {
-
     /**
-     * When the map does not contain a key, set the value,
-     * otherwise return the original map.
+     * When the map does not contain a key, set the value, otherwise return the original map.
      */
-    def softSet(key: K, value: V): Map[K, V] = if (map.contains(key)) map else map + (key -> value)
+    def ?+(kv: (K, V)): Map[K, V] = if (map.contains(kv._1)) map else map + kv
+  }
 
+  /**
+   * Enhancement for [[mutable.Map]]
+   */
+  implicit class RichMutableMap[K, V](map: mutable.Map[K, V]) {
     /**
-     * see [[softSet]]
+     * When the map does not contain a key, set the value, otherwise return the original map.
      */
-    def softSet(kv: (K, V)): Map[K, V] = softSet(kv._1, kv._2)
-
-    /**
-     * see [[softSet]]
-     */
-    def ?+(key: K, value: V): Map[K, V] = softSet(key, value)
-
-    /**
-     * see [[softSet]]
-     */
-    def ?+(kv: (K, V)): Map[K, V] = softSet(kv._1, kv._2)
+    def ?+=(kv: (K, V)): mutable.Map[K, V] = if (map.contains(kv._1)) map else map += kv
   }
 
 
