@@ -24,10 +24,12 @@ object RsEventChangePrinter {
       val log = ctx.log
       msg match {
 
-        case AcceptStmtsExecPlan(stmts) => log.info(
+        case AcceptStmtsExecPlan(stmts, flinkConfig) => log.info(
           s"""@Receive[$sessionId] AcceptStmtsExecPlan => executor accepted a new statements plan.
+             |flink-config:
+             |${flinkConfig.map(e => s"  ${e._1} = ${e._2}").mkString("\n")}
              |stmts:
-             |${stmts.map(_.compact).mkString("\n")}"
+             |${stmts.map(e => s"  ${e.compact}").mkString("\n")}"
              |""".stripMargin)
           Behaviors.same
 
@@ -58,10 +60,11 @@ object RsEventChangePrinter {
             .concat("\n"))
           Behaviors.same
 
-        case SubmitJobToFlinkCluster(opType, jobId) => log.info(
+        case SubmitJobToFlinkCluster(opType, jobId, jobName) => log.info(
           s"""@Receive[$sessionId] SubmitJobToFlinkCluster => submit a flink job to flink cluster.
              |opType: $opType
              |jobId: $jobId
+             |jobName: $jobName
              |""".stripMargin)
           Behaviors.same
 

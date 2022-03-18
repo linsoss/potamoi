@@ -92,6 +92,12 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   // Cancelable process log, Plz use this log when it need to output logs inside CancelableFuture
   private val pcLog: Logger = Logger(getClass)
 
+  // result change topic
+  protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] = ctx.spawn(Topic[ResultChange](
+    topicName = s"potamoi-fsi-exec-$sessionId"),
+    name = s"potamoi-fsi-exec-topic-$sessionId"
+  )
+
   // running process
   private var process: Option[CancellableFuture[Done]] = None
   // executed statements result buffer
@@ -101,11 +107,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   // hook flink job client for force cancel job if necessary
   private var jobClientHook: Option[JobClient] = None
 
-  // result change topic
-  protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] = ctx.spawn(Topic[ResultChange](
-    topicName = s"potamoi-fsi-exec-$sessionId"),
-    name = s"potamoi-fsi-exec-topic-$sessionId"
-  )
+  // default flink job name
+  protected val defaultJobName = s"potamoi-fsi-$sessionId"
 
   def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
     case IsInProcess(replyTo) =>
@@ -139,11 +142,11 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           // force attached mode on
           conf ++= Map("execution.attached" -> "true", "execution.shutdown-on-attached-exit" -> "true")
           // set flink job name
-          conf ?+= "pipeline.name" -> s"potamoi-fsi-$sessionId"
+          conf ?+= "pipeline.name" -> defaultJobName
         }
         // split sql statements and execute each one
         val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
-        rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan))
+        rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan, effectProps.flinkConfig))
 
         stmtsPlan match {
           case stmts if stmts.isEmpty =>
@@ -172,6 +175,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
 
   }.receiveSignal {
     case (context, PostStop) =>
+      // release resources before stop
       process.foreach { ps =>
         ps.cancel(true)
         context.log.info(s"SqlSerialExecutor[$sessionId] interrupt the running statements execution process.")
@@ -381,7 +385,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
 
           val jobId: Option[String] = jobClient.map(_.getJobID.toString)
           ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmts, SubmitModifyOpDone(jobId.get)))
-          rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.MODIFY, jobId.get))
+          rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.MODIFY, jobId.get, defaultJobName))
           // blocking until the insert operation job is finished
           jobClient.get.getJobExecutionResult.get()
           Done
@@ -401,7 +405,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           val jobId: Option[String] = jobClient.map(_.getJobID.toString)
           ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, SubmitQueryOpDone(jobId.get)))
           ctx.self ! InitQueryRsBuffer(rsCollStrategy)
-          rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.QUERY, jobId.get))
+          rsChangeTopic ! Topic.Publish(SubmitJobToFlinkCluster(OpType.QUERY, jobId.get, defaultJobName))
 
           val cols = FlinkApiCovertTool.extractSchema(tableResult)
           ctx.self ! CollectQueryOpColsRs(cols)

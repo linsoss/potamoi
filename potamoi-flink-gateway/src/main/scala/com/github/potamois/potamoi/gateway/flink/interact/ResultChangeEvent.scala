@@ -20,9 +20,10 @@ object ResultChangeEvent {
   /**
    * Executor accepts a new sql statements execution plan request
    *
-   * @param stmts sql statements that has been split
+   * @param stmts       sql statements that has been split
+   * @param flinkConfig the effective flink configuration
    */
-  final case class AcceptStmtsExecPlan(stmts: Seq[String]) extends ResultChange
+  final case class AcceptStmtsExecPlan(stmts: Seq[String], flinkConfig: Map[String, String]) extends ResultChange
 
   /**
    * Executor rejects a new sql statements execution plan request
@@ -57,10 +58,11 @@ object ResultChangeEvent {
    * A flink job is committed to a remote or local flink cluster during execution,
    * which happens in a statement of type ModifyOperation or QueryOperation.
    *
-   * @param op    operation type
-   * @param jobId flink job id
+   * @param op      operation type
+   * @param jobId   flink job id
+   * @param jobName job name
    */
-  final case class SubmitJobToFlinkCluster(op: OpType, jobId: String) extends ResultChange
+  final case class SubmitJobToFlinkCluster(op: OpType, jobId: String, jobName: String) extends ResultChange
 
   /**
    * Receive new TableResult columns meta information when QueryOperation is executed.
