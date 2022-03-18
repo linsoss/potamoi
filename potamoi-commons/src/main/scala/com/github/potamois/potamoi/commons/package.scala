@@ -35,7 +35,6 @@ package object commons {
     def foldIdentity(func: Throwable => T): T = t.fold(func, identity)
   }
 
-
   /**
    * Enhancement for [[Throwable]]
    */
@@ -53,5 +52,33 @@ package object commons {
       }
     }
   }
+
+  /**
+   * Enhancement for [[Map]]
+   */
+  implicit class RichMap[K, V](map: Map[K, V]) {
+
+    /**
+     * When the map does not contain a key, set the value,
+     * otherwise return the original map.
+     */
+    def softSet(key: K, value: V): Map[K, V] = if (map.contains(key)) map else map + (key -> value)
+
+    /**
+     * see [[softSet]]
+     */
+    def softSet(kv: (K, V)): Map[K, V] = softSet(kv._1, kv._2)
+
+    /**
+     * see [[softSet]]
+     */
+    def ?+(key: K, value: V): Map[K, V] = softSet(key, value)
+
+    /**
+     * see [[softSet]]
+     */
+    def ?+(kv: (K, V)): Map[K, V] = softSet(kv._1, kv._2)
+  }
+
 
 }

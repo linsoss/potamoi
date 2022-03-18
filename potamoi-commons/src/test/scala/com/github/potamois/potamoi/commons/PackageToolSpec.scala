@@ -60,4 +60,25 @@ class PackageToolSpec extends STSpec {
     }
   }
 
+
+  "RichMap" should {
+    "softSet" in {
+      var map = Map("a" -> 1, "b" -> 2)
+      map.softSet("a", 3) shouldBe Map("a" -> 1, "b" -> 2)
+      map.softSet("c", 3) shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
+
+      map = Map("a" -> 1, "b" -> 2)
+      map.softSet("a" -> 3) shouldBe Map("a" -> 1, "b" -> 2)
+      map.softSet("c" -> 3) shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
+
+      map = Map("a" -> 1, "b" -> 2)
+      map ?+ ("a", 3) shouldBe Map("a" -> 1, "b" -> 2)
+      map ?+ ("c", 3) shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
+
+      map = Map("a" -> 1, "b" -> 2)
+      map ?+ ("a" -> 3) shouldBe Map("a" -> 1, "b" -> 2)
+      map ?+ ("c" -> 3) shouldBe Map("a" -> 1, "b" -> 2, "c" -> 3)
+    }
+  }
+
 }
