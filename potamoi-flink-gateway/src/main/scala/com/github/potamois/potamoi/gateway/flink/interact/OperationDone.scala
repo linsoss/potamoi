@@ -4,6 +4,8 @@ import com.github.potamois.potamoi.commons.CborSerializable
 
 /**
  * Flink sql serial operation execution result trait
+ *
+ * @author Al-assad
  */
 trait OperationDone extends CborSerializable
 
