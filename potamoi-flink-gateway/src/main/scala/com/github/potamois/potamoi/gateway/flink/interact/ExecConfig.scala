@@ -140,8 +140,6 @@ object ExecConfig {
   /**
    * Converge effective configuration from ExecConfig to EffectiveExecConfig especially
    * for flink configuration.
-   *
-   * @param config should not be null
    */
   def convergeExecConfig(config: ExecConfig): EffectiveExecConfig = {
     // flink config
