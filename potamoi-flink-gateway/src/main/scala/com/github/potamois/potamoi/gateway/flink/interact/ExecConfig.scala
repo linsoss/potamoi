@@ -133,6 +133,7 @@ object ExecConfig {
 
   /**
    * Default flink configuration for interactive query scenario.
+   * todo support for configuration from hocon
    */
   lazy val DEFAULT_FLINK_CONFIG: Map[String, String] = Map("rest.retry.max-attempts" -> "1")
 
