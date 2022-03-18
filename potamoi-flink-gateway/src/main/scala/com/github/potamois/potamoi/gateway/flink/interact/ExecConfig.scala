@@ -35,7 +35,14 @@ case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
  * @author Al-assad
  */
 case class EffectiveExecConfig(flinkConfig: Map[String, String] = Map.empty,
-                               rsCollectSt: RsCollectStrategy = RsCollectStrategy.default)
+                               rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) {
+  // update flink config
+  def updateFlinkConfig(updated: mutable.Map[String, String] => Unit): EffectiveExecConfig = {
+    val tmpMap = mutable.Map(flinkConfig.toSeq: _*)
+    updated(tmpMap)
+    copy(flinkConfig = tmpMap.toMap)
+  }
+}
 
 /**
  * Flink remote cluster address.
@@ -127,11 +134,7 @@ object ExecConfig {
   /**
    * Default flink configuration for interactive query scenario.
    */
-  lazy val DEFAULT_FLINK_CONFIG = Map(
-    "rest.retry.max-attempts" -> "1",
-    "execution.attached" -> "true",
-    "execution.shutdown-on-attached-exit" -> "true"
-  )
+  lazy val DEFAULT_FLINK_CONFIG: Map[String, String] = Map("rest.retry.max-attempts" -> "1")
 
   /**
    * Converge effective configuration from ExecConfig to EffectiveExecConfig especially

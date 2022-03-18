@@ -4,7 +4,7 @@ import akka.Done
 import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
-import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichString, RichTry, Using, curTs}
+import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser
@@ -30,6 +30,9 @@ import scala.util.{Failure, Success, Try}
 
 /**
  * Flink sqls serial executor actor.
+ *
+ * The format of the submitted flink job name is "potamoi-fsi-{sessionId}"
+ * such as "potamoi-fsi-1234567890"
  *
  * @author Al-assad
  */
@@ -86,7 +89,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   // Execution context for CancelableFuture
   // todo replace with standalone dispatcher
   implicit val ec: ExecutionContextExecutor = ctx.system.executionContext
-  // Cancelable process log, Plz use this log when need to output logs in CancelableFuture
+  // Cancelable process log, Plz use this log when it need to output logs inside CancelableFuture
   private val pcLog: Logger = Logger(getClass)
 
   // running process
@@ -99,76 +102,85 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   private var jobClientHook: Option[JobClient] = None
 
   // result change topic
-  protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] =
-    ctx.spawn(Topic[ResultChange](topicName = s"flink-sql-executor-rs-$sessionId"), name = s"flink-sql-executor-rs-topic-$sessionId")
+  protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] = ctx.spawn(Topic[ResultChange](
+    topicName = s"potamoi-fsi-exec-$sessionId"),
+    name = s"potamoi-fsi-exec-topic-$sessionId"
+  )
 
-  def action(): Behavior[Command] = Behaviors
-    .receiveMessage[Command] {
-      case IsInProcess(replyTo) =>
-        replyTo ! process.isDefined
-        Behaviors.same
+  def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
+    case IsInProcess(replyTo) =>
+      replyTo ! process.isDefined
+      Behaviors.same
 
-      case CancelCurProcess =>
-        if (process.isDefined) {
-          process.get.cancel(interrupt = true)
-          process = None
-          ctx.log.info(s"session[$sessionId] current process cancelled.")
-          ctx.self ! ProcessFinished(ctx.system.ignoreRef)
-        }
-        Behaviors.same
-
-      case ExecuteSqls(statements, props, replyTo) => process match {
-        // when the previous statements execution process has not been done,
-        // it's not allowed to execute new operation.
-        case Some(_) =>
-          val rejectReason = BusyInProcess(
-            "The executor is busy in process, please cancel it first or wait until it is complete",
-            rsBuffer.map(_.startTs).get)
-          rsChangeTopic ! Topic.Publish(RejectStmtsExecPlan(statements, rejectReason))
-          replyTo ! Left(rejectReason)
-          Behaviors.same
-
-        case None =>
-          // extract effective execution config, split sql statements and execute each one.
-          val effectProps = props.toEffectiveExecConfig
-          val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
-          rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan))
-          stmtsPlan match {
-            case stmts if stmts.isEmpty =>
-              replyTo ! Right(Done)
-            case stmts =>
-              // reset result buffer
-              rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
-              queryRsBuffer = None
-              // parse and execute statements in cancelable future
-              process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
-              ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
-          }
-          Behaviors.same
+    case CancelCurProcess =>
+      if (process.isDefined) {
+        process.get.cancel(interrupt = true)
+        process = None
+        ctx.log.info(s"session[$sessionId] current process cancelled.")
+        ctx.self ! ProcessFinished(ctx.system.ignoreRef)
       }
+      Behaviors.same
 
-      case SubscribeState(listener) =>
-        rsChangeTopic ! Topic.Subscribe(listener)
+    case ExecuteSqls(statements, props, replyTo) => process match {
+      // when the previous statements execution process has not been done,
+      // it's not allowed to execute new operation.
+      case Some(_) =>
+        val rejectReason = BusyInProcess(
+          "The executor is busy in process, please cancel it first or wait until it is complete",
+          rsBuffer.map(_.startTs).get
+        )
+        rsChangeTopic ! Topic.Publish(RejectStmtsExecPlan(statements, rejectReason))
+        replyTo ! Left(rejectReason)
         Behaviors.same
 
-      case UnsubscribeState(listener) =>
-        rsChangeTopic ! Topic.Unsubscribe(listener)
-        Behaviors.same
-
-      case cmd: Internal => internalBehavior(cmd)
-      case cmd: QueryResult => queryResultBehavior(cmd)
-    }
-    .receiveSignal {
-      case (context, PostStop) =>
-        process.foreach { ps =>
-          ps.cancel(true)
-          context.log.info(s"SqlSerialExecutor[$sessionId] interrupt the running statements execution process.")
+      case None =>
+        // extract effective execution config
+        val effectProps = props.toEffectiveExecConfig.updateFlinkConfig { conf =>
+          // force attached mode on
+          conf ++= Map("execution.attached" -> "true", "execution.shutdown-on-attached-exit" -> "true")
+          // set flink job name
+          conf ?+= "pipeline.name" -> s"potamoi-fsi-$sessionId"
         }
-        Try(jobClientHook.map(_.cancel))
-          .failed.foreach(ctx.log.error(s"session[$sessionId] Fail to cancel from Flink JobClient.", _))
-        context.log.info(s"SqlSerialExecutor[$sessionId] stopped.")
+        // split sql statements and execute each one
+        val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
+        rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan))
+
+        stmtsPlan match {
+          case stmts if stmts.isEmpty =>
+            replyTo ! Right(Done)
+          case stmts =>
+            // reset result buffer
+            rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
+            queryRsBuffer = None
+            // parse and execute statements in cancelable future
+            process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
+            ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
+        }
         Behaviors.same
     }
+
+    case SubscribeState(listener) =>
+      rsChangeTopic ! Topic.Subscribe(listener)
+      Behaviors.same
+
+    case UnsubscribeState(listener) =>
+      rsChangeTopic ! Topic.Unsubscribe(listener)
+      Behaviors.same
+
+    case cmd: Internal => internalBehavior(cmd)
+    case cmd: QueryResult => queryResultBehavior(cmd)
+
+  }.receiveSignal {
+    case (context, PostStop) =>
+      process.foreach { ps =>
+        ps.cancel(true)
+        context.log.info(s"SqlSerialExecutor[$sessionId] interrupt the running statements execution process.")
+      }
+      Try(jobClientHook.map(_.cancel))
+        .failed.foreach(ctx.log.error(s"session[$sessionId] Fail to cancel from Flink JobClient.", _))
+      context.log.info(s"SqlSerialExecutor[$sessionId] stopped.")
+      Behaviors.same
+  }
 
 
   /**
@@ -455,14 +467,13 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
     def lastOpType: OpType = result.lastOption.map(_.opType).getOrElse(OpType.UNKNOWN)
 
     // convert to SerialStmtsResult
-    def toSerialStmtsResult(finished: Boolean): SerialStmtsResult =
-      SerialStmtsResult(
-        result = Seq(result: _*),
-        isFinished = finished,
-        lastOpType = lastOpType,
-        startTs = startTs,
-        lastTs = lastTs
-      )
+    def toSerialStmtsResult(finished: Boolean): SerialStmtsResult = SerialStmtsResult(
+      result = Seq(result: _*),
+      isFinished = finished,
+      lastOpType = lastOpType,
+      startTs = startTs,
+      lastTs = lastTs
+    )
   }
 
   private type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]] with TraversableLike[Row, AbstractSeq[Row]]
