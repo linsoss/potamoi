@@ -8,6 +8,9 @@ import com.github.potamois.potamoi.gateway.flink.Error
  * the subscribers can select to receive from the following list of [[ResultChangeEvent]] as
  * needed.
  *
+ * There is a default implementation [[RsEventChangePrinter]], it can be used to receive events
+ * in debugging scenario.
+ *
  * @author Al-assad
  */
 sealed trait ResultChange
