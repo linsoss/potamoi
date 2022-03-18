@@ -44,11 +44,11 @@ object SqlSerialExecutor {
   /**
    * Subscribe the result change events from this executor, see [[ResultChange]].
    */
-  final case class SubscribeResult(listener: ActorRef[ResultChange]) extends Command
+  final case class SubscribeState(listener: ActorRef[ResultChange]) extends Command
   /**
    * Unsubscribe the result change events from this executor.
    */
-  final case class UnsubscribeResult(listener: ActorRef[ResultChange]) extends Command
+  final case class UnsubscribeState(listener: ActorRef[ResultChange]) extends Command
 
   // Query result command
   sealed trait QueryResult extends Command
@@ -141,11 +141,11 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         }
         Behaviors.same
 
-      case SubscribeResult(listener) =>
+      case SubscribeState(listener) =>
         rsChangeTopic ! Topic.Subscribe(listener)
         Behaviors.same
 
-      case UnsubscribeResult(listener) =>
+      case UnsubscribeState(listener) =>
         rsChangeTopic ! Topic.Unsubscribe(listener)
         Behaviors.same
 
