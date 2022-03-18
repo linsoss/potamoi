@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import com.github.potamois.potamoi.commons.CborSerializable
+import com.github.potamois.potamoi.commons.{CborSerializable, RichMutableMap}
 import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy.EvictStrategy
 import com.github.potamois.potamoi.gateway.flink.interact.ExecMode.ExecMode
 
@@ -148,8 +148,8 @@ object ExecConfig {
     val convergedConfig = {
       // base on default flink config
       val rsConf = mutable.Map(DEFAULT_FLINK_CONFIG.toSeq: _*)
-      // set execution mode
-      if (config.executeMode != null) rsConf += "execution.target" -> config.executeMode.toString
+      // soft set execution mode
+      rsConf ?+= "execution.target" -> config.executeMode.toString
       // set remote address
       config.remoteAddr.foreach { addr =>
         rsConf += "rest.address" -> addr.host
@@ -157,6 +157,10 @@ object ExecConfig {
       }
       // override with user-defined flink config
       rsConf ++= config.flinkConfig
+      // force attached mode on
+      rsConf ++= Map(
+        "execution.attached" -> "true",
+        "execution.shutdown-on-attached-exit" -> "true")
       rsConf.toMap
     }
     // resultCollectStrategy

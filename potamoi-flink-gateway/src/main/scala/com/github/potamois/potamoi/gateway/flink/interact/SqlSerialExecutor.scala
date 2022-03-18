@@ -139,8 +139,6 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
       case None =>
         // extract effective execution config
         val effectProps = props.toEffectiveExecConfig.updateFlinkConfig { conf =>
-          // force attached mode on
-          conf ++= Map("execution.attached" -> "true", "execution.shutdown-on-attached-exit" -> "true")
           // set flink job name
           conf ?+= "pipeline.name" -> defaultJobName
         }

@@ -16,6 +16,8 @@ class ExecConfigSpec extends STSpec {
         ExecConfig.DEFAULT_FLINK_CONFIG ++ Map(
           "rest.port" -> "8088",
           "rest.address" -> "111.111.111.111",
+          "execution.attached" -> "true",
+          "execution.shutdown-on-attached-exit" -> "true",
           "execution.target" -> "remote"),
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
@@ -28,7 +30,9 @@ class ExecConfigSpec extends STSpec {
       )
       config.toEffectiveExecConfig shouldBe EffectiveExecConfig(
         ExecConfig.DEFAULT_FLINK_CONFIG ++ Map(
-          "execution.target" -> "local"),
+          "execution.target" -> "local",
+          "execution.attached" -> "true",
+          "execution.shutdown-on-attached-exit" -> "true"),
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
     }
@@ -49,7 +53,9 @@ class ExecConfigSpec extends STSpec {
           "rest.address" -> "111.111.111.111",
           "execution.target" -> "local",
           "pipeline.auto-generate-uids" -> "false",
-          "pipeline.name" -> "test-pipeline"),
+          "pipeline.name" -> "test-pipeline",
+          "execution.attached" -> "true",
+          "execution.shutdown-on-attached-exit" -> "true"),
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
     }
