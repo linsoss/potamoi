@@ -9,6 +9,7 @@ import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser
 import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, PageReq, PageRsp, interact}
+import com.typesafe.scalalogging.Logger
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.core.execution.JobClient
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
@@ -82,8 +83,12 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   import ResultChangeEvent._
   import SqlSerialExecutor._
 
+  // Execution context for CancelableFuture
   // todo replace with standalone dispatcher
   implicit val ec: ExecutionContextExecutor = ctx.system.executionContext
+  // Cancelable process log, Plz use this log when need to output logs in CancelableFuture
+  private val pcLog: Logger = Logger(getClass)
+
   // running process
   private var process: Option[CancellableFuture[Done]] = None
   // executed statements result buffer
@@ -104,7 +109,6 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         Behaviors.same
 
       case CancelCurProcess =>
-        ctx.log.info("Cancel current process.")
         if (process.isDefined) {
           process.get.cancel(interrupt = true)
           process = None
@@ -113,33 +117,35 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         }
         Behaviors.same
 
-      case ExecuteSqls(statements, props, replyTo) =>
+      case ExecuteSqls(statements, props, replyTo) => process match {
         // when the previous statements execution process has not been done,
         // it's not allowed to execute new operation.
-        if (process.isDefined) {
+        case Some(_) =>
           val rejectReason = BusyInProcess(
             "The executor is busy in process, please cancel it first or wait until it is complete",
             rsBuffer.map(_.startTs).get)
           rsChangeTopic ! Topic.Publish(RejectStmtsExecPlan(statements, rejectReason))
           replyTo ! Left(rejectReason)
-          return Behaviors.same
-        }
-        // extract effective execution config, split sql statements and execute each one.
-        val effectProps = props.toEffectiveExecConfig
-        val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
-        rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan))
-        stmtsPlan match {
-          case stmts if stmts.isEmpty =>
-            replyTo ! Right(Done)
-          case stmts =>
-            // reset result buffer
-            rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
-            queryRsBuffer = None
-            // parse and execute statements in cancelable future
-            process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
-            ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
-        }
-        Behaviors.same
+          Behaviors.same
+
+        case None =>
+          // extract effective execution config, split sql statements and execute each one.
+          val effectProps = props.toEffectiveExecConfig
+          val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
+          rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan))
+          stmtsPlan match {
+            case stmts if stmts.isEmpty =>
+              replyTo ! Right(Done)
+            case stmts =>
+              // reset result buffer
+              rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
+              queryRsBuffer = None
+              // parse and execute statements in cancelable future
+              process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
+              ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
+          }
+          Behaviors.same
+      }
 
       case SubscribeState(listener) =>
         rsChangeTopic ! Topic.Subscribe(listener)
