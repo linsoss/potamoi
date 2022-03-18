@@ -39,6 +39,9 @@ import scala.util.{Failure, Success, Try}
 object SqlSerialExecutor {
 
   type RejectableDone = Either[ExecReqReject, Done]
+  type ExecutionPlanResult = Option[SerialStmtsResult]
+  type QueryResult = Option[TableResultSnapshot]
+  type PageQueryResult = Option[PageableTableResultSnapshot]
 
   sealed trait Command
   final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[RejectableDone]) extends Command
@@ -55,13 +58,13 @@ object SqlSerialExecutor {
   final case class UnsubscribeState(listener: ActorRef[ResultChange]) extends Command
 
   // Query result command
-  sealed trait QueryResult extends Command
+  sealed trait GetQueryResult extends Command
   // Get the snapshot result of current sqls plan that has been executed.
-  final case class GetExecPlanRsSnapshot(replyTo: ActorRef[Option[SerialStmtsResult]]) extends QueryResult
+  final case class GetExecPlanRsSnapshot(replyTo: ActorRef[ExecutionPlanResult]) extends GetQueryResult
   // Get the snapshot TableResult that has been collected.
-  final case class GetQueryRsSnapshot(limit: Int = -1, replyTo: ActorRef[Option[TableResultSnapshot]]) extends QueryResult
+  final case class GetQueryRsSnapshot(limit: Int = -1, replyTo: ActorRef[QueryResult]) extends GetQueryResult
   // Get the snapshot collected TableResult by pagination.
-  final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[Option[PageableTableResultSnapshot]]) extends QueryResult
+  final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[PageQueryResult]) extends GetQueryResult
 
 
   sealed trait Internal extends Command
@@ -169,7 +172,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
       Behaviors.same
 
     case cmd: Internal => internalBehavior(cmd)
-    case cmd: QueryResult => queryResultBehavior(cmd)
+    case cmd: GetQueryResult => queryResultBehavior(cmd)
 
   }.receiveSignal {
     case (context, PostStop) =>
@@ -253,7 +256,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   /**
    * [[QueryResult]] command received behavior
    */
-  private def queryResultBehavior(command: QueryResult): Behavior[Command] = command match {
+  private def queryResultBehavior(command: GetQueryResult): Behavior[Command] = command match {
 
     case GetExecPlanRsSnapshot(replyTo) =>
       val snapshot = rsBuffer.map(_.toSerialStmtsResult(process.isEmpty))

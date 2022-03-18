@@ -65,7 +65,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
         probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(true)
       }.expectMessage(30.seconds, Right(Done))
 
-      probeRef[Option[SerialStmtsResult]](executor ! GetExecPlanRsSnapshot(_))
+      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
         .receivePF {
           case None => fail
           case Some(r) =>
@@ -102,7 +102,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
       probeRef[RejectableDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(30.seconds, Right(Done))
 
-      probeRef[Option[SerialStmtsResult]](executor ! GetExecPlanRsSnapshot(_))
+      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
         .receivePF {
           case None => fail
           case Some(r) =>
@@ -140,7 +140,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
         executor ! CancelCurProcess
       }.expectMessage(30.seconds, Right(Done))
 
-      probeRef[Option[SerialStmtsResult]](executor ! GetExecPlanRsSnapshot(_))
+      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
         .receivePF {
           case None => fail
           case Some(r) =>
@@ -169,7 +169,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
         executor ! ExecuteSqls(sqls, props.copy(rsCollectSt = DROP_TAIL -> 25), ref)
       }.expectMessage(30.seconds, Right(Done))
       // check SerialStmtsResult
-      probeRef[Option[SerialStmtsResult]](executor ! GetExecPlanRsSnapshot(_))
+      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
         .receivePF {
           case None => fail
           case Some(r) =>
@@ -180,7 +180,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
             logSilent(r.toFriendlyString)
         }
       // check table result of query operation
-      probeRef[Option[TableResultSnapshot]](executor ! GetQueryRsSnapshot(-1, _))
+      probeRef[QueryResult](executor ! GetQueryRsSnapshot(-1, _))
         .receivePF {
           case None => fail
           case Some(s) =>
@@ -208,7 +208,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
         executor ! ExecuteSqls(sqls, props.copy(rsCollectSt = DROP_TAIL -> 25), _)
       }.expectMessage(30.seconds, Right(Done))
 
-      probeRef[Option[TableResultSnapshot]](executor ! GetQueryRsSnapshot(-1, _))
+      probeRef[QueryResult](executor ! GetQueryRsSnapshot(-1, _))
         .receivePF {
           case None => fail
           case Some(s) =>
@@ -235,7 +235,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
       probeRef[RejectableDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(25.seconds, Right(Done))
 
-      probeRef[Option[SerialStmtsResult]](executor ! GetExecPlanRsSnapshot(_)).receivePF {
+      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_)).receivePF {
         case None => fail
         case Some(r) =>
           r.result.size shouldBe 1
@@ -276,11 +276,11 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
         executor ! ExecuteSqls(sqls, prop, _)
       }.expectMessage(30.seconds, Right(Done))
 
-      probeRef[Option[TableResultSnapshot]](executor ! GetQueryRsSnapshot(8, _)).receivePF {
+      probeRef[QueryResult](executor ! GetQueryRsSnapshot(8, _)).receivePF {
         case None => fail
         case Some(rs) => rs.data.rows.size shouldBe 8
       }
-      probeRef[Option[TableResultSnapshot]](executor ! GetQueryRsSnapshot(100, _)).receivePF {
+      probeRef[QueryResult](executor ! GetQueryRsSnapshot(100, _)).receivePF {
         case None => fail
         case Some(rs) => rs.data.rows.size shouldBe 30
       }
@@ -294,7 +294,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       }.expectMessage(30.seconds, Right(Done))
 
       // normal page
-      probeRef[Option[PageableTableResultSnapshot]] { ref =>
+      probeRef[PageQueryResult] { ref =>
         executor ! GetQueryRsSnapshotByPage(PageReq(0, 10), ref)
       }.receivePF {
         case None => fail
@@ -312,7 +312,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       }
 
       // over page size
-      probeRef[Option[PageableTableResultSnapshot]](executor ! GetQueryRsSnapshotByPage(PageReq(40, 10), _)).receivePF {
+      probeRef[PageQueryResult](executor ! GetQueryRsSnapshotByPage(PageReq(40, 10), _)).receivePF {
         case None => fail
         case Some(rs) =>
           rs.error shouldBe None
@@ -328,7 +328,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       }
 
       // last page
-      probeRef[Option[PageableTableResultSnapshot]](executor ! GetQueryRsSnapshotByPage(PageReq(3, 8), _)).receivePF {
+      probeRef[PageQueryResult](executor ! GetQueryRsSnapshotByPage(PageReq(3, 8), _)).receivePF {
         case None => fail
         case Some(rs) =>
           rs.error shouldBe None
@@ -379,7 +379,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _))
         .expectMessage(30.seconds, Right(Done))
 
-      probeRef[Option[TableResultSnapshot]](executor ! GetQueryRsSnapshot(-1, _)).receivePF {
+      probeRef[QueryResult](executor ! GetQueryRsSnapshot(-1, _)).receivePF {
         case None => fail
         case Some(rs) => rs.data.rows.size shouldBe expectedRowSize
       }
@@ -393,7 +393,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       val prop = props.copy(rsCollectSt = DROP_HEAD -> 10)
       executor ! ExecuteSqls(sql1, prop, system.ignoreRef)
 
-      testProbe[Option[TableResultSnapshot]] { probe =>
+      testProbe[QueryResult] { probe =>
         eventually(Timeout(25.seconds), Interval(1.seconds)) {
           executor ! GetQueryRsSnapshot(-1, probe.ref)
           probe.receiveMessage().get.data.rows.size shouldBe 10
