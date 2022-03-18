@@ -82,10 +82,6 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   import ResultChangeEvent._
   import SqlSerialExecutor._
 
-  // todo config from hocon
-  // whether log the parsing statements error
-  private val logParseStmtErr = false
-
   // todo replace with standalone dispatcher
   implicit val ec: ExecutionContextExecutor = ctx.system.executionContext
   // running process
@@ -108,6 +104,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         Behaviors.same
 
       case CancelCurProcess =>
+        ctx.log.info("Cancel current process.")
         if (process.isDefined) {
           process.get.cancel(interrupt = true)
           process = None
@@ -123,8 +120,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           val rejectReason = BusyInProcess(
             "The executor is busy in process, please cancel it first or wait until it is complete",
             rsBuffer.map(_.startTs).get)
-          replyTo ! Left(rejectReason)
           rsChangeTopic ! Topic.Publish(RejectStmtsExecPlan(statements, rejectReason))
+          replyTo ! Left(rejectReason)
           return Behaviors.same
         }
         // extract effective execution config, split sql statements and execute each one.
@@ -175,6 +172,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
 
     case HookFlinkJobClient(jobClient) =>
       jobClientHook = Some(jobClient)
+      ctx.log.info(s"SqlSerialExecutor[$sessionId] Hooked Flink JobClient, jobId=${jobClient.getJobID.toString}.")
       Behaviors.same
 
     case ProcessFinished(replyTo) =>
@@ -184,7 +182,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         buf.isFinished = true
         buf.ts = curTs
       }
-      rsChangeTopic ! Topic.Publish(AllStmtsDone(rsBuffer.forall(_.allPass)))
+      rsChangeTopic ! Topic.Publish(AllStmtsDone(rsBuffer.map(_.toSerialStmtsResult(true)).orNull))
       // cancel flink job if necessary
       Try(jobClientHook.map(_.cancel))
         .failed.foreach(ctx.log.error(s"session[$sessionId] Fail to cancel from Flink JobClient.", _))
@@ -193,18 +191,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
     case SingleStmtFinished(stmtRs) =>
       rsBuffer.foreach { buffer =>
         buffer.result += stmtRs
-        // log result
-        stmtRs.rs match {
-          case Left(err) =>
-            if (logParseStmtErr) ctx.log.error(s"session[$sessionId] ${err.summary}", err.stack)
-          case Right(result) => result match {
-            case r: SubmitModifyOpDone => r.toFriendlyString
-            case r: SubmitQueryOpDone => r.toFriendlyString
-            case _ =>
-          }
-        }
       }
-      rsChangeTopic ! Topic.Publish(SingleStmtDone(stmtRs.stmt, stmtRs.rs))
+      rsChangeTopic ! Topic.Publish(SingleStmtDone(stmtRs))
       Behaviors.same
 
     case InitQueryRsBuffer(strategy) =>
@@ -248,15 +236,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   private def queryResultBehavior(command: QueryResult): Behavior[Command] = command match {
 
     case GetExecPlanRsSnapshot(replyTo) =>
-      val snapshot = rsBuffer match {
-        case None => None
-        case Some(buf) => Some(SerialStmtsResult(
-          result = Seq(buf.result: _*),
-          isFinished = process.isEmpty,
-          lastOpType = buf.lastOpType,
-          startTs = buf.startTs,
-          lastTs = buf.lastTs))
-      }
+      val snapshot = rsBuffer.map(_.toSerialStmtsResult(process.isEmpty))
       replyTo ! snapshot
       Behaviors.same
 
@@ -467,7 +447,16 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   private case class StmtsRsBuffer(result: mutable.Buffer[SingleStmtResult], startTs: Long) {
     def lastTs: Long = result.lastOption.map(_.ts).getOrElse(startTs)
     def lastOpType: OpType = result.lastOption.map(_.opType).getOrElse(OpType.UNKNOWN)
-    def allPass: Boolean = !result.exists(_.rs.isLeft)
+
+    // convert to SerialStmtsResult
+    def toSerialStmtsResult(finished: Boolean): SerialStmtsResult =
+      SerialStmtsResult(
+        result = Seq(result: _*),
+        isFinished = finished,
+        lastOpType = lastOpType,
+        startTs = startTs,
+        lastTs = lastTs
+      )
   }
 
   private type DataRowBuffer = AbstractSeq[Row] with mutable.Builder[Row, AbstractSeq[Row]] with TraversableLike[Row, AbstractSeq[Row]]

@@ -20,6 +20,9 @@ case class TableResultData(cols: Seq[Column], rows: Seq[Row]) {
     val lines = rows.map(r => r.kind +: r.values)
     Tabulator.format(headers +: lines, escapeJava)
   }
+  /**
+   * See [[tabulateContent]]
+   */
   def tabulateContent: String = tabulateContent(escapeJava = true)
 }
 

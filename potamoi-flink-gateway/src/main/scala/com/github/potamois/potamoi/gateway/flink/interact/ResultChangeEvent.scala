@@ -39,17 +39,16 @@ object ResultChangeEvent {
   /**
    * A single sql statement has been executed.
    *
-   * @param stmt sql statement
-   * @param rs   execution result, may be error or TableResult data
+   * @param rs execution result, may be error or TableResult data
    */
-  final case class SingleStmtDone(stmt: String, rs: Either[Error, OperationDone]) extends ResultChange
+  final case class SingleStmtDone(rs: SingleStmtResult) extends ResultChange
 
   /**
    * All of the statements in the accepted execution plan has been executed.
    *
-   * @param allSuccess whether all statement has been executed successfully.
+   * @param rs execution plan result
    */
-  final case class AllStmtsDone(allSuccess: Boolean) extends ResultChange
+  final case class AllStmtsDone(rs: SerialStmtsResult) extends ResultChange
 
   /**
    * A flink job is committed to a remote or local flink cluster during execution,
@@ -84,4 +83,3 @@ object ResultChangeEvent {
 
 
 }
-
