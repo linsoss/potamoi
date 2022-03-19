@@ -44,10 +44,21 @@ object SqlSerialExecutor {
   type PageQueryResult = Option[PageableTableResultSnapshot]
 
   sealed trait Command
+  /**
+   * Execute a new sql plan.
+   *
+   * @param sqlStatements sql statements
+   * @param props         execution configuration
+   */
   final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[RejectableDone]) extends Command
+  /**
+   * Check if the current executor is executing the sql plan.
+   */
   final case class IsInProcess(replyTo: ActorRef[Boolean]) extends Command
+  /**
+   * Cancel the execution plan in process.
+   */
   final case object CancelCurProcess extends Command
-
   /**
    * Subscribe the result change events from this executor, see [[ResultChange]].
    */
@@ -57,25 +68,40 @@ object SqlSerialExecutor {
    */
   final case class UnsubscribeState(listener: ActorRef[ResultChange]) extends Command
 
-  // Query result command
   sealed trait GetQueryResult extends Command
-  // Get the snapshot result of current sqls plan that has been executed.
+  /**
+   * Get the current sqls plan result snapshot that has been executed.
+   */
   final case class GetExecPlanRsSnapshot(replyTo: ActorRef[ExecutionPlanResult]) extends GetQueryResult
-  // Get the snapshot TableResult that has been collected.
+  /**
+   * Get the TableResult snapshot that has been collected for QueryOperation.
+   *
+   * @param limit result size limit, -1 and Int.MaxValue means no limit
+   */
   final case class GetQueryRsSnapshot(limit: Int = -1, replyTo: ActorRef[QueryResult]) extends GetQueryResult
-  // Get the snapshot collected TableResult by pagination.
+
+  /**
+   * Get the current sqls plan result snapshot that has been executed.
+   *
+   * @param page page request param, see[[PageReq]]
+   */
   final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[PageQueryResult]) extends GetQueryResult
 
-
-  sealed trait Internal extends Command
+  trait Internal extends Command
+  // A execution plan process is finished
   private final case class ProcessFinished(replyTo: ActorRef[Either[ExecReqReject, Done]]) extends Internal
+  // A single statements is finished
   private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
-  private final case class InitQueryRsBuffer(collStrategy: RsCollectStrategy) extends Internal
-  private final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
-  private final case class CollectQueryOpRow(row: Row) extends Internal
-  private final case class ErrorWhenCollectQueryOpRow(error: Error) extends Internal
-  private final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
-
+  // Initialize the result storage bugger for QueryOperation
+  private[SqlSerialExecutorActor] final case class InitQueryRsBuffer(collStrategy: RsCollectStrategy) extends Internal
+  // Collect the columns of TableResult from QueryOperation
+  private[SqlSerialExecutorActor] final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
+  // Collect a row of TableResult from QueryOperation
+  private[SqlSerialExecutorActor] final case class CollectQueryOpRow(row: Row) extends Internal
+  // A error occurred when collecting from TableResult
+  private[SqlSerialExecutorActor] final case class ErrorWhenCollectQueryOpRow(error: Error) extends Internal
+  // Hook the Flink JobClient
+  private[SqlSerialExecutorActor] final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
 
   def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
     ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
