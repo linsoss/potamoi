@@ -457,7 +457,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       })
       val cusSubscribeActor = spawn(Behaviors.setup[ResultChange] { _ =>
         Behaviors.receiveMessage {
-          case AcceptStmtsExecPlan(stmts) => stmts.size shouldBe 2; Behaviors.same
+          case AcceptStmtsExecPlan(stmts, _) => stmts.size shouldBe 2; Behaviors.same
           case AllStmtsDone(rs) => trashActor ! Set(true); Behaviors.same
           case _ => Behaviors.same
         }

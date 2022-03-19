@@ -87,21 +87,21 @@ object SqlSerialExecutor {
    */
   final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[PageQueryResult]) extends GetQueryResult
 
-  trait Internal extends Command
+  sealed trait Internal extends Command
   // A execution plan process is finished
   private final case class ProcessFinished(replyTo: ActorRef[Either[ExecReqReject, Done]]) extends Internal
   // A single statements is finished
   private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
   // Initialize the result storage bugger for QueryOperation
-  private[SqlSerialExecutorActor] final case class InitQueryRsBuffer(collStrategy: RsCollectStrategy) extends Internal
+  private final case class InitQueryRsBuffer(collStrategy: RsCollectStrategy) extends Internal
   // Collect the columns of TableResult from QueryOperation
-  private[SqlSerialExecutorActor] final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
+  private final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
   // Collect a row of TableResult from QueryOperation
-  private[SqlSerialExecutorActor] final case class CollectQueryOpRow(row: Row) extends Internal
+  private final case class CollectQueryOpRow(row: Row) extends Internal
   // A error occurred when collecting from TableResult
-  private[SqlSerialExecutorActor] final case class ErrorWhenCollectQueryOpRow(error: Error) extends Internal
+  private final case class ErrorWhenCollectQueryOpRow(error: Error) extends Internal
   // Hook the Flink JobClient
-  private[SqlSerialExecutorActor] final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
+  private final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
 
   def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
     ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")

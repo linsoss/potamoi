@@ -5,8 +5,6 @@ import com.github.potamois.potamoi.testkit.STSpec
 import org.apache.flink.table.api.{DataTypes, TableSchema}
 import org.apache.flink.types.{RowKind, Row => FlinkRow}
 
-import scala.language.postfixOps
-
 class FlinkApiCovertToolSpec extends STSpec {
 
   "FlinkApiCovertTool" should {
