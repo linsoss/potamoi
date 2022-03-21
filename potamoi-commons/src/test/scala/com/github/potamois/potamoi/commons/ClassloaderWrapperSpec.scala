@@ -19,6 +19,9 @@ class ClassloaderWrapperSpec extends STSpec {
         val sumMethod = clz.getMethod("sum", classOf[Integer], classOf[Integer])
         sumMethod.invoke(null, Integer.valueOf(1), Integer.valueOf(2)) shouldBe Integer.valueOf(3)
       }
+      intercept[ClassNotFoundException] {
+        Thread.currentThread.getContextClassLoader.loadClass("com.github.al.assad.tiny.Calculator")
+      }
     }
 
     "try run with extra dependencies" in {
@@ -30,6 +33,10 @@ class ClassloaderWrapperSpec extends STSpec {
         val sumMethod = clz.getMethod("sum", classOf[Integer], classOf[Integer])
         sumMethod.invoke(null, Integer.valueOf(1), Integer.valueOf(2))
       }.get shouldBe Integer.valueOf(3)
+
+      intercept[ClassNotFoundException] {
+        Thread.currentThread.getContextClassLoader.loadClass("com.github.al.assad.tiny.Calculator")
+      }
     }
 
     "try run with extra dependencies with incorrect deps uri" in {
