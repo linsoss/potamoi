@@ -4,13 +4,15 @@ import akka.Done
 import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
+import com.github.potamois.potamoi.commons.ClassloaderWrapper.tryRunWithExtraDeps
+import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser
 import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, PageReq, PageRsp, interact}
 import com.typesafe.scalalogging.Logger
-import org.apache.flink.configuration.Configuration
+import org.apache.flink.configuration.{Configuration, PipelineOptions}
 import org.apache.flink.core.execution.JobClient
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.table.api.TableResult
@@ -20,6 +22,9 @@ import org.apache.flink.table.delegation.Parser
 import org.apache.flink.table.operations.{ModifyOperation, QueryOperation}
 import org.apache.flink.table.planner.operations.PlannerQueryOperation
 
+import java.io.File
+import java.net.URL
+import java.util.concurrent.CancellationException
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.{AbstractSeq, TraversableLike, mutable}
@@ -89,7 +94,7 @@ object SqlSerialExecutor {
 
   sealed trait Internal extends Command
   // A execution plan process is finished
-  private final case class ProcessFinished(replyTo: ActorRef[Either[ExecReqReject, Done]]) extends Internal
+  private final case class ProcessFinished(result: RejectableDone, replyTo: ActorRef[RejectableDone]) extends Internal
   // A single statements is finished
   private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
   // Initialize the result storage bugger for QueryOperation
@@ -128,7 +133,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   )
 
   // running process
-  private var process: Option[CancellableFuture[Done]] = None
+  private var process: Option[CancellableFuture[RejectableDone]] = None
   // executed statements result buffer
   private var rsBuffer: Option[StmtsRsBuffer] = None
   // collected table result buffer
@@ -149,7 +154,6 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         process.get.cancel(interrupt = true)
         process = None
         ctx.log.info(s"session[$sessionId] current process cancelled.")
-        ctx.self ! ProcessFinished(ctx.system.ignoreRef)
       }
       Behaviors.same
 
@@ -157,12 +161,9 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
       // when the previous statements execution process has not been done,
       // it's not allowed to execute new operation.
       case Some(_) =>
-        val rejectReason = BusyInProcess(
-          "The executor is busy in process, please cancel it first or wait until it is complete",
-          rsBuffer.map(_.startTs).get
-        )
+        val rejectReason = BusyInProcess(startTs = rsBuffer.map(_.startTs).get)
         rsChangeTopic ! Topic.Publish(RejectStmtsExecPlan(statements, rejectReason))
-        replyTo ! Left(rejectReason)
+        replyTo ! fail(rejectReason)
         Behaviors.same
 
       case None =>
@@ -173,18 +174,24 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         }
         // split sql statements and execute each one
         val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
-        rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan, effectProps.flinkConfig))
-
         stmtsPlan match {
           case stmts if stmts.isEmpty =>
-            replyTo ! Right(Done)
+            replyTo ! fail(StatementIsEmpty())
           case stmts =>
+            rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan, effectProps.flinkConfig))
             // reset result buffer
             rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
             queryRsBuffer = None
             // parse and execute statements in cancelable future
             process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
-            ctx.pipeToSelf(process.get)(_ => ProcessFinished(replyTo))
+            ctx.pipeToSelf(process.get) {
+              case Success(re) => ProcessFinished(re, replyTo)
+              case Failure(cause) => cause match {
+                // when the execution process has been cancelled, it still means a success done result.
+                case _: CancellationException => ProcessFinished(success(Done), replyTo)
+                case _ => ProcessFinished(fail(ExecutionFailure(cause)), replyTo)
+              }
+            }
         }
         Behaviors.same
     }
@@ -224,8 +231,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
       ctx.log.info(s"SqlSerialExecutor[$sessionId] Hooked Flink JobClient, jobId=${jobClient.getJobID.toString}.")
       Behaviors.same
 
-    case ProcessFinished(replyTo) =>
-      replyTo ! Right(Done)
+    case ProcessFinished(result, replyTo) =>
+      replyTo ! result
       process = None
       queryRsBuffer.foreach { buf =>
         buf.isFinished = true
@@ -341,13 +348,32 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   /**
    * Execute sql statements plan.
    */
-  private def execStatementsPlan(stmts: Seq[String], effectProps: EffectiveExecConfig): Done = {
-    // execute stashed operations
-    implicit val flinkCtx: FlinkContext = createFlinkContext(effectProps.flinkConfig)
-    // parse and execute sql statements
-    execImmediateOpsAndStashNonImmediateOps(stmts) match {
-      case Left(_) => Done
-      case Right(stashOp) => if (stashOp.isEmpty) Done else execStashedOps(stashOp, effectProps.rsCollectSt)
+  private def execStatementsPlan(stmts: Seq[String], effectProps: EffectiveExecConfig): RejectableDone = {
+    val flinkDeps = effectProps.flinkDeps
+    // todo Download flink deps and check dep jars from s3
+    val depURLs: Seq[URL] = flinkDeps.map(new File(_).toURI.toURL)
+
+    tryRunWithExtraDeps(depURLs) { classloader =>
+      Try {
+        // init flink environment context
+        val config = Configuration.fromMap(effectProps.flinkConfig.asJava)
+        config.set(PipelineOptions.JARS, flinkDeps.map(dep => s"file://$dep").toBuffer.asJava)
+        createFlinkContext(config, classloader)
+      } match {
+        case Failure(cause) => fail(InitFlinkEnvFailure(cause))
+        case Success(flinkCtx) =>
+          // parse and execute sql statements
+          execImmediateOpsAndStashNonImmediateOps(stmts)(flinkCtx) match {
+            case Left(_) => success(Done)
+            case Right(stashOp) =>
+              if (stashOp.isEmpty) success(Done)
+              // execute stashed operations
+              else success(execStashedOps(stashOp, effectProps.rsCollectSt)(flinkCtx))
+          }
+      }
+    } match {
+      case Success(done) => done
+      case Failure(cause) => fail(LoadDepsToClassLoaderFailure(depURLs.map(_.toString), cause))
     }
   }
 
@@ -357,13 +383,15 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
    */
   private def execImmediateOpsAndStashNonImmediateOps(stmts: Seq[String])(implicit flinkCtx: FlinkContext): Either[Done, StashOpToken] = {
     val stashToken = StashOpToken()
+    var shouldDone = false
     breakable {
       for (stmt <- stmts) {
         if (stashToken.queryOp.isDefined) break
         // parse statement
         val op = Try(flinkCtx.parser.parse(stmt).get(0)).foldIdentity { err =>
           ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to parse statement: ${stmt.compact}", err)))
-          return Left(Done)
+          shouldDone = true
+          break
         }
         op match {
           case op: QueryOperation => stashToken.queryOp = Some(stmt -> op)
@@ -374,20 +402,22 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
             rsChangeTopic ! Topic.Publish(SingleStmtStart(stmt))
             val tableResult: TableResult = Try(flinkCtx.tEnvInternal.executeInternal(op)).foldIdentity { err =>
               ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to execute statement: ${stmt.compact}", err)))
-              return Left(Done)
+              shouldDone = true
+              break
             }
             // collect result from flink TableResult immediately
             val cols = FlinkApiCovertTool.extractSchema(tableResult)
             val rows = Using(tableResult.collect)(iter => iter.asScala.map(row => FlinkApiCovertTool.covertRow(row)).toSeq)
               .foldIdentity { err =>
                 ctx.self ! SingleStmtFinished(SingleStmtResult.fail(stmt, Error(s"Fail to collect table result: ${stmt.compact}", err)))
-                return Left(Done)
+                shouldDone = true
+                break
               }
             ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, ImmediateOpDone(interact.TableResultData(cols, rows))))
         }
       }
     }
-    Right(stashToken)
+    if (shouldDone) Left(Done) else Right(stashToken)
   }
 
   /**
@@ -470,9 +500,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   /**
    * Initialize flink context.
    */
-  private def createFlinkContext(flinkConfig: Map[String, String]): FlinkContext = {
-    val config = Configuration.fromMap(flinkConfig.asJava)
-    val env = new StreamExecutionEnvironment(config)
+  private def createFlinkContext(flinkConfig: Configuration, classloader: ClassLoader): FlinkContext = {
+    val env = new StreamExecutionEnvironment(flinkConfig, classloader)
     val tEnv = StreamTableEnvironment.create(env)
     val tEnvInternal = tEnv.asInstanceOf[TableEnvironmentInternal]
     val parser = tEnvInternal.getParser

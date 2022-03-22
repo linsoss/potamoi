@@ -10,6 +10,7 @@ class ExecConfigSpec extends STSpec {
       val config = ExecConfig.remoteEnv(
         RemoteAddr("111.111.111.111", 8088),
         Map.empty,
+        Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
       config.toEffectiveExecConfig shouldBe EffectiveExecConfig(
@@ -19,6 +20,7 @@ class ExecConfigSpec extends STSpec {
           "execution.attached" -> "true",
           "execution.shutdown-on-attached-exit" -> "true",
           "execution.target" -> "remote"),
+        Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
     }
@@ -26,6 +28,7 @@ class ExecConfigSpec extends STSpec {
     "create remote local env correctly" in {
       val config = ExecConfig.localEnv(
         Map.empty,
+        Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
       config.toEffectiveExecConfig shouldBe EffectiveExecConfig(
@@ -33,6 +36,7 @@ class ExecConfigSpec extends STSpec {
           "execution.target" -> "local",
           "execution.attached" -> "true",
           "execution.shutdown-on-attached-exit" -> "true"),
+        Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
     }
@@ -45,6 +49,7 @@ class ExecConfigSpec extends STSpec {
           "pipeline.name" -> "test-pipeline",
           "execution.target" -> "local"
         ),
+        Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
       config.toEffectiveExecConfig shouldBe EffectiveExecConfig(
@@ -56,6 +61,7 @@ class ExecConfigSpec extends STSpec {
           "pipeline.name" -> "test-pipeline",
           "execution.attached" -> "true",
           "execution.shutdown-on-attached-exit" -> "true"),
+        Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
     }

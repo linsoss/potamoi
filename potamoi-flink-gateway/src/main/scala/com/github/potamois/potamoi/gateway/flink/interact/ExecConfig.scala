@@ -15,6 +15,7 @@ import scala.language.implicitConversions
  * @param executeMode execution mode of flink job, see [[ExecMode]]
  * @param remoteAddr  remote flink cluster rest endpoint when use [[ExecMode.REMOTE]]
  * @param flinkConfig extra flink configuration
+ * @param flinkDeps   extra flink dependencies or udf jars paths
  * @param rsCollectSt result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  *
@@ -22,6 +23,7 @@ import scala.language.implicitConversions
 case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
                       remoteAddr: Option[RemoteAddr] = None,
                       flinkConfig: Map[String, String] = Map.empty,
+                      flinkDeps: Seq[String] = Seq.empty,
                       rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) extends CborSerializable {
 
   def toEffectiveExecConfig: EffectiveExecConfig = ExecConfig.convergeExecConfig(this)
@@ -31,10 +33,12 @@ case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
  * Effective execution configuration of Flink interactive operation.
  *
  * @param flinkConfig extra flink configuration
+ * @param flinkDeps   extra flink dependencies jar paths
  * @param rsCollectSt result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  */
 case class EffectiveExecConfig(flinkConfig: Map[String, String] = Map.empty,
+                               flinkDeps: Seq[String] = Seq.empty,
                                rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) {
   // update flink config
   def updateFlinkConfig(updated: mutable.Map[String, String] => Unit): EffectiveExecConfig = {
@@ -119,8 +123,9 @@ object ExecConfig {
    * Refer to [[ExecConfig]] for params details.
    */
   def localEnv(flinkConfig: Map[String, String] = Map.empty,
+               flinkDeps: Seq[String] = Seq.empty,
                rsCollectSt: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
-    ExecConfig(ExecMode.LOCAL, None, flinkConfig, rsCollectSt)
+    ExecConfig(ExecMode.LOCAL, None, flinkConfig, flinkDeps, rsCollectSt)
 
   /**
    * Create a remote-execution environment config instance.
@@ -128,8 +133,9 @@ object ExecConfig {
    */
   def remoteEnv(remoteAddr: RemoteAddr,
                 flinkConfig: Map[String, String] = Map.empty,
+                flinkDeps: Seq[String] = Seq.empty,
                 rsCollectSt: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
-    ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, rsCollectSt)
+    ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, flinkDeps, rsCollectSt)
 
   /**
    * Default flink configuration for interactive query scenario.
@@ -161,9 +167,10 @@ object ExecConfig {
         "execution.shutdown-on-attached-exit" -> "true")
       rsConf.toMap
     }
-    // resultCollectStrategy
+    // other config
     val collectStrategy = Option(config.rsCollectSt).getOrElse(RsCollectStrategy.default)
-    EffectiveExecConfig(convergedConfig, collectStrategy)
+    val flinkDeps = Option(config.flinkDeps).getOrElse(Seq.empty)
+    EffectiveExecConfig(convergedConfig, flinkDeps, collectStrategy)
   }
 
 }
