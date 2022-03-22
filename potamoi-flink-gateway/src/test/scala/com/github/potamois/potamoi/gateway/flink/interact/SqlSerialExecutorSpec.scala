@@ -4,6 +4,7 @@ import akka.Done
 import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
+import com.github.potamois.potamoi.commons.EitherAlias.success
 import com.github.potamois.potamoi.commons.FutureImplicits.sleep
 import com.github.potamois.potamoi.gateway.flink.PageReq
 import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy._
@@ -14,6 +15,7 @@ import org.apache.flink.table.api.SqlParserException
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 
 import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
 /**
  * Some of following cases would take a long time.
@@ -539,7 +541,126 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
   }
 
+
+  /**
+   * Testing execute sql statements with different dependencies.
+   *
+   * todo classify with Tag
+   *
+   * @note This test case is currently suitable for flink-14.
+   */
+  "execute plan with udf/dependencies" should {
+
+    val fakerDepPath = getClass.getResource("/flink-faker-0.4.1.jar").getPath
+    val udfDepPath = getClass.getResource("/flink-udf-example-1.0.jar").getPath
+
+    "with third-dependencies" in {
+      val executor = newExecutor
+      val prop = props.copy(flinkDeps = Seq(fakerDepPath), rsCollectSt = DROP_TAIL -> 10)
+      val sql =
+        """create temporary table heros (
+          | `name1` string,
+          | `age1` int,
+          | `age2` int
+          |) with (
+          | 'connector' = 'faker',
+          | 'fields.name1.expression' = '#{superhero.name}',
+          | 'fields.age1.expression' = '#{number.numberBetween ''0'',''1000''}',
+          | 'fields.age2.expression' = '#{number.numberBetween ''0'',''1000''}'
+          |);
+          |select name1, age1, age2 from heros;
+          |""".stripMargin
+      // executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
+      probeRef[ExecutionPlanResult](executor ! GetExecPlanResult(_)) receivePF {
+        case None => fail
+        case Some(rs) =>
+          rs.allSuccess shouldBe true
+          rs.result.size shouldBe 2
+          rs.lastOpType shouldBe OpType.QUERY
+          rs.isFinished shouldBe true
+      }
+      probeRef[QueryResult](executor ! GetQueryResult(-1, _)) receivePF {
+        case None => fail
+        case Some(rs) =>
+          rs.error shouldBe None
+          rs.isFinished shouldBe true
+          rs.data.cols.map(_.name) shouldBe Seq("name1", "age1", "age2")
+          rs.data.rows.size shouldBe 10
+      }
+    }
+
+    "with udf" in {
+      val executor = newExecutor
+      val prop = props.copy(flinkDeps = Seq(udfDepPath), rsCollectSt = DROP_TAIL -> 10)
+      val sql =
+        """create table datagen_source (
+          |    f1 int,
+          |    f2 int,
+          |    f3 string
+          |  ) with (
+          |    'connector' = 'datagen'
+          |  );
+          |create temporary function my_sum as 'com.github.al.assad.udf.SumFunction';
+          |select f1, f2, f3, my_sum(f1,f2) as f12 from datagen_source;
+          |""".stripMargin
+      // executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
+      probeRef[ExecutionPlanResult](executor ! GetExecPlanResult(_)) receivePF {
+        case None => fail
+        case Some(rs) =>
+          rs.allSuccess shouldBe true
+          rs.result.size shouldBe 3
+          rs.lastOpType shouldBe OpType.QUERY
+          rs.isFinished shouldBe true
+      }
+      probeRef[QueryResult](executor ! GetQueryResult(-1, _)) receivePF {
+        case None => fail
+        case Some(rs) =>
+          rs.error shouldBe None
+          rs.isFinished shouldBe true
+          rs.data.cols.map(_.name) shouldBe Seq("f1", "f2", "f3", "f12")
+          rs.data.rows.size shouldBe 10
+      }
+    }
+
+    "with both third-dependencies and udf" in {
+      val executor = newExecutor
+      val prop = props.copy(flinkDeps = Seq(udfDepPath, fakerDepPath), rsCollectSt = DROP_TAIL -> 10)
+      val sql =
+        """create temporary table heros (
+          | `name1` string,
+          | `age1` int,
+          | `age2` int
+          |) with (
+          | 'connector' = 'faker',
+          | 'fields.name1.expression' = '#{superhero.name}',
+          | 'fields.age1.expression' = '#{number.numberBetween ''0'',''1000''}',
+          | 'fields.age2.expression' = '#{number.numberBetween ''0'',''1000''}'
+          |);
+          |create temporary function my_sum as 'com.github.al.assad.udf.SumFunction';
+          |select name1, age1, age2, my_sum(age1, age2) as sum_age from heros;
+          |""".stripMargin
+      // executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
+      probeRef[ExecutionPlanResult](executor ! GetExecPlanResult(_)) receivePF {
+        case None => fail
+        case Some(rs) =>
+          rs.allSuccess shouldBe true
+          rs.result.size shouldBe 3
+          rs.lastOpType shouldBe OpType.QUERY
+          rs.isFinished shouldBe true
+      }
+      probeRef[QueryResult](executor ! GetQueryResult(-1, _)) receivePF {
+        case None => fail
+        case Some(rs) =>
+          rs.error shouldBe None
+          rs.isFinished shouldBe true
+          rs.data.cols.map(_.name) shouldBe Seq("name1", "age1", "age2", "sum_age")
+          rs.data.rows.size shouldBe 10
+      }
+
+    }
+  }
+
 }
-
-
-
