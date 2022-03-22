@@ -44,7 +44,7 @@ lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potam
   .dependsOn(commons)
   .settings(
     commonSettings,
-    libraryDependencies ++= akkaDeps ++ flinkDeps(flinkVersion) ++ tmpDeps,
+    libraryDependencies ++= (akkaDeps ++ flinkDeps(flinkVersion) ++ minioDep)
   )
   .enablePlugins(JavaAppPackaging)
 
@@ -65,6 +65,9 @@ lazy val akkaDeps = Seq(
   "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test
 )
 
+// minio-java-client for s3 compatible storage
+lazy val minioDep = Seq("io.minio" % "minio" % "8.3.7")
+
 // flink dependencies
 lazy val flinkVersionMap = Map(
   14 -> "1.14.3",
@@ -82,12 +85,6 @@ def flinkDeps(majorVer: Int = 14) =
     "org.apache.flink" %% "flink-table-planner-blink",
     "org.apache.flink" %% "flink-clients")
     .map(_ % flinkVersionMap(majorVer) exclude("com.typesafe.akka", s"akka-protobuf_$scalaMajorVer"))
-
-
-// todo remove in the future
-val tmpDeps = Seq(
-  "com.github.knaufk" % "flink-faker" % "0.4.1"
-)
 
 
 lazy val scalaMajorVer = scala.split("\\.").take(2).mkString(".")
