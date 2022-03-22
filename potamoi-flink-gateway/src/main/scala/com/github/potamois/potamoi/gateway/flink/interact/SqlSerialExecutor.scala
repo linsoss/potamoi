@@ -49,6 +49,7 @@ object SqlSerialExecutor {
   type PageQueryResult = Option[PageableTableResultSnapshot]
 
   sealed trait Command
+
   /**
    * Execute a new sql plan.
    *
@@ -56,18 +57,22 @@ object SqlSerialExecutor {
    * @param props         execution configuration
    */
   final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[RejectableDone]) extends Command
+
   /**
    * Check if the current executor is executing the sql plan.
    */
   final case class IsInProcess(replyTo: ActorRef[Boolean]) extends Command
+
   /**
    * Cancel the execution plan in process.
    */
   final case object CancelCurProcess extends Command
+
   /**
    * Subscribe the result change events from this executor, see [[ResultChange]].
    */
   final case class SubscribeState(listener: ActorRef[ResultChange]) extends Command
+
   /**
    * Unsubscribe the result change events from this executor.
    */
@@ -79,6 +84,7 @@ object SqlSerialExecutor {
    */
   final case class GetExecPlanRsSnapshot(replyTo: ActorRef[ExecutionPlanResult]) extends GetQueryResult
   val GetExecPlanResult: GetExecPlanRsSnapshot.type = GetExecPlanRsSnapshot
+
   /**
    * Get the TableResult snapshot that has been collected for QueryOperation.
    *
@@ -86,6 +92,7 @@ object SqlSerialExecutor {
    */
   final case class GetQueryRsSnapshot(limit: Int = -1, replyTo: ActorRef[QueryResult]) extends GetQueryResult
   val GetQueryResult: GetQueryRsSnapshot.type = GetQueryRsSnapshot
+
   /**
    * Get the current sqls plan result snapshot that has been executed.
    *
@@ -95,18 +102,25 @@ object SqlSerialExecutor {
   val GetQueryResultByPage: GetQueryRsSnapshotByPage.type = GetQueryRsSnapshotByPage
 
   sealed trait Internal extends Command
+
   // A execution plan process is finished
   private final case class ProcessFinished(result: RejectableDone, replyTo: ActorRef[RejectableDone]) extends Internal
+
   // A single statements is finished
   private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
+
   // Initialize the result storage bugger for QueryOperation
   private final case class InitQueryRsBuffer(collStrategy: RsCollectStrategy) extends Internal
+
   // Collect the columns of TableResult from QueryOperation
   private final case class CollectQueryOpColsRs(cols: Seq[Column]) extends Internal
+
   // Collect a row of TableResult from QueryOperation
   private final case class CollectQueryOpRow(row: Row) extends Internal
+
   // A error occurred when collecting from TableResult
   private final case class ErrorWhenCollectQueryOpRow(error: Error) extends Internal
+
   // Hook the Flink JobClient
   private final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
 
