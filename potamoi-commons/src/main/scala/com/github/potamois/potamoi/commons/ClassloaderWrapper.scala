@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.commons
 
-import java.net.{URL, URLClassLoader}
+import java.net.URL
 import scala.reflect.internal.util.ScalaClassLoader
 import scala.util.Try
 
@@ -13,6 +13,7 @@ object ClassloaderWrapper {
 
   /**
    * Run func process with extra dependency jars.
+   * When the extraDeps is empty, it would use the current classloader.
    *
    * @param extraDeps extra dependencies
    * @param func      process function
@@ -23,21 +24,25 @@ object ClassloaderWrapper {
    */
   @throws[SecurityException]
   @throws[NullPointerException]
-  def runWithExtraDeps[T](extraDeps: Seq[URL])(func: URLClassLoader => T): T = {
-    val oriCl = Thread.currentThread.getContextClassLoader
-    val cl = ScalaClassLoader.fromURLs(extraDeps, oriCl)
-    Thread.currentThread.setContextClassLoader(cl)
-    try {
-      func(cl)
-    } finally {
-      Thread.currentThread.setContextClassLoader(oriCl)
+  def runWithExtraDeps[T](extraDeps: Seq[URL])(func: ClassLoader => T): T = {
+    if (extraDeps.isEmpty)
+      func(Thread.currentThread.getContextClassLoader)
+    else {
+      val oriCl = Thread.currentThread.getContextClassLoader
+      val cl = ScalaClassLoader.fromURLs(extraDeps, oriCl)
+      Thread.currentThread.setContextClassLoader(cl)
+      try {
+        func(cl)
+      } finally {
+        Thread.currentThread.setContextClassLoader(oriCl)
+      }
     }
   }
 
   /**
    * Same as [[runWithExtraDeps]] but return a Try partition function as result.
    */
-  def TryRunWithExtraDeps[T](extraDeps: Seq[URL])(func: URLClassLoader => T): Try[T] = Try(runWithExtraDeps(extraDeps)(func))
+  def tryRunWithExtraDeps[T](extraDeps: Seq[URL])(func: ClassLoader => T): Try[T] = Try(runWithExtraDeps(extraDeps)(func))
 
 
 }
