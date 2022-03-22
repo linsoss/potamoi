@@ -493,7 +493,8 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
             val stream = rsCollStrategy match {
               case RsCollectStrategy(EvictStrategy.DROP_TAIL, limit) => iter.asScala.take(limit.min(limitRex.getOrElse(Int.MaxValue)))
               case RsCollectStrategy(EvictStrategy.DROP_HEAD, _) =>
-                if (limitRex.isDefined) iter.asScala.take(limitRex.get) else iter.asScala
+                if (limitRex.isDefined) iter.asScala.take(limitRex.get)
+                else iter.asScala
               case _ => iter.asScala
             }
             stream.foreach(row => ctx.self ! CollectQueryOpRow(FlinkApiCovertTool.covertRow(row)))
