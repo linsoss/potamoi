@@ -24,12 +24,15 @@ object RsEventChangePrinter {
       val log = ctx.log
       msg match {
 
-        case AcceptStmtsExecPlan(stmts, flinkConfig) => log.info(
+        case AcceptStmtsExecPlan(stmts, config) => log.info(
           s"""@Receive[$sessionId] AcceptStmtsExecPlan => executor accepted a new statements plan.
-             |flink-config:
-             |${flinkConfig.map(e => s"  ${e._1} = ${e._2}").mkString("\n")}
              |stmts:
              |${stmts.map(e => s"  ${e.compact}").mkString("\n")}"
+             |flink-config:
+             |${config.flinkConfig.map(e => s"  ${e._1} = ${e._2}").mkString("\n")}
+             |flink-extra-dependencies:
+             |${config.flinkDeps.map(e => s"  $e").mkString("\n")}
+             |result-collection-strategy: ${config.rsCollectSt}
              |""".stripMargin)
           Behaviors.same
 

@@ -1,5 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
+import com.github.potamois.potamoi.commons.CborSerializable
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.Error
 
@@ -13,17 +14,17 @@ import com.github.potamois.potamoi.gateway.flink.Error
  *
  * @author Al-assad
  */
-sealed trait ResultChange
+sealed trait ResultChange extends CborSerializable
 
 object ResultChangeEvent {
 
   /**
    * Executor accepts a new sql statements execution plan request
    *
-   * @param stmts       sql statements that has been split
-   * @param flinkConfig the effective flink configuration
+   * @param stmts  sql statements that has been split
+   * @param config the effective execution configuration
    */
-  final case class AcceptStmtsExecPlan(stmts: Seq[String], flinkConfig: Map[String, String]) extends ResultChange
+  final case class AcceptStmtsExecPlan(stmts: Seq[String], config: EffectiveExecConfig) extends ResultChange
 
   /**
    * Executor rejects a new sql statements execution plan request

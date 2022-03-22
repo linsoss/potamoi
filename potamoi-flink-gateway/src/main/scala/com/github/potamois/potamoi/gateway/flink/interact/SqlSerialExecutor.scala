@@ -178,7 +178,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
           case stmts if stmts.isEmpty =>
             replyTo ! fail(StatementIsEmpty())
           case stmts =>
-            rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan, effectProps.flinkConfig))
+            rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan, effectProps))
             // reset result buffer
             rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
             queryRsBuffer = None
