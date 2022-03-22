@@ -73,7 +73,7 @@ object RsEventChangePrinter {
 
         case ReceiveQueryOpColumns(cols) =>
           log.info(
-            "@Receive[$sessionId] ReceiveQueryOpColumns => receive table columns info."
+            s"@Receive[$sessionId] ReceiveQueryOpColumns => receive table columns info."
               .concat("\n")
               .concat(Tabulator.format(cols.map(_.name) +: Seq(cols.map(_.dataType))))
               .concat("\n")

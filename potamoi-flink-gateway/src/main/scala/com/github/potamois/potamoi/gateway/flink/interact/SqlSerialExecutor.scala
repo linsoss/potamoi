@@ -78,19 +78,21 @@ object SqlSerialExecutor {
    * Get the current sqls plan result snapshot that has been executed.
    */
   final case class GetExecPlanRsSnapshot(replyTo: ActorRef[ExecutionPlanResult]) extends GetQueryResult
+  val GetExecPlanResult: GetExecPlanRsSnapshot.type = GetExecPlanRsSnapshot
   /**
    * Get the TableResult snapshot that has been collected for QueryOperation.
    *
    * @param limit result size limit, -1 and Int.MaxValue means no limit
    */
   final case class GetQueryRsSnapshot(limit: Int = -1, replyTo: ActorRef[QueryResult]) extends GetQueryResult
-
+  val GetQueryResult: GetQueryRsSnapshot.type = GetQueryRsSnapshot
   /**
    * Get the current sqls plan result snapshot that has been executed.
    *
    * @param page page request param, see[[PageReq]]
    */
   final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[PageQueryResult]) extends GetQueryResult
+  val GetQueryResultByPage: GetQueryRsSnapshotByPage.type = GetQueryRsSnapshotByPage
 
   sealed trait Internal extends Command
   // A execution plan process is finished
