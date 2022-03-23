@@ -10,6 +10,8 @@ import org.apache.flink.table.api.TableEnvironment
  * @author Al-assad
  */
 case class FlinkVersion(major: String, version: String) {
+
+  // construct from flink full version string like "1.14.0"
   def this(version: String) = this(version.split('.').take(2).mkString("."), version)
 
   // Major version sign likes "114" for version "1.14"
