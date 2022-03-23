@@ -6,7 +6,7 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.ClassloaderWrapper.tryRunWithExtraDeps
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
-import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
+import com.github.potamois.potamoi.commons.{CancellableFuture, CborSerializable, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser
@@ -48,7 +48,7 @@ object SqlSerialExecutor {
   type QueryResult = Option[TableResultSnapshot]
   type PageQueryResult = Option[PageableTableResultSnapshot]
 
-  sealed trait Command
+  sealed trait Command extends CborSerializable
 
   /**
    * Execute a new sql plan.
@@ -145,7 +145,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
   // result change topic
   protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] = ctx.spawn(Topic[ResultChange](
     topicName = s"potamoi-fsi-exec-$sessionId"),
-    name = s"potamoi-fsi-exec-topic-$sessionId"
+    name = s"pota-fsi-executor-topic-$sessionId"
   )
 
   // running process
