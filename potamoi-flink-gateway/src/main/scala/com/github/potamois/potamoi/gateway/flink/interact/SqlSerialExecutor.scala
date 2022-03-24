@@ -144,7 +144,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
 
   // result change topic
   protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] = ctx.spawn(Topic[ResultChange](
-    topicName = s"potamoi-fsi-exec-$sessionId"),
+    topicName = s"pota-fsi-executor-$sessionId"),
     name = s"pota-fsi-executor-topic-$sessionId"
   )
 
