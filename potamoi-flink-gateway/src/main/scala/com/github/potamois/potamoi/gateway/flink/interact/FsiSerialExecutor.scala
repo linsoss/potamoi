@@ -81,7 +81,7 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
 
   import FsiExecutor._
   import FsiSerialExecutor._
-  import ResultChangeEvent._
+  import ExecRsChangeEvent._
 
   // Execution context for CancelableFuture
   // todo replace with standalone dispatcher
@@ -90,7 +90,7 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
   private val pcLog: Logger = Logger(getClass)
 
   // result change topic
-  protected val rsChangeTopic: ActorRef[Topic.Command[ResultChange]] = ctx.spawn(Topic[ResultChange](
+  protected val rsChangeTopic: ActorRef[Topic.Command[ExecRsChangeEvent]] = ctx.spawn(Topic[ExecRsChangeEvent](
     topicName = s"pota-fsi-executor-$sessionId"),
     name = s"pota-fsi-executor-topic-$sessionId"
   )
@@ -117,7 +117,7 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
         process.get.cancel(interrupt = true)
         process = None
         ctx.log.info(s"session[$sessionId] current process cancelled.")
-        rsChangeTopic ! Topic.Publish(StmtsPlanExecCanceled)
+        rsChangeTopic ! Topic.Publish(StmtsPlanExecCanceled$Event)
       }
       Behaviors.same
 
@@ -126,7 +126,7 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
       // it's not allowed to execute new operation.
       case Some(_) =>
         val rejectReason = BusyInProcess(startTs = rsBuffer.map(_.startTs).get)
-        rsChangeTopic ! Topic.Publish(RejectStmtsExecPlan(statements, rejectReason))
+        rsChangeTopic ! Topic.Publish(RejectStmtsExecPlanEvent(statements, rejectReason))
         replyTo ! fail(rejectReason)
         Behaviors.same
 
@@ -142,7 +142,7 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
           case stmts if stmts.isEmpty =>
             replyTo ! fail(StatementIsEmpty())
           case stmts =>
-            rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlan(stmtsPlan, effectProps))
+            rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlanEvent(stmtsPlan, effectProps))
             // reset result buffer
             rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
             queryRsBuffer = None

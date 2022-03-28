@@ -44,14 +44,14 @@ object FsiExecutor {
   final case class Terminate(reason: String = "") extends Command
 
   /**
-   * Subscribe the result change events from this executor, see [[ResultChange]].
+   * Subscribe the result change events from this executor, see [[ExecRsChangeEvent]].
    */
-  final case class SubscribeState(listener: ActorRef[ResultChange]) extends Command
+  final case class SubscribeState(listener: ActorRef[ExecRsChangeEvent]) extends Command
 
   /**
    * Unsubscribe the result change events from this executor.
    */
-  final case class UnsubscribeState(listener: ActorRef[ResultChange]) extends Command
+  final case class UnsubscribeState(listener: ActorRef[ExecRsChangeEvent]) extends Command
 
 
   sealed trait GetQueryResult extends Command

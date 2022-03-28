@@ -6,26 +6,26 @@ import com.github.potamois.potamoi.commons.{RichString, RichThrowable, Tabulator
 import com.github.potamois.potamoi.gateway.flink.FsiSessManager.SessionId
 
 /**
- * ResultChangeEvent printer actor , used to output [[FsiSerialExecutor]]
+ * FsiExecResultChangeEvent printer actor , used to output [[FsiSerialExecutor]]
  * change events during the debugging phase.
- * See [[ResultChangeEvent]].
+ * See [[ExecRsChangeEvent]].
  *
  * @author Al-assad
  */
-object RsEventChangePrinter {
+object ExecRsChangeEventPrinter {
 
-  import ResultChangeEvent._
+  import ExecRsChangeEvent._
 
   /**
    * @param sessionId            Executor session id
    * @param printEachRowReceived whether to print each row that received from [[ReceiveQueryOpRow]]
    */
-  def apply(sessionId: SessionId, printEachRowReceived: Boolean = false): Behavior[ResultChange] =
-    Behaviors.receive[ResultChange] { (ctx, msg) =>
+  def apply(sessionId: SessionId, printEachRowReceived: Boolean = false): Behavior[ExecRsChangeEvent] =
+    Behaviors.receive[ExecRsChangeEvent] { (ctx, msg) =>
       val log = ctx.log
       msg match {
 
-        case AcceptStmtsExecPlan(stmts, config) => log.info(
+        case AcceptStmtsExecPlanEvent(stmts, config) => log.info(
           s"""@Receive[$sessionId] AcceptStmtsExecPlan => executor accepted a new statements plan.
              |stmts:
              |${stmts.map(e => s"  ${e.compact}").mkString("\n")}"
@@ -37,7 +37,7 @@ object RsEventChangePrinter {
              |""".stripMargin)
           Behaviors.same
 
-        case RejectStmtsExecPlan(stmts, cause) => log.info(
+        case RejectStmtsExecPlanEvent(stmts, cause) => log.info(
           s"""@Receive[$sessionId] RejectStmtsExecPlan => executor reject a statements plan.
              |reason: ${cause.reason}
              |stmts: ${stmts.compact}"
@@ -92,16 +92,15 @@ object RsEventChangePrinter {
              |""".stripMargin)
           Behaviors.same
 
-        case StmtsPlanExecCanceled =>
-          log.info("@Receive[$sessionId] StmtsPlanExecCanceled => current statements execution plan has been canceled.")
+        case StmtsPlanExecCanceled$Event =>
+          log.info(s"@Receive[$sessionId] StmtsPlanExecCanceled => current statements execution plan has been canceled.")
           Behaviors.same
 
         case ActivelyTerminated(reason) =>
-          log.info("@Receive[$sessionId] ActivelyTerminated => the executor has been terminated"
+          log.info(s"@Receive[$sessionId] ActivelyTerminated => the executor has been terminated"
             + (if(reason.nonEmpty) s" with reason: $reason" else "."))
           Behaviors.same
       }
-
     }
 
 }

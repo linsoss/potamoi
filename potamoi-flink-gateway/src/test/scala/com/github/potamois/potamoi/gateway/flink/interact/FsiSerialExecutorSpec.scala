@@ -9,7 +9,7 @@ import com.github.potamois.potamoi.commons.FutureImplicits.sleep
 import com.github.potamois.potamoi.gateway.flink.PageReq
 import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy._
 import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor._
-import com.github.potamois.potamoi.gateway.flink.interact.ResultChangeEvent.{AcceptStmtsExecPlan, AllStmtsDone}
+import com.github.potamois.potamoi.gateway.flink.interact.ExecRsChangeEvent.{AcceptStmtsExecPlanEvent, AllStmtsDone}
 import com.github.potamois.potamoi.testkit.akka.{STAkkaSpec, defaultConfig}
 import org.apache.flink.table.api.SqlParserException
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
@@ -102,7 +102,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |insert into print_table select * from datagen_source;
           |""".stripMargin
 
-      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
       probeRef[RejectableDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(30.seconds, Right(Done))
 
       probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
@@ -440,7 +440,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
     "testing RsEventChangePrinter" in {
       val executor = spawn(FsiSerialExecutor("114514"))
       val prop = props.copy(rsCollectSt = DROP_TAIL -> 30)
-      executor ! SubscribeState(spawn(RsEventChangePrinter("114514", printEachRowReceived = true)))
+      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514", printEachRowReceived = true)))
       probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(30.seconds, Right(Done))
     }
 
@@ -458,9 +458,9 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           case Get(reply) => reply ! signal; Behaviors.same
         }
       })
-      val cusSubscribeActor = spawn(Behaviors.setup[ResultChange] { _ =>
+      val cusSubscribeActor = spawn(Behaviors.setup[ExecRsChangeEvent] { _ =>
         Behaviors.receiveMessage {
-          case AcceptStmtsExecPlan(stmts, _) => stmts.size shouldBe 2; Behaviors.same
+          case AcceptStmtsExecPlanEvent(stmts, _) => stmts.size shouldBe 2; Behaviors.same
           case AllStmtsDone(rs) => trashActor ! Set(true); Behaviors.same
           case _ => Behaviors.same
         }
@@ -497,7 +497,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
     "rejects another execution plan when the current plan is running" in {
       val executor = newExecutor
-      executor ! SubscribeState(spawn(RsEventChangePrinter("114514", printEachRowReceived = true)))
+      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514", printEachRowReceived = true)))
       val probe = TestProbe[RejectableDone]
       executor ! ExecuteSqls(sql, prop, probe.ref)
       probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) receivePF {
@@ -509,7 +509,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
     "cancel the current execution plan process" in {
       val executor = newExecutor
-      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       executor ! CancelCurProcess
       val probe = TestProbe[Boolean]()
@@ -520,7 +520,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
     "test execute -> cancel -> execute process" in {
       val executor = newExecutor
-      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
       // execute
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       // be rejected
@@ -543,7 +543,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
     "terminal the current executor when the executor is busy" in {
       val watch = createTestProbe[Command]()
       val executor = newExecutor
-      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       executor ! Terminate()
       watch.expectTerminated(executor)
@@ -552,7 +552,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
     "terminal the current executor when the executor is idle" in {
       val watch = createTestProbe[Command]()
       val executor = newExecutor
-      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
       executor ! Terminate()
       watch.expectTerminated(executor)
     }
