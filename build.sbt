@@ -1,5 +1,5 @@
 lazy val scala = "2.12.15"
-lazy val akkaVersion = "2.6.18"
+lazy val akkaVersion = "2.6.19"
 lazy val akkaHttpVersion = "10.2.9"
 lazy val flinkVersion = 14
 
