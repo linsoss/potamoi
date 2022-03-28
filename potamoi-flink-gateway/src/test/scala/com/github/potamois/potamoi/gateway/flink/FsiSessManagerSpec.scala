@@ -5,9 +5,7 @@ import com.github.potamois.potamoi.testkit.akka.{STAkkaSpec, defaultConfig}
 
 class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with STAkkaSpec {
 
-  "test1" in {
-
-
+  "FsiSessManager's single node behavior" should {
 
   }
 
