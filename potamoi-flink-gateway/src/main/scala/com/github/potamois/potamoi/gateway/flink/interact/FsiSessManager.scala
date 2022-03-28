@@ -1,6 +1,7 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import akka.actor.typed._
+
+import akka.actor.typed.{ActorRef, Behavior, PostStop, PreRestart, SupervisorStrategy}
 import akka.actor.typed.receptionist.Receptionist.Registered
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
