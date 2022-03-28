@@ -10,7 +10,7 @@ import scala.language.implicitConversions
 /**
  * Flink interactive operation execution configuration.
  * It is recommended to use the factory creation method in the ExecConfig object
- * such as ExecConfig.localEnv or ExecConfig.remoteEnv.
+ * such as ExecProps.localEnv or ExecProps.remoteEnv.
  *
  * @param executeMode execution mode of flink job, see [[ExecMode]]
  * @param remoteAddr  remote flink cluster rest endpoint when use [[ExecMode.REMOTE]]
