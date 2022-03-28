@@ -1,4 +1,4 @@
-package com.github.potamois.potamoi.gateway.flink
+package com.github.potamois.potamoi.gateway.flink.interact
 
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, flinkVerSignRange}
 

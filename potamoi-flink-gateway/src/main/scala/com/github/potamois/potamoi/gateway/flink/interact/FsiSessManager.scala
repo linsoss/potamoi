@@ -1,4 +1,4 @@
-package com.github.potamois.potamoi.gateway.flink
+package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.actor.typed.receptionist.Receptionist.Registered
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
@@ -7,8 +7,8 @@ import akka.actor.typed.scaladsl.{Behaviors, Routers}
 import akka.actor.typed.{ActorRef, Behavior, SupervisorStrategy}
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CborSerializable, Uuid}
+import com.github.potamois.potamoi.gateway.flink.FlinkVersion
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, flinkVerSignRange}
-import com.github.potamois.potamoi.gateway.flink.interact.{FsiExecutor, FsiSerialExecutor}
 
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -18,6 +18,8 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
  *
  * @author Al-assad
  */
+// todo refactor to class
+
 object FsiSessManager {
 
   type SessionId = String

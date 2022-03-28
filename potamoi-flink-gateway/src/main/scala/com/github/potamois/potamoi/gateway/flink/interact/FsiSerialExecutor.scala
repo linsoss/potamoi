@@ -7,7 +7,7 @@ import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.ClassloaderWrapper.tryRunWithExtraDeps
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
-import com.github.potamois.potamoi.gateway.flink.FsiSessManager.SessionId
+import FsiSessManager.SessionId
 import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser

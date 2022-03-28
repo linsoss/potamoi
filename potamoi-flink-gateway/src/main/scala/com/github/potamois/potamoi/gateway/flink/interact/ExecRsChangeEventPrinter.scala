@@ -3,7 +3,7 @@ package com.github.potamois.potamoi.gateway.flink.interact
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import com.github.potamois.potamoi.commons.{RichString, RichThrowable, Tabulator}
-import com.github.potamois.potamoi.gateway.flink.FsiSessManager.SessionId
+import FsiSessManager.SessionId
 
 /**
  * FsiExecResultChangeEvent printer actor , used to output [[FsiSerialExecutor]]
