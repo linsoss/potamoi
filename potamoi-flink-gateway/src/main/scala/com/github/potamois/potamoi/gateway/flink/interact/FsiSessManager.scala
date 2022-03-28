@@ -1,13 +1,12 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
+import akka.actor.typed._
 import akka.actor.typed.receptionist.Receptionist.Registered
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers, TimerScheduler}
-import akka.actor.typed._
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CborSerializable, Uuid}
-import com.github.potamois.potamoi.gateway.flink.FlinkVersion
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, curSystemFlinkVer, flinkVerSignRange}
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Command, SessionId}
 
@@ -127,7 +126,6 @@ object FsiSessManager {
 class FsiSessManager private(flinkVer: FlinkVerSign,
                              fsiExecutorBehavior: SessionId => Behavior[FsiExecutor.Command])
                             (implicit ctx: ActorContext[Command], timers: TimerScheduler[Command]) {
-
   import FsiSessManager._
 
   // forward command retry behavior configs. todo read config from hocon
