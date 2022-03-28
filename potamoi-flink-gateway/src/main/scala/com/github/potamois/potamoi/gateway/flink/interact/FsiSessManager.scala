@@ -27,8 +27,8 @@ object FsiSessManager {
 
   sealed trait Command extends CborSerializable
 
-  private sealed trait CreateSessionCommand
-  private sealed trait ForwardCommand
+  private[interact] sealed trait CreateSessionCommand
+  private[interact] sealed trait ForwardCommand
 
   /**
    * Create a new FsiExecutor session.
