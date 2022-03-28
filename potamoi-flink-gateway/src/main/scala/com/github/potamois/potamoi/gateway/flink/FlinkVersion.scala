@@ -1,5 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink
 
+import com.github.potamois.potamoi.gateway.flink.FlinkVersion.FlinkVerSign
 import org.apache.flink.table.api.TableEnvironment
 
 /**
@@ -11,22 +12,36 @@ import org.apache.flink.table.api.TableEnvironment
  */
 case class FlinkVersion(major: String, version: String) {
 
-  // construct from flink full version string like "1.14.0"
+  /**
+   * Construct from flink full version string like "1.14.0"
+   */
   def this(version: String) = this(version.split('.').take(2).mkString("."), version)
 
-  // Major version sign likes "114" for version "1.14"
-  lazy val majorSign: Int = major.split('.').mkString("").toInt
+  /**
+   * Major version sign likes "114" for version "1.14"
+   */
+  lazy val majorSign: FlinkVerSign = major.split('.').mkString("").toInt
 }
 
 
 object FlinkVersion {
 
   /**
+   * See [[FlinkVersion.majorSign]]
+   */
+  type FlinkVerSign = Int
+
+  /**
    * Current flink version on the system, which is determined by the version
    * information of the jar where the [[TableEnvironment]] is actually loaded.
    */
-  lazy val curSystemFlinkVers: FlinkVersion =
+  lazy val curSystemFlinkVer: FlinkVersion =
     new FlinkVersion(classOf[TableEnvironment].getPackage.getImplementationVersion)
+
+  /**
+   * Major versions sign of flink supported by potamoi, see [[FlinkVersion.majorSign]].
+   */
+  val flinkVerSignRange: Seq[FlinkVerSign] = Seq(114, 113, 112, 111)
 
 }
 
