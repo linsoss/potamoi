@@ -3,9 +3,10 @@ package com.github.potamois.potamoi.gateway.flink.interact
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import com.github.potamois.potamoi.commons.{RichString, RichThrowable, Tabulator}
+import com.github.potamois.potamoi.gateway.flink.FsiSessManager.SessionId
 
 /**
- * ResultChangeEvent printer actor , used to output [[SqlSerialExecutor]]
+ * ResultChangeEvent printer actor , used to output [[FsiSerialExecutor]]
  * change events during the debugging phase.
  * See [[ResultChangeEvent]].
  *
@@ -19,7 +20,7 @@ object RsEventChangePrinter {
    * @param sessionId            Executor session id
    * @param printEachRowReceived whether to print each row that received from [[ReceiveQueryOpRow]]
    */
-  def apply(sessionId: String, printEachRowReceived: Boolean = false): Behavior[ResultChange] =
+  def apply(sessionId: SessionId, printEachRowReceived: Boolean = false): Behavior[ResultChange] =
     Behaviors.receive[ResultChange] { (ctx, msg) =>
       val log = ctx.log
       msg match {

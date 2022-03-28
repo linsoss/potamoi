@@ -5,7 +5,7 @@ import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.Error
 
 /**
- * Execution result changes event for [[SqlSerialExecutor]] implemented by Akka Cluster Topic,
+ * Execution result changes event for [[FsiSerialExecutor]] implemented by Akka Cluster Topic,
  * the subscribers can select to receive from the following list of [[ResultChangeEvent]] as
  * needed.
  *

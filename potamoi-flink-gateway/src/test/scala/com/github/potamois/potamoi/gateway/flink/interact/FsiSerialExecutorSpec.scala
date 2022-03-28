@@ -8,8 +8,8 @@ import com.github.potamois.potamoi.commons.EitherAlias.success
 import com.github.potamois.potamoi.commons.FutureImplicits.sleep
 import com.github.potamois.potamoi.gateway.flink.PageReq
 import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy._
+import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor._
 import com.github.potamois.potamoi.gateway.flink.interact.ResultChangeEvent.{AcceptStmtsExecPlan, AllStmtsDone}
-import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor._
 import com.github.potamois.potamoi.testkit.akka.{STAkkaSpec, defaultConfig}
 import org.apache.flink.table.api.SqlParserException
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
@@ -25,7 +25,7 @@ import scala.language.postfixOps
  *
  * @author Al-assad
  */
-class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) with STAkkaSpec {
+class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) with STAkkaSpec {
 
   // todo provide props via condition from hocon
   // Executor Config
@@ -40,7 +40,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
   lazy val logStmtRs = true
   def logSilent(content: String): Unit = if (logStmtRs) log.info(content)
 
-  def newExecutor: ActorRef[Command] = spawn(SqlSerialExecutor("114514"))
+  def newExecutor: ActorRef[Command] = spawn(FsiSerialExecutor("114514"))
 
   /**
    * Testing submit sql behavior of SqlSerialExecutor
@@ -102,6 +102,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |insert into print_table select * from datagen_source;
           |""".stripMargin
 
+      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
       probeRef[RejectableDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(30.seconds, Right(Done))
 
       probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
@@ -437,14 +438,14 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
         |""".stripMargin
 
     "testing RsEventChangePrinter" in {
-      val executor = spawn(SqlSerialExecutor("114514"))
+      val executor = spawn(FsiSerialExecutor("114514"))
       val prop = props.copy(rsCollectSt = DROP_TAIL -> 30)
       executor ! SubscribeState(spawn(RsEventChangePrinter("114514", printEachRowReceived = true)))
       probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(30.seconds, Right(Done))
     }
 
     "custom subscriber" in {
-      val executor = spawn(SqlSerialExecutor("114514"))
+      val executor = spawn(FsiSerialExecutor("114514"))
       val prop = props.copy(rsCollectSt = DROP_TAIL -> 30)
 
       sealed trait Cmd

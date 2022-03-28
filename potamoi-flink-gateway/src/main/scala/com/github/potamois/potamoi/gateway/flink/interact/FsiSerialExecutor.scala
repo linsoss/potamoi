@@ -6,10 +6,10 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.ClassloaderWrapper.tryRunWithExtraDeps
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
-import com.github.potamois.potamoi.commons.{CancellableFuture, CborSerializable, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
+import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
 import com.github.potamois.potamoi.gateway.flink.FsiSessManager.SessionId
+import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
-import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser
 import com.github.potamois.potamoi.gateway.flink.{Error, FlinkApiCovertTool, PageReq, PageRsp, interact}
 import com.typesafe.scalalogging.Logger
@@ -35,77 +35,17 @@ import scala.util.control.Breaks.{break, breakable}
 import scala.util.{Failure, Success, Try}
 
 /**
- * Flink sqls serial executor actor.
+ * Flink sqls serial interaction executor actor.
+ * This is the default implementation of [[FsiExecutor]].
  *
  * The format of the submitted flink job name is "potamoi-fsi-{sessionId}"
  * such as "potamoi-fsi-1234567890"
  *
  * @author Al-assad
  */
-object SqlSerialExecutor {
+object FsiSerialExecutor {
 
-  type RejectableDone = Either[ExecReqReject, Done]
-  type ExecutionPlanResult = Option[SerialStmtsResult]
-  type QueryResult = Option[TableResultSnapshot]
-  type PageQueryResult = Option[PageableTableResultSnapshot]
-
-  sealed trait Command extends CborSerializable
-
-  /**
-   * Execute a new sql plan.
-   *
-   * @param sqlStatements sql statements
-   * @param props         execution configuration
-   */
-  final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[RejectableDone]) extends Command
-
-  /**
-   * Check if the current executor is executing the sql plan.
-   */
-  final case class IsInProcess(replyTo: ActorRef[Boolean]) extends Command
-
-  /**
-   * Cancel the execution plan in process.
-   */
-  final case object CancelCurProcess extends Command
-
-  /**
-   * Terminate the executor.
-   */
-  final case class Terminate(reason: String = "") extends Command
-
-  /**
-   * Subscribe the result change events from this executor, see [[ResultChange]].
-   */
-  final case class SubscribeState(listener: ActorRef[ResultChange]) extends Command
-
-  /**
-   * Unsubscribe the result change events from this executor.
-   */
-  final case class UnsubscribeState(listener: ActorRef[ResultChange]) extends Command
-
-  sealed trait GetQueryResult extends Command
-  /**
-   * Get the current sqls plan result snapshot that has been executed.
-   */
-  final case class GetExecPlanRsSnapshot(replyTo: ActorRef[ExecutionPlanResult]) extends GetQueryResult
-  val GetExecPlanResult: GetExecPlanRsSnapshot.type = GetExecPlanRsSnapshot
-
-  /**
-   * Get the TableResult snapshot that has been collected for QueryOperation.
-   *
-   * @param limit result size limit, -1 and Int.MaxValue means no limit
-   */
-  final case class GetQueryRsSnapshot(limit: Int = -1, replyTo: ActorRef[QueryResult]) extends GetQueryResult
-  val GetQueryResult: GetQueryRsSnapshot.type = GetQueryRsSnapshot
-
-  /**
-   * Get the current sqls plan result snapshot that has been executed.
-   *
-   * @param page page request param, see[[PageReq]]
-   */
-  final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[PageQueryResult]) extends GetQueryResult
-  val GetQueryResultByPage: GetQueryRsSnapshotByPage.type = GetQueryRsSnapshotByPage
+  import FsiExecutor._
 
   sealed trait Internal extends Command
 
@@ -132,15 +72,16 @@ object SqlSerialExecutor {
 
   def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
     ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
-    new SqlSerialExecutor(sessionId).action()
+    new FsiSerialExecutor(sessionId).action()
   }
 }
 
 
-class SqlSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command]) {
+class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command]) {
 
+  import FsiExecutor._
+  import FsiSerialExecutor._
   import ResultChangeEvent._
-  import SqlSerialExecutor._
 
   // Execution context for CancelableFuture
   // todo replace with standalone dispatcher
@@ -232,8 +173,9 @@ class SqlSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
       rsChangeTopic ! Topic.Publish(ActivelyTerminated(reason))
       Behaviors.stopped
 
-    case cmd: Internal => internalBehavior(cmd)
     case cmd: GetQueryResult => queryResultBehavior(cmd)
+    case cmd: Internal => internalBehavior(cmd)
+    case _ => Behaviors.same
 
   }.receiveSignal {
     case (context, PostStop) =>
@@ -441,7 +383,7 @@ class SqlSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
                 shouldDone = true
                 break
               }
-            ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, ImmediateOpDone(interact.TableResultData(cols, rows))))
+            ctx.self ! SingleStmtFinished(SingleStmtResult.success(stmt, ImmediateOpDone(TableResultData(cols, rows))))
         }
       }
     }
