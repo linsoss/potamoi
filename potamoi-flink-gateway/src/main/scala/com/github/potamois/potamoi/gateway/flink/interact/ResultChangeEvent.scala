@@ -87,5 +87,15 @@ object ResultChangeEvent {
    */
   final case class ErrorDuringQueryOp(error: Error) extends ResultChange
 
+  /**
+   * The current execution plan is been cancelled.
+   */
+  final case object StmtsPlanExecCanceled extends ResultChange
+
+  /**
+   * The current executor is been terminated actively.
+   */
+  final case class ActivelyTerminated(reason: String) extends ResultChange
+
 
 }

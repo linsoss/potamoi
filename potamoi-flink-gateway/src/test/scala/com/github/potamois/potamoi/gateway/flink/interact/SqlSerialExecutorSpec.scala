@@ -478,7 +478,7 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
   /**
    * Testing request rejection while executor is already in querying process.
    */
-  "cancel/accept/reject control behavior" should {
+  "cancel/accept/reject/terminate control behavior" should {
 
     val sql =
       """create table datagen_source (
@@ -537,6 +537,23 @@ class SqlSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(true)
       executor ! CancelCurProcess
+    }
+
+    "terminal the current executor when the executor is busy" in {
+      val watch = createTestProbe[Command]()
+      val executor = newExecutor
+      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      executor ! ExecuteSqls(sql, prop, system.ignoreRef)
+      executor ! Terminate()
+      watch.expectTerminated(executor)
+    }
+
+    "terminal the current executor when the executor is idle" in {
+      val watch = createTestProbe[Command]()
+      val executor = newExecutor
+      executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
+      executor ! Terminate()
+      watch.expectTerminated(executor)
     }
 
   }

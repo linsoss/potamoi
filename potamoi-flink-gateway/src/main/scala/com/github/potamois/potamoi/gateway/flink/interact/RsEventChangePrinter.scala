@@ -85,10 +85,19 @@ object RsEventChangePrinter {
           Behaviors.same
 
         case ErrorDuringQueryOp(error) => log.info(
-          s"""@Receive[$sessionId] ErrorDuringQueryOp => A exception occurred during query operation.
+          s"""@Receive[$sessionId] ErrorDuringQueryOp => a exception occurred during query operation.
              |summary: ${error.summary}
              |${error.stack.getStackTraceAsString}
              |""".stripMargin)
+          Behaviors.same
+
+        case StmtsPlanExecCanceled =>
+          log.info("@Receive[$sessionId] StmtsPlanExecCanceled => current statements execution plan has been canceled.")
+          Behaviors.same
+
+        case ActivelyTerminated(reason) =>
+          log.info("@Receive[$sessionId] ActivelyTerminated => the executor has been terminated"
+            + (if(reason.nonEmpty) s" with reason: $reason" else "."))
           Behaviors.same
       }
 

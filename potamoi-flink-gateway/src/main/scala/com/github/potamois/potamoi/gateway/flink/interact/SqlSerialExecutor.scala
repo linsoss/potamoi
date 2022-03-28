@@ -7,6 +7,7 @@ import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.commons.ClassloaderWrapper.tryRunWithExtraDeps
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CancellableFuture, CborSerializable, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
+import com.github.potamois.potamoi.gateway.flink.FsiSessManager.SessionId
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.interact.SqlSerialExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser
@@ -67,6 +68,11 @@ object SqlSerialExecutor {
    * Cancel the execution plan in process.
    */
   final case object CancelCurProcess extends Command
+
+  /**
+   * Terminate the executor.
+   */
+  final case class Terminate(reason: String = "") extends Command
 
   /**
    * Subscribe the result change events from this executor, see [[ResultChange]].
@@ -131,7 +137,7 @@ object SqlSerialExecutor {
 }
 
 
-class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) {
+class SqlSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command]) {
 
   import ResultChangeEvent._
   import SqlSerialExecutor._
@@ -170,6 +176,7 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
         process.get.cancel(interrupt = true)
         process = None
         ctx.log.info(s"session[$sessionId] current process cancelled.")
+        rsChangeTopic ! Topic.Publish(StmtsPlanExecCanceled)
       }
       Behaviors.same
 
@@ -219,6 +226,11 @@ class SqlSerialExecutor(sessionId: String)(implicit ctx: ActorContext[Command]) 
     case UnsubscribeState(listener) =>
       rsChangeTopic ! Topic.Unsubscribe(listener)
       Behaviors.same
+
+    case Terminate(reason) =>
+      ctx.log.info(s"session[$sessionId] is actively terminated, reason: $reason")
+      rsChangeTopic ! Topic.Publish(ActivelyTerminated(reason))
+      Behaviors.stopped
 
     case cmd: Internal => internalBehavior(cmd)
     case cmd: GetQueryResult => queryResultBehavior(cmd)
