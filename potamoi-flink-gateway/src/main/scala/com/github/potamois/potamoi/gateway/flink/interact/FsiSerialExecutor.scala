@@ -77,7 +77,7 @@ object FsiSerialExecutor {
 }
 
 
-class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command]) {
+class FsiSerialExecutor private(sessionId: SessionId)(implicit ctx: ActorContext[Command]) {
 
   import FsiExecutor._
   import FsiSerialExecutor._
@@ -107,7 +107,7 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
   // default flink job name
   protected val defaultJobName = s"potamoi-fsi-$sessionId"
 
-  def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
+  private def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
     case IsInProcess(replyTo) =>
       replyTo ! process.isDefined
       Behaviors.same
