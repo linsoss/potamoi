@@ -9,7 +9,7 @@ class FlinkVersionSpec extends STSpec {
 
     "return the correct version of system" in {
       val currentVersion = classOf[Environment].getPackage.getImplementationVersion
-      FlinkVersion.curSystemFlinkVer.version shouldBe currentVersion
+      FlinkVersion.systemFlinkVer.version shouldBe currentVersion
     }
 
     "return the correct major version" in {
