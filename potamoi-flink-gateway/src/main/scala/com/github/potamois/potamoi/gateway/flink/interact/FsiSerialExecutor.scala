@@ -91,8 +91,8 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
 
   // result change topic
   protected val rsChangeTopic: ActorRef[Topic.Command[ExecRsChangeEvent]] = ctx.spawn(Topic[ExecRsChangeEvent](
-    topicName = s"pota-fsi-executor-$sessionId"),
-    name = s"pota-fsi-executor-topic-$sessionId"
+    topicName = s"fsi-executor-state-$sessionId"),
+    name = s"fsi-executor-topic-$sessionId"
   )
 
   // running process
