@@ -7,7 +7,7 @@ import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers, TimerScheduler}
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CborSerializable, Uuid}
-import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, curSystemFlinkVer, flinkVerSignRange}
+import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, flinkVerSignRange, systemFlinkVerSign}
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Command, SessionId}
 
 import scala.collection.mutable
@@ -94,7 +94,7 @@ object FsiSessManager {
    * Default behavior creation.
    */
   def apply(): Behavior[Command] = apply(
-    flinkVerSign = curSystemFlinkVer.majorSign,
+    flinkVerSign = systemFlinkVerSign,
     fsiExecutorBehavior = FsiSerialExecutor.apply)
 
   /**
@@ -104,7 +104,7 @@ object FsiSessManager {
    *                            is used by default.
    * @param fsiExecutorBehavior The behavior of the FsiExecutor actor, use [[FsiSerialExecutor]] by default.
    */
-  def apply(flinkVerSign: FlinkVerSign = curSystemFlinkVer.majorSign,
+  def apply(flinkVerSign: FlinkVerSign = systemFlinkVerSign,
             fsiExecutorBehavior: SessionId => Behavior[FsiExecutor.Command] = FsiSerialExecutor.apply): Behavior[Command] =
     Behaviors.setup[Command] { implicit ctx =>
       Behaviors.withTimers { implicit timers =>
@@ -126,6 +126,7 @@ object FsiSessManager {
 class FsiSessManager private(flinkVer: FlinkVerSign,
                              fsiExecutorBehavior: SessionId => Behavior[FsiExecutor.Command])
                             (implicit ctx: ActorContext[Command], timers: TimerScheduler[Command]) {
+
   import FsiSessManager._
 
   // forward command retry behavior configs. todo read config from hocon

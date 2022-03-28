@@ -35,8 +35,13 @@ object FlinkVersion {
    * Current flink version on the system, which is determined by the version
    * information of the jar where the [[TableEnvironment]] is actually loaded.
    */
-  lazy val curSystemFlinkVer: FlinkVersion =
+  lazy val systemFlinkVer: FlinkVersion =
     new FlinkVersion(classOf[TableEnvironment].getPackage.getImplementationVersion)
+
+  /**
+   * [[FlinkVerSign]] of the current system, likes "114" for version "1.14"
+   */
+  lazy val systemFlinkVerSign: FlinkVerSign = systemFlinkVer.majorSign
 
   /**
    * Major versions sign of flink supported by potamoi, see [[FlinkVersion.majorSign]].
