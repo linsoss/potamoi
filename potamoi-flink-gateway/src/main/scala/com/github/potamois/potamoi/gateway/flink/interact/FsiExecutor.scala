@@ -24,9 +24,9 @@ object FsiExecutor {
    * Execute a new sql plan.
    *
    * @param sqlStatements sql statements
-   * @param props         execution configuration
+   * @param props         execution configuration properties
    */
-  final case class ExecuteSqls(sqlStatements: String, props: ExecConfig, replyTo: ActorRef[RejectableDone]) extends Command
+  final case class ExecuteSqls(sqlStatements: String, props: ExecProps, replyTo: ActorRef[RejectableDone]) extends Command
 
   /**
    * Check if the current executor is executing the sql plan.

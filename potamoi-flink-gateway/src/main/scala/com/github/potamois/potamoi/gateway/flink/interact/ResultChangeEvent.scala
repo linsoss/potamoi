@@ -21,10 +21,10 @@ object ResultChangeEvent {
   /**
    * Executor accepts a new sql statements execution plan request
    *
-   * @param stmts  sql statements that has been split
-   * @param config the effective execution configuration
+   * @param stmts sql statements that has been split
+   * @param props the effective execution configuration properties
    */
-  final case class AcceptStmtsExecPlan(stmts: Seq[String], config: EffectiveExecConfig) extends ResultChange
+  final case class AcceptStmtsExecPlan(stmts: Seq[String], props: EffectiveExecProps) extends ResultChange
 
   /**
    * Executor rejects a new sql statements execution plan request

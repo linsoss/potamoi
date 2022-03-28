@@ -29,11 +29,11 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
   // todo provide props via condition from hocon
   // Executor Config
-  val props: ExecConfig = baseProps("remote")
+  val props: ExecProps = baseProps("remote")
 
   lazy val baseProps = Map(
-    "local" -> ExecConfig.localEnv(rsCollectSt = DROP_TAIL -> 25),
-    "remote" -> ExecConfig.remoteEnv(remoteAddr = "hs.assad.site" -> 32241, rsCollectSt = DROP_TAIL -> 25)
+    "local" -> ExecProps.localEnv(rsCollectSt = DROP_TAIL -> 25),
+    "remote" -> ExecProps.remoteEnv(remoteAddr = "hs.assad.site" -> 32241, rsCollectSt = DROP_TAIL -> 25)
   )
 
   // whether log statements result

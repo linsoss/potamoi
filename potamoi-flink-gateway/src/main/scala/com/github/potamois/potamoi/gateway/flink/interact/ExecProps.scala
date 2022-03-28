@@ -20,13 +20,13 @@ import scala.language.implicitConversions
  * @author Al-assad
  *
  */
-case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
-                      remoteAddr: Option[RemoteAddr] = None,
-                      flinkConfig: Map[String, String] = Map.empty,
-                      flinkDeps: Seq[String] = Seq.empty,
-                      rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) extends CborSerializable {
+case class ExecProps(executeMode: ExecMode = ExecMode.LOCAL,
+                     remoteAddr: Option[RemoteAddr] = None,
+                     flinkConfig: Map[String, String] = Map.empty,
+                     flinkDeps: Seq[String] = Seq.empty,
+                     rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) extends CborSerializable {
 
-  def toEffectiveExecConfig: EffectiveExecConfig = ExecConfig.convergeExecConfig(this)
+  def toEffectiveExecProps: EffectiveExecProps = ExecProps.convergeExecConfig(this)
 }
 
 /**
@@ -37,11 +37,11 @@ case class ExecConfig(executeMode: ExecMode = ExecMode.LOCAL,
  * @param rsCollectSt result collector strategy, see [[RsCollectStrategy]]
  * @author Al-assad
  */
-case class EffectiveExecConfig(flinkConfig: Map[String, String] = Map.empty,
-                               flinkDeps: Seq[String] = Seq.empty,
-                               rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) {
+case class EffectiveExecProps(flinkConfig: Map[String, String] = Map.empty,
+                              flinkDeps: Seq[String] = Seq.empty,
+                              rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) {
   // update flink config
-  def updateFlinkConfig(updated: mutable.Map[String, String] => Unit): EffectiveExecConfig = {
+  def updateFlinkConfig(updated: mutable.Map[String, String] => Unit): EffectiveExecProps = {
     val tmpMap = mutable.Map(flinkConfig.toSeq: _*)
     updated(tmpMap)
     copy(flinkConfig = tmpMap.toMap)
@@ -116,26 +116,26 @@ object ExecMode extends Enumeration {
 /**
  * @author Al-assad
  */
-object ExecConfig {
+object ExecProps {
 
   /**
    * Create a local-execution environment config instance.
-   * Refer to [[ExecConfig]] for params details.
+   * Refer to [[ExecProps]] for params details.
    */
   def localEnv(flinkConfig: Map[String, String] = Map.empty,
                flinkDeps: Seq[String] = Seq.empty,
-               rsCollectSt: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
-    ExecConfig(ExecMode.LOCAL, None, flinkConfig, flinkDeps, rsCollectSt)
+               rsCollectSt: RsCollectStrategy = RsCollectStrategy.default): ExecProps =
+    ExecProps(ExecMode.LOCAL, None, flinkConfig, flinkDeps, rsCollectSt)
 
   /**
    * Create a remote-execution environment config instance.
-   * Refer to [[ExecConfig]] for params details.
+   * Refer to [[ExecProps]] for params details.
    */
   def remoteEnv(remoteAddr: RemoteAddr,
                 flinkConfig: Map[String, String] = Map.empty,
                 flinkDeps: Seq[String] = Seq.empty,
-                rsCollectSt: RsCollectStrategy = RsCollectStrategy.default): ExecConfig =
-    ExecConfig(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, flinkDeps, rsCollectSt)
+                rsCollectSt: RsCollectStrategy = RsCollectStrategy.default): ExecProps =
+    ExecProps(ExecMode.REMOTE, Some(remoteAddr), flinkConfig, flinkDeps, rsCollectSt)
 
   /**
    * Default flink configuration for interactive query scenario.
@@ -147,7 +147,7 @@ object ExecConfig {
    * Converge effective configuration from ExecConfig to EffectiveExecConfig especially
    * for flink configuration.
    */
-  def convergeExecConfig(config: ExecConfig): EffectiveExecConfig = {
+  def convergeExecConfig(config: ExecProps): EffectiveExecProps = {
     // flink config
     val convergedConfig = {
       // base on default flink config
@@ -170,7 +170,7 @@ object ExecConfig {
     // other config
     val collectStrategy = Option(config.rsCollectSt).getOrElse(RsCollectStrategy.default)
     val flinkDeps = Option(config.flinkDeps).getOrElse(Seq.empty)
-    EffectiveExecConfig(convergedConfig, flinkDeps, collectStrategy)
+    EffectiveExecProps(convergedConfig, flinkDeps, collectStrategy)
   }
 
 }

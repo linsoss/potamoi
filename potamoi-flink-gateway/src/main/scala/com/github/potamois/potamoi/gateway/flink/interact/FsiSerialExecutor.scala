@@ -70,7 +70,7 @@ object FsiSerialExecutor {
   // Hook the Flink JobClient
   private final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
 
-  def apply(sessionId: String): Behavior[Command] = Behaviors.setup { implicit ctx =>
+  def apply(sessionId: SessionId): Behavior[Command] = Behaviors.setup { implicit ctx =>
     ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
     new FsiSerialExecutor(sessionId).action()
   }
@@ -132,7 +132,7 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
 
       case None =>
         // extract effective execution config
-        val effectProps = props.toEffectiveExecConfig.updateFlinkConfig { conf =>
+        val effectProps = props.toEffectiveExecProps.updateFlinkConfig { conf =>
           // set flink job name
           conf ?+= "pipeline.name" -> defaultJobName
         }
@@ -318,7 +318,7 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
   /**
    * Execute sql statements plan.
    */
-  private def execStatementsPlan(stmts: Seq[String], effectProps: EffectiveExecConfig): RejectableDone = {
+  private def execStatementsPlan(stmts: Seq[String], effectProps: EffectiveExecProps): RejectableDone = {
     val flinkDeps = effectProps.flinkDeps
     // todo Download flink deps and check dep jars from s3
     val depURLs: Seq[URL] = flinkDeps.map(new File(_).toURI.toURL)
@@ -326,9 +326,9 @@ class FsiSerialExecutor(sessionId: SessionId)(implicit ctx: ActorContext[Command
     tryRunWithExtraDeps(depURLs) { classloader =>
       Try {
         // init flink environment context
-        val config = Configuration.fromMap(effectProps.flinkConfig.asJava)
-        config.set(PipelineOptions.JARS, flinkDeps.map(dep => s"file://$dep").toBuffer.asJava)
-        createFlinkContext(config, classloader)
+        val flinkConfig = Configuration.fromMap(effectProps.flinkConfig.asJava)
+        flinkConfig.set(PipelineOptions.JARS, flinkDeps.map(dep => s"file://$dep").toBuffer.asJava)
+        createFlinkContext(flinkConfig, classloader)
       } match {
         case Failure(cause) => fail(InitFlinkEnvFailure(cause))
         case Success(flinkCtx) =>

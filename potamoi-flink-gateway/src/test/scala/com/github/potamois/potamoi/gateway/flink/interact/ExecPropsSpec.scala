@@ -2,19 +2,19 @@ package com.github.potamois.potamoi.gateway.flink.interact
 
 import com.github.potamois.potamoi.testkit.STSpec
 
-class ExecConfigSpec extends STSpec {
+class ExecPropsSpec extends STSpec {
 
   "ExecConfigSpec to EffectiveExecConfig" should {
 
     "create remote env correctly" in {
-      val config = ExecConfig.remoteEnv(
+      val props = ExecProps.remoteEnv(
         RemoteAddr("111.111.111.111", 8088),
         Map.empty,
         Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
-      config.toEffectiveExecConfig shouldBe EffectiveExecConfig(
-        ExecConfig.DEFAULT_FLINK_CONFIG ++ Map(
+      props.toEffectiveExecProps shouldBe EffectiveExecProps(
+        ExecProps.DEFAULT_FLINK_CONFIG ++ Map(
           "rest.port" -> "8088",
           "rest.address" -> "111.111.111.111",
           "execution.attached" -> "true",
@@ -26,13 +26,13 @@ class ExecConfigSpec extends STSpec {
     }
 
     "create remote local env correctly" in {
-      val config = ExecConfig.localEnv(
+      val props = ExecProps.localEnv(
         Map.empty,
         Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
-      config.toEffectiveExecConfig shouldBe EffectiveExecConfig(
-        ExecConfig.DEFAULT_FLINK_CONFIG ++ Map(
+      props.toEffectiveExecProps shouldBe EffectiveExecProps(
+        ExecProps.DEFAULT_FLINK_CONFIG ++ Map(
           "execution.target" -> "local",
           "execution.attached" -> "true",
           "execution.shutdown-on-attached-exit" -> "true"),
@@ -42,7 +42,7 @@ class ExecConfigSpec extends STSpec {
     }
 
     "create env with custom flink configs" in {
-      val config = ExecConfig.remoteEnv(
+      val props = ExecProps.remoteEnv(
         RemoteAddr("111.111.111.111", 8088),
         Map(
           "pipeline.auto-generate-uids" -> "false",
@@ -52,8 +52,8 @@ class ExecConfigSpec extends STSpec {
         Seq.empty,
         RsCollectStrategy(EvictStrategy.DROP_TAIL, 500)
       )
-      config.toEffectiveExecConfig shouldBe EffectiveExecConfig(
-        ExecConfig.DEFAULT_FLINK_CONFIG ++ Map(
+      props.toEffectiveExecProps shouldBe EffectiveExecProps(
+        ExecProps.DEFAULT_FLINK_CONFIG ++ Map(
           "rest.port" -> "8088",
           "rest.address" -> "111.111.111.111",
           "execution.target" -> "local",
