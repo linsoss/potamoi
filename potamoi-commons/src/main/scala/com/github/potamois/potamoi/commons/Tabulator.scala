@@ -3,6 +3,7 @@ package com.github.potamois.potamoi.commons
 import org.apache.commons.text.StringEscapeUtils
 
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.util.Try
 
 /**
@@ -41,7 +42,7 @@ object Tabulator {
         case o => o.toString
       }).toBuffer
     } else {
-      val unfoldTable = mutable.Buffer[Seq[String]]()
+      val unfoldTable = ListBuffer.empty[Seq[String]]
       // handle cell that contains multiple lines
       for (line <- table) {
         val foldCells = line.zipWithIndex.filter(e => e._1 != null && e._1.toString.contains(NL)).map(e => e._2 -> e._1.toString.split(NL))

@@ -27,7 +27,7 @@ import java.io.File
 import java.net.URL
 import java.util.concurrent.CancellationException
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.collection.{AbstractSeq, TraversableLike, mutable}
 import scala.compat.java8.OptionConverters.RichOptionalGeneric
 import scala.concurrent.ExecutionContextExecutor
@@ -144,7 +144,7 @@ class FsiSerialExecutor private(sessionId: SessionId)(implicit ctx: ActorContext
           case stmts =>
             rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlanEvent(stmtsPlan, effectProps))
             // reset result buffer
-            rsBuffer = Some(StmtsRsBuffer(mutable.Buffer.empty, curTs))
+            rsBuffer = Some(StmtsRsBuffer(ListBuffer.empty, curTs))
             queryRsBuffer = None
             // parse and execute statements in cancelable future
             process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
@@ -483,7 +483,7 @@ class FsiSerialExecutor private(sessionId: SessionId)(implicit ctx: ActorContext
    * Temporary storage for the Flink Operation that requires for remote submission.
    */
   private case class StashOpToken(var queryOp: Option[(String, QueryOperation)] = None,
-                                  modifyOps: mutable.Buffer[(String, ModifyOperation)] = mutable.Buffer.empty) {
+                                  modifyOps: mutable.Buffer[(String, ModifyOperation)] = ListBuffer.empty) {
 
     def isEmpty: Boolean = queryOp.isEmpty && modifyOps.isEmpty
     def toEither: Either[(String, QueryOperation), Seq[(String, ModifyOperation)]] =
