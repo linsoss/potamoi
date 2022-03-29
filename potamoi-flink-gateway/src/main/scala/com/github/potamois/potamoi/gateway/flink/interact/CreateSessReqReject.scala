@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, flinkVerSignRange}
+import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, FlinkVerSignRange}
 
 
 /**
@@ -17,7 +17,7 @@ case class UnsupportedFlinkVersion(reason: String = "") extends CreateSessReqRej
 
 object UnsupportedFlinkVersion {
   def apply(flinkVer: FlinkVerSign): UnsupportedFlinkVersion = UnsupportedFlinkVersion(
-    s"Flink version $flinkVer is not potamoi support list: [${flinkVerSignRange.mkString(",")}]")
+    s"Flink version $flinkVer is not potamoi support list: [${FlinkVerSignRange.mkString(",")}]")
 }
 
 

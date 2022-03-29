@@ -8,7 +8,7 @@ import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers, TimerScheduler}
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CborSerializable, Uuid}
-import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, flinkVerSignRange, systemFlinkVerSign}
+import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, FlinkVerSignRange, SystemFlinkVerSign}
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Command, SessionId}
 
 import scala.collection.mutable
@@ -88,14 +88,14 @@ object FsiSessManager {
   val FsiExecutorServiceKey: ServiceKey[FsiExecutor.Command] = ServiceKey[FsiExecutor.Command]("fsi-executor")
 
   // receptionist service keys for multi-type of FsiSessionManager actors
-  val FsiSessManagerServiceKeys: Map[FlinkVerSign, ServiceKey[Command]] = flinkVerSignRange.map(flinkVer =>
+  val FsiSessManagerServiceKeys: Map[FlinkVerSign, ServiceKey[Command]] = FlinkVerSignRange.map(flinkVer =>
     flinkVer -> ServiceKey[Command](s"fsi-sess-manager-$flinkVer")).toMap
 
   /**
    * Default behavior creation.
    */
   def apply(): Behavior[Command] = apply(
-    flinkVerSign = systemFlinkVerSign,
+    flinkVerSign = SystemFlinkVerSign,
     fsiExecutorBehavior = FsiSerialExecutor.apply)
 
   /**
@@ -105,7 +105,7 @@ object FsiSessManager {
    *                            is used by default.
    * @param fsiExecutorBehavior The behavior of the FsiExecutor actor, use [[FsiSerialExecutor]] by default.
    */
-  def apply(flinkVerSign: FlinkVerSign = systemFlinkVerSign,
+  def apply(flinkVerSign: FlinkVerSign = SystemFlinkVerSign,
             fsiExecutorBehavior: SessionId => Behavior[FsiExecutor.Command] = FsiSerialExecutor.apply): Behavior[Command] =
     Behaviors.setup[Command] { implicit ctx =>
       Behaviors.withTimers { implicit timers =>
@@ -134,7 +134,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
   private val forwardRetryProps = RetrySetting(limit = 5, interval = 300.milliseconds)
 
   // subscribe receptionist listing of all FsiSessManagerServiceKeys
-  private val sessMgrServiceSlots: mutable.Map[FlinkVerSign, Int] = mutable.Map(flinkVerSignRange.map(_ -> 0): _*)
+  private val sessMgrServiceSlots: mutable.Map[FlinkVerSign, Int] = mutable.Map(FlinkVerSignRange.map(_ -> 0): _*)
 
   FsiSessManagerServiceKeys.foreach { case (flinkVer, serviceKey) =>
     val subscriber = ctx.spawn(SessManagerServiceSubscriber(flinkVer), s"fsi-sess-manager-subscriber-$flinkVer")
@@ -161,7 +161,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
     // create session command
     case cmd: CreateSessionCommand => cmd match {
       case CreateSession(flinkVer, replyTo) => flinkVer match {
-        case ver if !flinkVerSignRange.contains(ver) =>
+        case ver if !FlinkVerSignRange.contains(ver) =>
           replyTo ! fail(UnsupportedFlinkVersion(flinkVer))
           Behaviors.same
         case ver if sessMgrServiceSlots.getOrElse(ver, 0) < 1 =>
