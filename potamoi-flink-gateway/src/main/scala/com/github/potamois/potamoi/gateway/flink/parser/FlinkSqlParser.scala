@@ -2,8 +2,8 @@ package com.github.potamois.potamoi.gateway.flink.parser
 
 import org.apache.flink.table.planner.operations.PlannerQueryOperation
 
+import scala.collection.mutable.ListBuffer
 import scala.util.Try
-import scala.util.matching.Regex
 
 /**
  * Flink sql parser tools.
@@ -12,36 +12,155 @@ import scala.util.matching.Regex
  */
 object FlinkSqlParser {
 
-  // sql statements splitter pattern
-  private val SINGLE_CMT_PATTERN_1: Regex = "//.*".r
-  private val SINGLE_CMT_PATTERN_2: Regex = "--.*".r
-  private val MULTI_CMT_PATTERN: Regex = "/\\*[\\s\\S]*?\\*/".r
-
   /**
-   * Extract the valid sql sequence from the given sql string, using ";" as a separator
+   * Extract the valid sql sequence from the given sql string, using ";" as delimiter
    * and removing the comment content from it.
    *
    * Supported symbols:
-   * 1) sql separator: ";"
-   * 2）single-line comment: "//" or "--"
+   * 1) sql delimiter: ";"
+   * 2）single-line comment: "--"
    * 3) multi-line comments: "/* */"
    *
    * @param sql Flink sqls separated by ";"
    * @return Effective sql sequence.
-   *         It would return empty Seq when it sql contains unclosed "/*" or "*/"
    */
-  def extractSqlStatements(sql: String): Seq[String] = sql match {
-    case null => Seq.empty
-    case _ => var rsql = sql
-      // remove multiple lines comment like "/* ... */"
-      if (rsql.contains("/*")) rsql = MULTI_CMT_PATTERN.replaceAllIn(rsql, "")
-      if (rsql.contains("/*") || rsql.contains("*/")) return Seq.empty
-      // remove single line comment like "// ..." and "-- ..."
-      if (rsql.contains("//")) rsql = SINGLE_CMT_PATTERN_1.replaceAllIn(rsql, "")
-      if (rsql.contains("--")) rsql = SINGLE_CMT_PATTERN_2.replaceAllIn(rsql, "")
-      // remove the blank line and trailing blank, then split with ";"
-      rsql.split("\n").filter(!_.isBlank).map(_.stripTrailing).mkString("\n")
-        .split(";").map(_.trim).filter(_.nonEmpty).toList
+  def extractSqlStatements(sql: String): Seq[String] = {
+
+    val collect = ListBuffer.empty[String]
+    var buf = ListBuffer.empty[Char]
+    // single quote token ''
+    var sglQuoteToken = false
+    // single-line comment symbol --
+    val cmtToken = DualToken()
+
+    def bufIdx = buf.length
+
+    // Remove single line comment like "--" and split sql with ";".
+    // Note the handling of semicolons contained in single quotes,
+    // such as "select * from ta where f1 like '%;%' ".
+    for (ch <- removeSqlMultiLineComments(sql)) {
+      ch match {
+        case ';' =>
+          if (sglQuoteToken) buf += ch
+          else {
+            if (cmtToken.on) buf = buf.take(cmtToken.idx)
+            collect += buf.mkString
+            buf.clear
+            cmtToken.reset
+          }
+        case ''' =>
+          sglQuoteToken = !sglQuoteToken
+          buf += ch
+        case '-' =>
+          cmtToken match {
+            case DualToken(_, idx) if idx < 0 => cmtToken.idx = bufIdx
+            case DualToken(_, idx) if idx + 1 == bufIdx => cmtToken.on = true
+            case DualToken(false, _) => cmtToken.reset
+            case _ =>
+          }
+          buf += ch
+        case '\n' =>
+          if (cmtToken.on) {
+            buf = buf.take(cmtToken.idx)
+            cmtToken.reset
+          }
+          buf += ch
+        case _ =>
+          buf += ch
+      }
+    }
+    if (buf.nonEmpty) {
+      if (cmtToken.on) buf = buf.take(cmtToken.idx)
+      collect += buf.mkString
+    }
+
+    // remove blank line and trim line
+    collect.filter(!_.isBlank).map(_.trim).toList
+  }
+
+  private case class DualToken(var on: Boolean = false, var idx: Int = -2) {
+    def reset: DualToken = {
+      on = false
+      idx = -2
+      this
+    }
+  }
+
+  /**
+   * Remove multiple line comment comments /* ... */ from sql.
+   * Note that additional handling is required when the comment symbols is
+   * included in a single quote.
+   */
+  private def removeSqlMultiLineComments(sql: String): Seq[Char] = {
+
+    var buf = ListBuffer.empty[Char]
+    // single quote token ''
+    var sglQuoteToken = false
+    // comment token /*
+    val cmtBeginToken = ListBuffer(DualToken())
+    // comment token */
+    val cmtEndToken = DualToken()
+
+    type isLast = Boolean
+
+    def bufIdx = buf.length
+
+    def existCmtBeginToken: (Boolean, isLast) =
+      if (cmtBeginToken.last.on) true -> true
+      else if (cmtBeginToken.size > 1 && cmtBeginToken(cmtBeginToken.length - 2).on) true -> false
+      else false -> true
+
+    def rmLastCmtBeginToken =
+      if (cmtBeginToken.size > 1) cmtBeginToken.remove(cmtBeginToken.length - 1)
+      else cmtBeginToken.last.reset
+
+    for (ch <- sql) {
+      ch match {
+        case ''' =>
+          sglQuoteToken = !sglQuoteToken
+          buf += ch
+        case '*' =>
+          if (cmtBeginToken.last.on) cmtEndToken.idx = bufIdx
+          else {
+            if (cmtBeginToken.last.idx + 1 == bufIdx) cmtBeginToken.last.on = true
+            else cmtEndToken.idx = bufIdx
+          }
+          // log.debug(s"* => bufIdx: $bufIdx, mulCmtBegin: $cmtBeginToken, mulCmtEnd: $cmtEndToken")
+          buf += ch
+        case '/' =>
+          if (cmtEndToken.idx + 1 == bufIdx) {
+            existCmtBeginToken match {
+              case (false, _) => buf += ch
+              case (true, true) =>
+                if (sglQuoteToken) buf += ch
+                else {
+                  buf = buf.take(cmtBeginToken.last.idx)
+                  rmLastCmtBeginToken
+                }
+              case (true, false) =>
+                if (sglQuoteToken) buf += ch
+                else {
+                  buf = buf.take(cmtBeginToken(cmtBeginToken.length - 2).idx)
+                  rmLastCmtBeginToken
+                  cmtBeginToken.last.reset
+                }
+            }
+            // log.debug(s"/ end => bufIdx: ${_bufIdx}, mulCmtBegin: $cmtBeginToken, mulCmtEnd: $cmtEndToken")
+            cmtEndToken.reset
+          } else {
+            existCmtBeginToken match {
+              case (true, true) => cmtBeginToken += DualToken(idx = bufIdx)
+              case (true, false) => cmtBeginToken.last.idx = bufIdx
+              case (false, _) => cmtBeginToken.last.idx = bufIdx
+            }
+            // log.debug(s"/ => bufIdx: $bufIdx, mulCmtBegin: $cmtBeginToken, mulCmtEnd: $cmtEndToken")
+            buf += ch
+          }
+        case _ =>
+          buf += ch
+      }
+    }
+    buf
   }
 
 
@@ -57,5 +176,3 @@ object FlinkSqlParser {
 
 
 }
-
-
