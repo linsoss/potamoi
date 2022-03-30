@@ -6,6 +6,7 @@ import akka.actor.typed.receptionist.Receptionist.Registered
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers, TimerScheduler}
+import com.github.potamois.potamoi.akka.toolkit.ActorImplicits.{log, receptionist}
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CborSerializable, Uuid}
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, FlinkVerSignRange, SystemFlinkVerSign}
@@ -110,7 +111,7 @@ object FsiSessManager {
     Behaviors.setup[Command] { implicit ctx =>
       Behaviors.withTimers { implicit timers =>
         Behaviors.supervise {
-          ctx.log.info(s"FisSessionManager[$flinkVerSign] actor created.")
+          log.info(s"FisSessionManager[$flinkVerSign] actor created.")
           new FsiSessManager(flinkVerSign, fsiExecutorBehavior).action()
         }.onFailure(SupervisorStrategy.restart)
       }
@@ -138,7 +139,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
 
   FsiSessManagerServiceKeys.foreach { case (flinkVer, serviceKey) =>
     val subscriber = ctx.spawn(SessManagerServiceSubscriber(flinkVer), s"fsi-sess-manager-subscriber-$flinkVer")
-    ctx.system.receptionist ! Receptionist.Subscribe(serviceKey, subscriber)
+    receptionist ! Receptionist.Subscribe(serviceKey, subscriber)
   }
 
   // FsiSessManager group routers
@@ -151,7 +152,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
   }
 
   // register FsiSessManagerServiceKeys to receptionist
-  ctx.system.receptionist ! Receptionist.Register(FsiSessManagerServiceKeys(flinkVer), ctx.self)
+  receptionist ! Receptionist.Register(FsiSessManagerServiceKeys(flinkVer), ctx.self)
 
   /**
    * Received message behaviors.
@@ -177,7 +178,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         // create FsiExecutor actor
         val executor = ctx.spawn(fsiExecutorBehavior(sessionId), fsiExecutorName(sessionId))
         ctx.watch(executor)
-        ctx.system.receptionist ! Receptionist.register(
+        receptionist ! Receptionist.register(
           FsiExecutorServiceKey,
           executor,
           ctx.messageAdapter[Registered](_ => CreatedLocalSession(sessionId, replyTo))
@@ -196,7 +197,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         Behaviors.same
 
       case ForwardWithAck(sessionId, command, ackReply) =>
-        ctx.system.receptionist ! Receptionist.Find(
+        receptionist ! Receptionist.Find(
           FsiExecutorServiceKey,
           ctx.messageAdapter[Receptionist.Listing](ForwardListing(ForwardWithAck(sessionId, command, ackReply), _))
         )
@@ -212,7 +213,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         Behaviors.same
 
       case RetryForward(retryCount, forward) =>
-        ctx.system.receptionist ! Receptionist.Find(
+        receptionist ! Receptionist.Find(
           FsiExecutorServiceKey,
           ctx.messageAdapter[Receptionist.Listing](RetryForwardListing(retryCount, forward, _))
         )
