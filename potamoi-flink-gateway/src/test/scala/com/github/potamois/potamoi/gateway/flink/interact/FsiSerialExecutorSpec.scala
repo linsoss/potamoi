@@ -24,21 +24,7 @@ import scala.concurrent.duration.DurationInt
  *
  * @author Al-assad
  */
-object FsiSerialExecutorSpec {
-
-  // todo provide props via condition from hocon
-  // Executor Config
-  val props: ExecProps = baseProps("remote")
-
-  lazy val baseProps = Map(
-    "local" -> ExecProps.localEnv(rsCollectSt = DROP_TAIL -> 25),
-    "remote" -> ExecProps.remoteEnv(remoteAddr = "hs.assad.site" -> 32241, rsCollectSt = DROP_TAIL -> 25)
-  )
-}
-
 class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) with STAkkaSpec {
-
-  import FsiSerialExecutorSpec._
 
   // create new FisExecutor
   def newExecutor: ActorRef[Command] = spawn(FsiSerialExecutor("114514"))
