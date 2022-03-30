@@ -24,58 +24,15 @@ object FlinkSqlParser {
    * @param sql Flink sqls separated by ";"
    * @return Effective sql sequence.
    */
-  def extractSqlStatements(sql: String): Seq[String] = {
-
-    val collect = ListBuffer.empty[String]
-    var buf = ListBuffer.empty[Char]
-    // single quote token ''
-    var sglQuoteToken = false
-    // single-line comment symbol --
-    val cmtToken = DualToken()
-
-    def bufIdx = buf.length
-
-    // Remove single line comment like "--" and split sql with ";".
-    // Note the handling of semicolons contained in single quotes,
-    // such as "select * from ta where f1 like '%;%' ".
-    for (ch <- removeSqlMultiLineComments(sql)) {
-      ch match {
-        case ';' =>
-          if (sglQuoteToken) buf += ch
-          else {
-            if (cmtToken.on) buf = buf.take(cmtToken.idx)
-            collect += buf.mkString
-            buf.clear
-            cmtToken.reset
-          }
-        case ''' =>
-          sglQuoteToken = !sglQuoteToken
-          buf += ch
-        case '-' =>
-          cmtToken match {
-            case DualToken(_, idx) if idx < 0 => cmtToken.idx = bufIdx
-            case DualToken(_, idx) if idx + 1 == bufIdx => cmtToken.on = true
-            case DualToken(false, _) => cmtToken.reset
-            case _ =>
-          }
-          buf += ch
-        case '\n' =>
-          if (cmtToken.on) {
-            buf = buf.take(cmtToken.idx)
-            cmtToken.reset
-          }
-          buf += ch
-        case _ =>
-          buf += ch
-      }
-    }
-    if (buf.nonEmpty) {
-      if (cmtToken.on) buf = buf.take(cmtToken.idx)
-      collect += buf.mkString
-    }
-
-    // remove blank line and trim line
-    collect.filter(!_.isBlank).map(_.trim).toList
+  def extractSqlStatements(sql: String): Seq[String] = sql match {
+    case null => List.empty
+    case _ =>
+      val preProcSqlChars = removeSqlMultiLineComments(sql)
+      val collect = removeSingleCommentAndSplitSql(preProcSqlChars)
+      // remove the blank line, then trim each line
+      collect.filter(!_.isBlank)
+        .map(stmt => stmt.split("\n").filter(!_.isBlank).map(_.stripTrailing).mkString("\n").trim)
+        .toList
   }
 
   private case class DualToken(var on: Boolean = false, var idx: Int = -2) {
@@ -161,6 +118,60 @@ object FlinkSqlParser {
       }
     }
     buf
+  }
+
+  /**
+   * Remove single line comment like "--" and split sql with ";".
+   * Note the handling of semicolons contained in single quotes,
+   * such as "select * from ta where f1 like '%;%' ".
+   */
+  private def removeSingleCommentAndSplitSql(sqlChars: Seq[Char]): Seq[String] = {
+
+    val collect = ListBuffer.empty[String]
+    var buf = ListBuffer.empty[Char]
+    // single quote token ''
+    var sglQuoteToken = false
+    // single-line comment symbol --
+    val cmtToken = DualToken()
+
+    def bufIdx = buf.length
+
+    for (ch <- sqlChars) {
+      ch match {
+        case ';' =>
+          if (sglQuoteToken || cmtToken.on) buf += ch
+          else {
+            if (cmtToken.on) buf = buf.take(cmtToken.idx)
+            collect += buf.mkString
+            buf.clear
+            cmtToken.reset
+          }
+        case ''' =>
+          sglQuoteToken = !sglQuoteToken
+          buf += ch
+        case '-' =>
+          cmtToken match {
+            case DualToken(_, idx) if idx < 0 => cmtToken.idx = bufIdx
+            case DualToken(_, idx) if idx + 1 == bufIdx => cmtToken.on = true
+            case DualToken(false, _) => cmtToken.reset
+            case _ =>
+          }
+          buf += ch
+        case '\n' =>
+          if (cmtToken.on) {
+            buf = buf.take(cmtToken.idx)
+            cmtToken.reset
+          }
+          buf += ch
+        case _ =>
+          buf += ch
+      }
+    }
+    if (buf.nonEmpty) {
+      if (cmtToken.on) buf = buf.take(cmtToken.idx)
+      collect += buf.mkString
+    }
+    collect
   }
 
 
