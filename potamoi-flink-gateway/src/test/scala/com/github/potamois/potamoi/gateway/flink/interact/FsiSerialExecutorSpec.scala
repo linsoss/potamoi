@@ -4,18 +4,17 @@ import akka.Done
 import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
+import com.github.potamois.potamoi.akka.testkit.{STAkkaSpec, defaultConfig}
 import com.github.potamois.potamoi.commons.EitherAlias.success
 import com.github.potamois.potamoi.commons.FutureImplicits.sleep
 import com.github.potamois.potamoi.gateway.flink.PageReq
 import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy._
-import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor._
 import com.github.potamois.potamoi.gateway.flink.interact.ExecRsChangeEvent.{AcceptStmtsExecPlanEvent, AllStmtsDone}
-import com.github.potamois.potamoi.testkit.akka.{STAkkaSpec, defaultConfig}
+import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor._
 import org.apache.flink.table.api.SqlParserException
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 
 import scala.concurrent.duration.DurationInt
-import scala.language.postfixOps
 
 /**
  * Some of following cases would take a long time.
@@ -467,7 +466,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       val cusSubscribeActor = spawn(Behaviors.setup[ExecRsChangeEvent] { _ =>
         Behaviors.receiveMessage {
           case AcceptStmtsExecPlanEvent(stmts, _) => stmts.size shouldBe 2; Behaviors.same
-          case AllStmtsDone(rs) => trashActor ! Set(true); Behaviors.same
+          case AllStmtsDone(_) => trashActor ! Set(true); Behaviors.same
           case _ => Behaviors.same
         }
       })

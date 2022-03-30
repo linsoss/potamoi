@@ -2,8 +2,6 @@ package com.github.potamois.potamoi.gateway.flink
 
 import com.github.potamois.potamoi.testkit.STSpec
 
-import scala.language.postfixOps
-
 class FlinkSqlParserSpec extends STSpec {
 
   import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser._

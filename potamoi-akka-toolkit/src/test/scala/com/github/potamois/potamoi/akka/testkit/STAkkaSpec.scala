@@ -1,4 +1,4 @@
-package com.github.potamois.potamoi.testkit.akka
+package com.github.potamois.potamoi.akka.testkit
 
 import akka.actor.testkit.typed.scaladsl.TestProbe
 import akka.actor.typed.{ActorRef, ActorSystem}

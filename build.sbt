@@ -18,55 +18,60 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "ch.qos.logback" % "logback-classic" % "1.2.11",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
-    "org.scalatest" %% "scalatest" % "3.2.11" % Test,
-
-    "io.spray" %% "spray-json" % "1.3.6",
-    "com.github.nscala-time" %% "nscala-time" % "2.30.0",
-    "org.apache.commons" % "commons-text" % "1.9"
+    "org.scalatest" %% "scalatest" % "3.2.11" % Test
   )
 )
 
+// scala major version like "2.13"
+lazy val scalaMajorVer = scala.split("\\.").take(2).mkString(".")
 
 // root module
 lazy val root = Project(id = "potamoi", base = file("."))
-  .aggregate(commons, flinkGateway)
+  .aggregate(commons, akkaToolkit, flinkGateway)
   .settings(commonSettings)
 
-// commons module
+// potamoi commons module
 lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"))
   .settings(
     commonSettings,
-    libraryDependencies ++= akkaDeps // todo separated akka-tools to another sub-project
+    libraryDependencies ++= deps(apacheCommonsTextDep, nscalaTimeDep),
   )
 
-// flink gateway module
-lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potamoi-flink-gateway"))
+// potamoi akka-toolkit module
+lazy val akkaToolkit = Project(id = "potamoi-akka-toolkit", base = file("potamoi-akka-toolkit"))
   .dependsOn(commons)
   .settings(
     commonSettings,
-    libraryDependencies ++= (akkaDeps ++ flinkDeps(flinkVersion) ++ minioDep)
+    libraryDependencies ++= deps(offerAkkaDeps(Provided))
+  )
+
+// potamoi flink gateway module
+lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potamoi-flink-gateway"))
+  .dependsOn(commons, akkaToolkit)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= deps(akkaDeps, flinkDeps(flinkVersion), sprayDep, minioDep)
   )
   .enablePlugins(JavaAppPackaging)
 
 
 // akka dependencies
-lazy val akkaDeps = Seq(
-  "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
-  "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion,
-  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
-  "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
+lazy val akkaDeps = offerAkkaDeps(Compile)
 
-  "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
-  "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
-  "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion,
+def offerAkkaDeps(scope: Configuration) = Seq(
+  "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion % scope,
+  "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion % scope,
+  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % scope,
+  "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion % scope,
+
+  "com.typesafe.akka" %% "akka-http" % akkaHttpVersion % scope,
+  "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion % scope,
+  "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion % scope,
 
   "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
   "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion % Test,
   "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test
 )
-
-// minio-java-client for s3 compatible storage
-lazy val minioDep = Seq("io.minio" % "minio" % "8.3.7")
 
 // flink dependencies
 lazy val flinkVersionMap = Map(
@@ -86,6 +91,15 @@ def flinkDeps(majorVer: Int = 14) =
     "org.apache.flink" %% "flink-clients")
     .map(_ % flinkVersionMap(majorVer) exclude("com.typesafe.akka", s"akka-protobuf_$scalaMajorVer"))
 
+// other dependencies
+lazy val sprayDep = "io.spray" %% "spray-json" % "1.3.6"
+lazy val nscalaTimeDep = "com.github.nscala-time" %% "nscala-time" % "2.30.0"
+lazy val apacheCommonsTextDep = "org.apache.commons" % "commons-text" % "1.9"
+lazy val minioDep = "io.minio" % "minio" % "8.3.7"
 
-lazy val scalaMajorVer = scala.split("\\.").take(2).mkString(".")
 
+def deps(moduleIds: Any*): Seq[ModuleID] = moduleIds.flatMap {
+  case id: ModuleID => Seq(id)
+  case ids: Seq[ModuleID@unchecked] => ids
+  case _ => Seq()
+}
