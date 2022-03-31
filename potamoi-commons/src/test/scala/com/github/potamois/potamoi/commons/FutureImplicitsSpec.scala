@@ -16,12 +16,12 @@ class FutureImplicitsSpec extends STSpec with ScalaFutures {
 
     "call the blocking waitResult method normally" in {
       val f = Future("hello")
-      f.waitResult() shouldBe "hello"
+      f.waitResult shouldBe "hello"
 
       var a = 1
       val f2 = Future { a += 1; a }
       a shouldBe 1
-      f2.waitResult() shouldBe 2
+      f2.waitResult shouldBe 2
       a shouldBe 2
     }
 
@@ -43,7 +43,7 @@ class FutureImplicitsSpec extends STSpec with ScalaFutures {
     "call the blocking waitResult method when an exception thrown from future" in {
       val f = Future(throw new RuntimeException("fail"))
       assertThrows[RuntimeException] {
-        f.waitResult()
+        f.waitResult
       }
     }
 
@@ -55,7 +55,7 @@ class FutureImplicitsSpec extends STSpec with ScalaFutures {
         throw new Exception("test")
       }
       a shouldBe 1
-      Try(f.waitResult()) match {
+      Try(f.waitResult) match {
         case Failure(e) => e.getMessage shouldBe "test"
         case _ => fail("should be failure")
       }
@@ -65,12 +65,12 @@ class FutureImplicitsSpec extends STSpec with ScalaFutures {
     "call the blocking tryWaitResult and catch the exception" in {
       def foo: Boolean => String = if (_) "pass" else throw new RuntimeException("fail")
 
-      Future(foo(true)).tryWaitResult() match {
+      Future(foo(true)).tryWaitResult match {
         case Success(s) => s shouldBe "pass"
         case Failure(_) => fail("should be success")
       }
 
-      Future(foo(false)).tryWaitResult() match {
+      Future(foo(false)).tryWaitResult match {
         case Success(_) => fail("should be failure")
         case Failure(e) => e.getMessage shouldBe "fail"
       }

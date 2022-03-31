@@ -15,6 +15,7 @@ object FutureImplicits {
   private val defaultTimeout: Duration = 30.seconds
 
   implicit class Wrapper[T](future: Future[T]) {
+
     /**
      * Await the result of the Future.
      *
@@ -23,14 +24,16 @@ object FutureImplicits {
      */
     @throws(classOf[TimeoutException])
     @throws(classOf[InterruptedException])
-    def waitResult(timeout: Duration = defaultTimeout): T = Await.result(future, timeout)
+    def waitResult(timeout: Duration): T = Await.result(future, timeout)
+    def waitResult: T = waitResult(defaultTimeout)
 
     /**
      * Await the result wrapped by [[Try]] of the Future.
      *
      * @param timeout blocking timeout time
      */
-    def tryWaitResult(timeout: Duration = defaultTimeout): Try[T] = Try(Await.result(future, timeout))
+    def tryWaitResult(timeout: Duration): Try[T] = Try(Await.result(future, timeout))
+    def tryWaitResult: Try[T] = tryWaitResult(defaultTimeout)
 
   }
 
