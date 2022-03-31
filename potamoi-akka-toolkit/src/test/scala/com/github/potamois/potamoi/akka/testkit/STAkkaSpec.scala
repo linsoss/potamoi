@@ -2,11 +2,12 @@ package com.github.potamois.potamoi.akka.testkit
 
 import akka.actor.testkit.typed.scaladsl.TestProbe
 import akka.actor.typed.{ActorRef, ActorSystem}
+import com.github.potamois.potamoi.commons.FutureImplicits
 import com.typesafe.scalalogging.Logger
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 /**
  * Actor standard testkit enhanced trait for use alongside
@@ -17,6 +18,8 @@ import scala.concurrent.duration.FiniteDuration
 trait STAkkaSpec extends AnyWordSpecLike with BeforeAndAfterEach {
 
   protected val log: Logger = Logger(getClass)
+
+  def sleep(delay: Duration): Unit = FutureImplicits.sleep(delay)
 
   /**
    * Create a TestProbe and use it directly on specified function.
