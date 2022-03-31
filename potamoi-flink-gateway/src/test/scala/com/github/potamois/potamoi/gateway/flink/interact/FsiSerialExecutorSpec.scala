@@ -22,6 +22,7 @@ import scala.concurrent.duration.DurationInt
  * What's more, when running remote flink cluster test cases, it requires a
  * flink cluster that already exists.
  *
+ * todo create test suite for remote and local mode
  * @author Al-assad
  */
 class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) with STAkkaSpec {
