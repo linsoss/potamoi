@@ -47,7 +47,7 @@ object FsiSerialExecutor {
 
   import FsiExecutor._
 
-  sealed trait Internal extends Command
+  sealed trait Internal extends Expansion
 
   // A execution plan process is finished
   private final case class ProcessFinished(result: RejectableDone, replyTo: ActorRef[RejectableDone]) extends Internal

@@ -18,7 +18,7 @@ object FsiExecutor {
   type QueryResult = Option[TableResultSnapshot]
   type PageQueryResult = Option[PageableTableResultSnapshot]
 
-  trait Command extends CborSerializable
+  sealed trait Command extends CborSerializable
 
   /**
    * Execute a new sql plan.
@@ -77,6 +77,9 @@ object FsiExecutor {
    */
   final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[PageQueryResult]) extends GetQueryResult
   val GetQueryResultByPage: GetQueryRsSnapshotByPage.type = GetQueryRsSnapshotByPage
+
+
+  trait Expansion extends Command
 
 }
 
