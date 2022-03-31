@@ -14,6 +14,7 @@ import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Comman
 
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.language.implicitConversions
 
 /**
  * Flink Sql interaction executor manager.
@@ -63,7 +64,19 @@ object FsiSessManager {
   final case class CloseSession(sessionId: SessionId) extends Command
 
 
+  // auto conversion for Forward
+  implicit def forwardConversion(cmd: (SessionId, FsiExecutor.Command)): Forward = Forward(cmd._1, cmd._2)
+
+  // auto conversion for ForwardWithAck
+  implicit def forwardWithAckConversion(cmd: ((SessionId, FsiExecutor.Command), ActorRef[IsForwardAck])): ForwardWithAck =
+    ForwardWithAck(cmd._1._1, cmd._1._2, cmd._2)
+
+
   sealed trait Internal extends Command
+
+  // Retry create session command
+  private final case class RetryCreateSession(retryCount: Int, flinkVer: FlinkVerSign, replyTo: ActorRef[RejectOrSessionId])
+    extends Internal with CreateSessionCommand
 
   // The session has been created successfully.
   private final case class CreatedLocalSession(sessId: SessionId, replyTo: ActorRef[RejectOrSessionId])
@@ -131,8 +144,12 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
 
   import FsiSessManager._
 
-  // forward command retry behavior configs. todo read config from hocon
-  private val forwardRetryProps = RetrySetting(limit = 5, interval = 300.milliseconds)
+  //  todo read config from hocon
+  // retry config: CreateSession command
+  private val createSessionRetryProps = RetrySetting(limit = 3, interval = 300.millis)
+
+  // retry config: Forward command
+  private val forwardRetryProps = RetrySetting(limit = 5, interval = 300.millis)
 
   // subscribe receptionist listing of all FsiSessManagerServiceKeys
   private val sessMgrServiceSlots: mutable.Map[FlinkVerSign, Int] = mutable.Map(FlinkVerSignRange.map(_ -> 0): _*)
@@ -166,12 +183,21 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
           replyTo ! fail(UnsupportedFlinkVersion(flinkVer))
           Behaviors.same
         case ver if sessMgrServiceSlots.getOrElse(ver, 0) < 1 =>
-          replyTo ! fail(NoActiveFlinkGatewayService(flinkVer))
+          timers.startSingleTimer(RetryCreateSession(1, flinkVer, replyTo), createSessionRetryProps.interval)
           Behaviors.same
         case ver =>
           sessMgrServiceRoutes(ver) ! CreateLocalSession(replyTo)
           Behaviors.same
       }
+
+      case RetryCreateSession(retryCount, flinkVer, replyTo) =>
+        if (retryCount > createSessionRetryProps.limit)
+          replyTo ! fail(NoActiveFlinkGatewayService(flinkVer))
+        else if (sessMgrServiceSlots.getOrElse(flinkVer, 0) >= 1)
+          sessMgrServiceRoutes(flinkVer) ! CreateLocalSession(replyTo)
+        else
+          timers.startSingleTimer(RetryCreateSession(1, flinkVer, replyTo), createSessionRetryProps.interval)
+        Behaviors.same
 
       case CreateLocalSession(replyTo) =>
         val sessionId = Uuid.genUUID32
