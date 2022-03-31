@@ -6,6 +6,8 @@ import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.ActorContext
 import org.slf4j.Logger
 
+import scala.reflect.ClassTag
+
 /**
  * Actor implicit conversion function, class.
  *
@@ -36,6 +38,8 @@ trait ActorImplicit[T] {
   def log(implicit context: ActorContext[T]): Logger = context.log
 
   def receptionist(implicit context: ActorContext[T]): ActorRef[Receptionist.Command] = context.system.receptionist
+
+  def messageAdapter[U: ClassTag](f: U => T)(implicit context: ActorContext[T]): ActorRef[U] = context.messageAdapter[U](f)
 
   /**
    * Implicit conversion for [[Receptionist.Find]].
