@@ -1,9 +1,10 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.Done
-import akka.actor.typed.ActorRef
+import akka.actor.typed.{ActorRef, Behavior}
 import com.github.potamois.potamoi.commons.CborSerializable
 import com.github.potamois.potamoi.gateway.flink.PageReq
+import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.SessionId
 
 /**
  * Flink sql interaction executor.
@@ -80,6 +81,11 @@ object FsiExecutor {
 
 
   trait Expansion extends Command
+
+  /**
+   * Default behavior, see [[FsiSerialExecutor]]
+   */
+  def apply(sessionId: SessionId): Behavior[Command] = FsiSerialExecutor(sessionId)
 
 }
 
