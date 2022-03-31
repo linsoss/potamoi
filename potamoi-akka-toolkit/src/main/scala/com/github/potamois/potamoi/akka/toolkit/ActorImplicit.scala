@@ -7,7 +7,7 @@ import akka.actor.typed.scaladsl.ActorContext
 import org.slf4j.Logger
 
 /**
- * Actor convenient implicit function, class.
+ * Actor implicit conversion function, class.
  *
  * @author Al-assad
  */
