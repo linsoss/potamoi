@@ -1,7 +1,7 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
 
-import akka.actor.typed.{ActorRef, Behavior, PostStop, PreRestart, SupervisorStrategy}
+import akka.actor.typed._
 import akka.actor.typed.receptionist.Receptionist.Registered
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
@@ -31,6 +31,8 @@ object FsiSessManager {
 
   private[interact] sealed trait CreateSessionCommand
   private[interact] sealed trait ForwardCommand
+  private[interact] sealed trait SessionCommand
+  private[interact] sealed trait ExistSessionCommand
 
   /**
    * Create a new FsiExecutor session.
@@ -60,6 +62,11 @@ object FsiSessManager {
     extends Command with ForwardCommand
 
   // todo exist session
+  /**
+   * Determine if the specified session-id FsiExecutor exist.
+   */
+  final case class ExistSession(sessionId: SessionId, replyTo: ActorRef[Boolean])
+    extends Command with ExistSessionCommand
 
   /**
    * Close the FisExecutor with the specified session-id.
@@ -97,6 +104,17 @@ object FsiSessManager {
   private final case class RetryForwardListing(retryCount: Int, forward: ForwardWithAck, listing: Receptionist.Listing)
     extends Internal with ForwardCommand
 
+  // ExistSession command carrying the FsiExecutorServiceKey receptionist list.
+  private final case class ExistSessionListing(cmd: ExistSession, listing: Receptionist.Listing)
+    extends Internal with ExistSessionCommand
+
+  private final case class RetryExistSession(retryCount: Int, cmd: ExistSession)
+    extends Internal with ExistSessionCommand
+
+  private final case class RetryExistSessionListing(retryCount: Int, cmd: ExistSession, listing: Receptionist.Listing)
+    extends Internal with ExistSessionCommand
+
+
   // Update the number of FsiSessManager service slots for the specified FlinkVerSign.
   private final case class UpdateSessManagerServiceSlots(flinkVer: FlinkVerSign, slotSize: Int) extends Internal
 
@@ -125,7 +143,7 @@ object FsiSessManager {
    * @param autoRestart         Whether to restart the FsiExecutor actor automatically when it fails.
    */
   def apply(flinkVerSign: FlinkVerSign = SystemFlinkVerSign,
-            fsiExecutorBehavior: SessionId => Behavior[FsiExecutor.Command] = FsiSerialExecutor.apply,
+            fsiExecutorBehavior: SessionId => Behavior[FsiExecutor.Command] = FsiExecutor.apply,
             autoRestart: Boolean = true): Behavior[Command] =
     Behaviors.setup[Command] { implicit ctx =>
       Behaviors.withTimers { implicit timers =>
@@ -160,10 +178,11 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
 
   //  todo read config from hocon
   // retry config: CreateSession command
-  private val createSessionRetryProps = RetrySetting(limit = 3, interval = 300.millis)
-
+  private val retryPropsCreateSession = RetrySetting(limit = 3, interval = 300.millis)
+  // retry config: ExistSession
+  private val retryPropsExistSession = RetrySetting(limit = 3, interval = 300.millis)
   // retry config: Forward command
-  private val forwardRetryProps = RetrySetting(limit = 5, interval = 300.millis)
+  private val retryPropsForward = RetrySetting(limit = 5, interval = 300.millis)
 
   // subscribe receptionist listing of all FsiSessManagerServiceKeys
   private val sessMgrServiceSlots: mutable.Map[FlinkVerSign, Int] = mutable.Map(FlinkVerSignRange.map(_ -> 0): _*)
@@ -197,7 +216,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
           replyTo ! fail(UnsupportedFlinkVersion(flinkVer))
           Behaviors.same
         case ver if sessMgrServiceSlots.getOrElse(ver, 0) < 1 =>
-          timers.startSingleTimer(RetryCreateSession(1, flinkVer, replyTo), createSessionRetryProps.interval)
+          timers.startSingleTimer(RetryCreateSession(1, flinkVer, replyTo), retryPropsCreateSession.interval)
           Behaviors.same
         case ver =>
           sessMgrServiceRoutes(ver) ! CreateLocalSession(replyTo)
@@ -205,19 +224,17 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
       }
 
       case RetryCreateSession(retryCount, flinkVer, replyTo) =>
-        if (retryCount > createSessionRetryProps.limit)
+        if (retryCount > retryPropsCreateSession.limit)
           replyTo ! fail(NoActiveFlinkGatewayService(flinkVer))
         else if (sessMgrServiceSlots.getOrElse(flinkVer, 0) >= 1)
           sessMgrServiceRoutes(flinkVer) ! CreateLocalSession(replyTo)
         else
-          timers.startSingleTimer(RetryCreateSession(1, flinkVer, replyTo), createSessionRetryProps.interval)
+          timers.startSingleTimer(RetryCreateSession(1, flinkVer, replyTo), retryPropsCreateSession.interval)
         Behaviors.same
 
       case CreateLocalSession(replyTo) =>
-        // todo check session is exists
         val sessionId = Uuid.genUUID32
         // create FsiExecutor actor
-        // todo create actor as cluster singleton ?
         val executor = ctx.spawn(fsiExecutorBehavior(sessionId), fsiExecutorName(sessionId))
         ctx.watch(executor)
         receptionist ! Receptionist.register(
@@ -238,10 +255,10 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         ctx.self ! ForwardWithAck(sessionId, command, ctx.system.ignoreRef)
         Behaviors.same
 
-      case ForwardWithAck(sessionId, command, ackReply) =>
+      case c: ForwardWithAck =>
         receptionist ! Receptionist.Find(
           FsiExecutorServiceKey,
-          ctx.messageAdapter[Receptionist.Listing](ForwardListing(ForwardWithAck(sessionId, command, ackReply), _))
+          ctx.messageAdapter[Receptionist.Listing](ForwardListing(c, _))
         )
         Behaviors.same
 
@@ -250,7 +267,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
           case Some(executor) =>
             executor ! forward.executorCommand
             forward.ackReply ! true
-          case None => timers.startSingleTimer(RetryForward(1, forward), forwardRetryProps.interval)
+          case None => timers.startSingleTimer(RetryForward(1, forward), retryPropsForward.interval)
         }
         Behaviors.same
 
@@ -267,11 +284,31 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
             executor ! forward.executorCommand
             forward.ackReply ! true
           case None =>
-            if (retryCount > forwardRetryProps.limit) forward.ackReply ! false
-            else timers.startSingleTimer(RetryForward(retryCount + 1, forward), forwardRetryProps.interval)
+            if (retryCount > retryPropsForward.limit) forward.ackReply ! false
+            else timers.startSingleTimer(RetryForward(retryCount + 1, forward), retryPropsForward.interval)
         }
         Behaviors.same
     }
+
+    // exist session command
+    case cmd: ExistSessionCommand => cmd match {
+      case c: ExistSession =>
+        receptionist ! Receptionist.Find(
+          FsiExecutorServiceKey,
+          ctx.messageAdapter[Receptionist.Listing](ExistSessionListing(c, _))
+        )
+        Behaviors.same
+
+      case ExistSessionListing(ExistSession(sessionId, replyTo), listing) =>
+        listing.serviceInstances(FsiExecutorServiceKey).find (_.path.name == fsiExecutorName(sessionId)) match {
+          case Some(_) => replyTo ! true
+          case None => replyTo ! false
+        }
+        Behaviors.same
+
+      case _ => Behaviors.same
+    }
+
 
     case CloseSession(sessionId) =>
       ctx.self ! Forward(sessionId, FsiExecutor.Terminate("terminate executor via FsiSessManager's CloseSession command"))
