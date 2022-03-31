@@ -58,6 +58,9 @@ object FsiSessManager {
    */
   final case class ForwardWithAck(sessionId: SessionId, executorCommand: FsiExecutor.Command, ackReply: ActorRef[IsForwardAck])
     extends Command with ForwardCommand
+
+  // todo exist session
+
   /**
    * Close the FisExecutor with the specified session-id.
    */
@@ -110,7 +113,8 @@ object FsiSessManager {
    */
   def apply(): Behavior[Command] = apply(
     flinkVerSign = SystemFlinkVerSign,
-    fsiExecutorBehavior = FsiSerialExecutor.apply)
+    fsiExecutorBehavior = FsiSerialExecutor.apply
+  )
 
   /**
    * Behavior creation
@@ -118,15 +122,25 @@ object FsiSessManager {
    * @param flinkVerSign        Flink version sign of the current FisSessionManager,the flink version of the system
    *                            is used by default.
    * @param fsiExecutorBehavior The behavior of the FsiExecutor actor, use [[FsiSerialExecutor]] by default.
+   * @param autoRestart         Whether to restart the FsiExecutor actor automatically when it fails.
    */
   def apply(flinkVerSign: FlinkVerSign = SystemFlinkVerSign,
-            fsiExecutorBehavior: SessionId => Behavior[FsiExecutor.Command] = FsiSerialExecutor.apply): Behavior[Command] =
+            fsiExecutorBehavior: SessionId => Behavior[FsiExecutor.Command] = FsiSerialExecutor.apply,
+            autoRestart: Boolean = true): Behavior[Command] =
     Behaviors.setup[Command] { implicit ctx =>
       Behaviors.withTimers { implicit timers =>
-        Behaviors.supervise {
-          log.info(s"FisSessionManager[$flinkVerSign] actor created.")
+
+        if (autoRestart) {
+          Behaviors.supervise {
+            log.info(s"FisSessionManager[$flinkVerSign] actor created, auto-restart enabled.")
+            new FsiSessManager(flinkVerSign, fsiExecutorBehavior).action()
+          }.onFailure(SupervisorStrategy.restart)
+
+        } else {
+          log.info(s"FisSessionManager[$flinkVerSign] actor created, auto-restart disabled.")
           new FsiSessManager(flinkVerSign, fsiExecutorBehavior).action()
-        }.onFailure(SupervisorStrategy.restart)
+        }
+
       }
     }
 
@@ -200,8 +214,10 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         Behaviors.same
 
       case CreateLocalSession(replyTo) =>
+        // todo check session is exists
         val sessionId = Uuid.genUUID32
         // create FsiExecutor actor
+        // todo create actor as cluster singleton ?
         val executor = ctx.spawn(fsiExecutorBehavior(sessionId), fsiExecutorName(sessionId))
         ctx.watch(executor)
         receptionist ! Receptionist.register(
@@ -270,6 +286,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
       _ctx.log.info(s"FsiSessManager[$flinkVer] restarting.")
       Behaviors.same
     case (_ctx, PostStop) =>
+      // todo terminal all local executor
       _ctx.log.info(s"FsiSessManager[$flinkVer] stopped.")
       Behaviors.same
   }
