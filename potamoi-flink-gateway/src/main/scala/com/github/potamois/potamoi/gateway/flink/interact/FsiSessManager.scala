@@ -16,6 +16,7 @@ import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Comman
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.implicitConversions
+import scala.reflect.runtime.universe.typeOf
 
 /**
  * Flink Sql interaction executor manager.
@@ -289,7 +290,13 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
 
     case Terminate =>
       log.info(s"FsiSessManager[$flinkVer] begins a graceful termination.")
-      ctx.children.foreach(ctx.stop)
+      // stopped all local FsiExecutor actors gracefully.
+      ctx.children
+        .filter(child => typeOf[child.type] == typeOf[FsiExecutor.Command])
+        .foreach {
+          _.asInstanceOf[ActorRef[FsiExecutor.Command]] ! FsiExecutor.Terminate(
+            "via FsiSessManager's Terminate command, the parent manager is terminating.")
+        }
       Behaviors.stopped
 
   }.receiveSignal {
@@ -300,6 +307,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
       _ctx.log.info(s"FsiSessManager[$flinkVer] stopped.")
       Behaviors.same
   }
+
 
   /**
    * Subscribe to receptionist listing of FsiSessManagerServiceKeys,
