@@ -6,7 +6,6 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
 import com.github.potamois.potamoi.akka.testkit.{STAkkaSpec, defaultConfig}
 import com.github.potamois.potamoi.commons.EitherAlias.success
-import com.github.potamois.potamoi.commons.FutureImplicits.sleep
 import com.github.potamois.potamoi.gateway.flink.PageReq
 import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy._
 import com.github.potamois.potamoi.gateway.flink.interact.ExecRsChangeEvent.{AcceptStmtsExecPlanEvent, AllStmtsDone}
