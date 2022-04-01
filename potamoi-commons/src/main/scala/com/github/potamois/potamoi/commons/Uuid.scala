@@ -22,4 +22,9 @@ object Uuid {
    */
   def genUUID16: String = genUUID32.substring(0, 16)
 
+  /**
+   * Generate a uuid of custom length which should be less than 32
+   */
+  def genUUID(size: Int) : String = if (size >= 32) genUUID32 else genUUID32.substring(0, size)
+
 }
