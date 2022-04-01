@@ -1,12 +1,16 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
+import akka.util.Timeout
 import com.github.potamois.potamoi.akka.testkit.{STAkkaSpec, defaultConfig}
 import com.github.potamois.potamoi.commons.FutureImplicits.Wrapper
+import com.github.potamois.potamoi.commons.Uuid
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.SystemFlinkVerSign
-import com.github.potamois.potamoi.gateway.flink.interact.QuickSqlCases.explainSqls
+import com.github.potamois.potamoi.gateway.flink.interact.QuickSqlCases.{explainSqls, selectSqls}
+
+import scala.concurrent.duration.DurationInt
 
 /**
  * Testing the behavior of [[FsiSessManager]] on a single node.
@@ -22,20 +26,15 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
   import FsiExecutor._
   import FsiSessManager._
 
-  var manager: ActorRef[FsiSessManager.Command] = _
-
-  override protected def beforeEach(): Unit = {
-    manager = spawn(FsiSessManager(autoRestart = false))
-  }
-
-  override protected def afterEach(): Unit = {
+  def newFsiSessManager(test: ActorRef[FsiSessManager.Command] => Any): Unit = {
+    val manager = spawn(FsiSessManager(autoRestart = false))
+    test(manager)
     manager ! FsiSessManager.Terminate
   }
 
-
   "FsiSessManager's single node behavior" should {
 
-    "create session -> execute sql -> close session" in {
+    "create session -> execute sql -> close session" in newFsiSessManager { manager =>
       // create session
       val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
       probeRef[Boolean] {
@@ -54,34 +53,87 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
 
       // close session
       manager ! CloseSession(sessionId)
+      eventually {
+        probeRef[Boolean] {
+          manager ! ExistSession(sessionId, _)
+        } expectMessage false
+      }
     }
 
-    "create multiple session" in {
-
+    "create session with invalid Flink version sign" in newFsiSessManager { manager =>
+      val manager = spawn(FsiSessManager(autoRestart = false))
+      probeRef[RejectOrSessionId] {
+        manager ! CreateSession(144514, _)
+      } receivePF {
+        case Left(re) => re.isInstanceOf[UnsupportedFlinkVersion] shouldBe true
+        case Right(_) => fail
+      }
     }
 
-    "create session with invalid Flink version sign" in {
+    "forward command with ack reply" in newFsiSessManager { manager =>
+      val manager = spawn(FsiSessManager(autoRestart = false))
+      val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
+      val sqlProbe = TestProbe[RejectableDone]
+      val ackProbe = TestProbe[Boolean]
 
+      manager ! sessionId -> ExecuteSqls(explainSqls.sql, props, sqlProbe.ref) -> ackProbe.ref
+      ackProbe.expectMessage(true)
+      manager ! "114514" -> ExecuteSqls(explainSqls.sql, props, sqlProbe.ref) -> ackProbe.ref
+      ackProbe.expectMessage(false)
     }
 
-    "create session repeatedly" in {
+    "close session while the fsi-executor is still in process" in newFsiSessManager { manager =>
+      val manager = spawn(FsiSessManager(autoRestart = false))
+      val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
+      manager ! sessionId -> ExecuteSqls(selectSqls.sql, props, system.ignoreRef)
+      probeRef[Boolean](manager ! ExistSession(sessionId, _)).expectMessage(true)
 
+      manager ! CloseSession(sessionId)
+      eventually {
+        probeRef[Boolean](manager ! ExistSession(sessionId, _)).expectMessage(false)
+      }
     }
 
-    "forward command with ack reply" in {
-
+    "close non-existent session-id" in newFsiSessManager { manager =>
+      val manager = spawn(FsiSessManager(autoRestart = false))
+      manager ! CloseSession("114514")
+      eventually {
+        probeRef[Boolean](manager ! ExistSession("114514", _)).expectMessage(false)
+      }
     }
 
-    "forward command to non-existent session-id" in {
+    "create multiple session" in newFsiSessManager { manager =>
+      implicit val timeout: Timeout = 10.seconds
+      val sessionIds = (1 to 5).map { _=>
+        sleep(5.millis)
+        (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
+      }
+      sessionIds.foreach { sessionId =>
+        //        manager ! sessionId -> SubscribeState(spawn(ExecRsChangeEventPrinter(sessionId)))
+        probeRef[Boolean] {
+          manager ! ExistSession(sessionId, _)
+        } expectMessage true
 
-    }
-
-    "close session while the fsi-executor is still in process" in {
-
-    }
-
-    "close non-existent session-id" in {
-
+        probeRef[RejectableDone] {
+          manager ! sessionId -> ExecuteSqls(explainSqls.sql, props, _)
+        }.receivePFIn(10.seconds) {
+          explainSqls.passExecuteSqls
+        }
+        probeRef[ExecutionPlanResult] {
+          manager ! sessionId -> GetExecPlanResult(_)
+        } receivePF explainSqls.passGetExecPlanResult
+      }
+      sessionIds.foreach { sessionId =>
+        sleep(5.millis)
+        manager ! CloseSession(sessionId)
+      }
+      sessionIds.foreach { sessionId =>
+        eventually {
+          probeRef[Boolean] {
+            manager ! ExistSession(sessionId, _)
+          } expectMessage false
+        }
+      }
     }
 
   }

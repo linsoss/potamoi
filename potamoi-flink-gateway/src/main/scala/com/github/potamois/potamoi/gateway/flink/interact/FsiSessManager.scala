@@ -26,7 +26,6 @@ object FsiSessManager {
 
   type SessionId = String
   type RejectOrSessionId = Either[CreateSessReqReject, SessionId]
-  type IsForwardAck = Boolean
 
   sealed trait Command extends CborSerializable
 
@@ -59,7 +58,7 @@ object FsiSessManager {
    * Forward the FsiExecutor Command to the FsiExecutor with the corresponding session-id,
    * but returns an ack of whether the forwarding was successful.
    */
-  final case class ForwardWithAck(sessionId: SessionId, executorCommand: FsiExecutor.Command, ackReply: ActorRef[IsForwardAck])
+  final case class ForwardWithAck(sessionId: SessionId, executorCommand: FsiExecutor.Command, ackReply: ActorRef[Boolean])
     extends Command with ForwardCommand
   /**
    * Determine if the specified session-id FsiExecutor exist.
@@ -80,7 +79,7 @@ object FsiSessManager {
   implicit def forwardConversion(cmd: (SessionId, FsiExecutor.Command)): Forward = Forward(cmd._1, cmd._2)
 
   // auto conversion for ForwardWithAck
-  implicit def forwardWithAckConversion(cmd: ((SessionId, FsiExecutor.Command), ActorRef[IsForwardAck])): ForwardWithAck =
+  implicit def forwardWithAckConversion(cmd: ((SessionId, FsiExecutor.Command), ActorRef[Boolean])): ForwardWithAck =
     ForwardWithAck(cmd._1._1, cmd._1._2, cmd._2)
 
 
