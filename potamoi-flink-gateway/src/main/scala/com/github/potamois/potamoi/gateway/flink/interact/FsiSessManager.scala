@@ -7,7 +7,6 @@ import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers, TimerScheduler}
 import com.github.potamois.potamoi.akka.toolkit.ActorImplicit
-import com.github.potamois.potamoi.akka.toolkit.ActorImplicit.log
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CborSerializable, Uuid}
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, FlinkVerSignRange, SystemFlinkVerSign}
@@ -140,18 +139,15 @@ object FsiSessManager {
             autoRestart: Boolean = true): Behavior[Command] =
     Behaviors.setup[Command] { implicit ctx =>
       Behaviors.withTimers { implicit timers =>
-
         if (autoRestart) {
           Behaviors.supervise {
-            log.info(s"FisSessionManager[$flinkVerSign] actor created, auto-restart enabled.")
+            ctx.log.info(s"FisSessionManager[$flinkVerSign] actor created, auto-restart enabled.")
             new FsiSessManager(flinkVerSign, fsiExecutorBehavior).action()
           }.onFailure(SupervisorStrategy.restart)
-
         } else {
-          log.info(s"FisSessionManager[$flinkVerSign] actor created, auto-restart disabled.")
+          ctx.log.info(s"FisSessionManager[$flinkVerSign] actor created, auto-restart disabled.")
           new FsiSessManager(flinkVerSign, fsiExecutorBehavior).action()
         }
-
       }
     }
 
@@ -188,7 +184,6 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
     case (flinkVer, serviceKey) =>
       val group = Routers.group(serviceKey).withRoundRobinRouting
       val sessMgrGroup = ctx.spawn(group, s"fsi-sess-manager-$flinkVer")
-      ctx.watch(sessMgrGroup)
       flinkVer -> sessMgrGroup
   }
 
@@ -289,7 +284,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
       Behaviors.same
 
     case Terminate =>
-      log.info(s"FsiSessManager[$flinkVer] begins a graceful termination.")
+      ctx.log.info(s"FsiSessManager[$flinkVer] begins a graceful termination.")
       // stopped all local FsiExecutor actors gracefully.
       ctx.children
         .filter(child => typeOf[child.type] == typeOf[FsiExecutor.Command])
@@ -300,6 +295,10 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
       Behaviors.stopped
 
   }.receiveSignal {
+    // when receive the termination signal of executor, deregister it from receptionist
+    case (_, Terminated(actor: ActorRef[FsiExecutor.Command])) =>
+      receptionist ! Receptionist.deregister(FsiExecutorServiceKey, actor)
+      Behaviors.same
     case (_ctx, PreRestart) =>
       _ctx.log.info(s"FsiSessManager[$flinkVer] restarting.")
       Behaviors.same
