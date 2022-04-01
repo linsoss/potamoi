@@ -168,7 +168,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
   // command retryable config
   private val retryPropCreateSession = RetryProp(limit = 3, interval = 300.millis)
   private val retryPropExistSession = RetryProp(limit = 3, interval = 300.millis)
-  private val retryPropForward = RetryProp(limit = 5, interval = 300.millis)
+  private val retryPropForward = RetryProp(limit = 3, interval = 300.millis)
 
   // FsiSessManagerServiceKeys listing state
   private val sessMgrServiceSlots: mutable.Map[FlinkVerSign, Int] = mutable.Map(FlinkVerSignRange.map(_ -> 0): _*)
@@ -207,7 +207,10 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         else flinkVer match {
           case ver if !FlinkVerSignRange.contains(ver) => replyTo ! fail(UnsupportedFlinkVersion(flinkVer))
           case ver if sessMgrServiceSlots.getOrElse(ver, 0) < 1 =>
-            timers.startSingleTimer(RetryableCreateSession(retryCount + 1, flinkVer, replyTo), retryPropCreateSession.interval)
+            timers.startSingleTimer(
+              key = s"$flinkVer-ct-${Uuid.genUUID16}",
+              RetryableCreateSession(retryCount + 1, flinkVer, replyTo),
+              retryPropCreateSession.interval)
           case ver => sessMgrServiceRoutes(ver) ! CreateLocalSession(replyTo)
         }
         Behaviors.same
@@ -224,6 +227,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         Behaviors.same
 
       case CreatedLocalSession(sessionId, replyTo) =>
+        ctx.log.info(s"FsiSessManager[$flinkVer] register FsiExecutor[${fsiExecutorName(sessionId)}] actor to receptionist.")
         replyTo ! success(sessionId)
         Behaviors.same
     }
@@ -249,7 +253,10 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
             forward.ackReply ! true
           case None =>
             if (retryCount > retryPropForward.limit) forward.ackReply ! false
-            else timers.startSingleTimer(RetryableForward(retryCount + 1, forward), retryPropForward.interval)
+            else timers.startSingleTimer(
+              key = s"${forward.sessionId}-fd-${Uuid.genUUID16}",
+              RetryableForward(retryCount + 1, forward),
+              retryPropForward.interval)
         }
         Behaviors.same
     }
@@ -269,11 +276,13 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
           case Some(_) => c.replyTo ! true
           case None =>
             if (retryCount > retryPropExistSession.limit) c.replyTo ! false
-            else timers.startSingleTimer(RetryableExistSession(retryCount + 1, c), retryPropExistSession.interval)
+            else timers.startSingleTimer(
+              key = s"${c.sessionId}-ex-${Uuid.genUUID16}",
+              RetryableExistSession(retryCount + 1, c),
+              retryPropExistSession.interval)
         }
         Behaviors.same
     }
-
 
     case CloseSession(sessionId) =>
       ctx.self ! Forward(sessionId, FsiExecutor.Terminate("via FsiSessManager's CloseSession command"))
@@ -298,10 +307,13 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
     // when receive the termination signal of executor, deregister it from receptionist
     case (_, Terminated(actor: ActorRef[FsiExecutor.Command])) =>
       receptionist ! Receptionist.deregister(FsiExecutorServiceKey, actor)
+      ctx.log.info(s"FsiSessManager[$flinkVer] deregister FsiExecutor[${actor.path.name}] actor from receptionist.")
       Behaviors.same
+
     case (_ctx, PreRestart) =>
       _ctx.log.info(s"FsiSessManager[$flinkVer] restarting.")
       Behaviors.same
+
     case (_ctx, PostStop) =>
       _ctx.log.info(s"FsiSessManager[$flinkVer] stopped.")
       Behaviors.same
