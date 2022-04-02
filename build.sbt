@@ -34,7 +34,7 @@ lazy val root = Project(id = "potamoi", base = file("."))
 lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"))
   .settings(
     commonSettings,
-    libraryDependencies ++= deps(apacheCommonsTextDep, nscalaTimeDep),
+    libraryDependencies ++= deps(hoconConfigDep, apacheCommonsTextDep, nscalaTimeDep),
   )
 
 // potamoi akka-toolkit module
@@ -92,6 +92,7 @@ def flinkDeps(majorVer: Int = 14) =
     .map(_ % flinkVersionMap(majorVer) exclude("com.typesafe.akka", s"akka-protobuf_$scalaMajorVer"))
 
 // other dependencies
+lazy val hoconConfigDep = "com.typesafe" % "config" % "1.4.2"
 lazy val sprayDep = "io.spray" %% "spray-json" % "1.3.6"
 lazy val nscalaTimeDep = "com.github.nscala-time" %% "nscala-time" % "2.30.0"
 lazy val apacheCommonsTextDep = "org.apache.commons" % "commons-text" % "1.9"

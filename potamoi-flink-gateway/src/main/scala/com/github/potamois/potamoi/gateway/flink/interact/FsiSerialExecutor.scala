@@ -3,7 +3,7 @@ package com.github.potamois.potamoi.gateway.flink.interact
 import akka.Done
 import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior, PostStop}
+import akka.actor.typed.{ActorRef, Behavior, DispatcherSelector, PostStop}
 import com.github.potamois.potamoi.commons.ClassloaderWrapper.tryRunWithExtraDeps
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
@@ -83,8 +83,9 @@ class FsiSerialExecutor private(sessionId: SessionId)(implicit ctx: ActorContext
   import FsiSerialExecutor._
 
   // Execution context for CancelableFuture
-  // todo replace with standalone dispatcher
-  implicit val ec: ExecutionContextExecutor = ctx.system.executionContext
+  implicit val ec: ExecutionContextExecutor = ctx.system.dispatchers.lookup(
+    DispatcherSelector.fromConfig("potamoi.flink-gateway.dispatcher.fsi-executor")
+  )
   // Cancelable process log, Plz use this log when it need to output logs inside CancelableFuture
   // private val pcLog: Logger = Logger(getClass)
 

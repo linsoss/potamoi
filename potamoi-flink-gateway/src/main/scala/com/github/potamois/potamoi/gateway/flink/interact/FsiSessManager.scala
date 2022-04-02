@@ -8,12 +8,13 @@ import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers, TimerScheduler}
 import com.github.potamois.potamoi.akka.toolkit.ActorImplicit
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
-import com.github.potamois.potamoi.commons.{CborSerializable, Uuid}
+import com.github.potamois.potamoi.commons.JdkDurationConversions.JavaDurationImplicit
+import com.github.potamois.potamoi.commons.{CborSerializable, PotaConfig, Uuid}
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, FlinkVerSignRange, SystemFlinkVerSign}
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Command, SessionId}
 
 import scala.collection.mutable
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
 import scala.language.implicitConversions
 import scala.reflect.runtime.universe.typeOf
 
@@ -165,9 +166,9 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
   import FsiSessManager._
 
   // command retryable config
-  private val retryPropCreateSession = RetryProp(limit = 3, interval = 300.millis)
-  private val retryPropExistSession = RetryProp(limit = 3, interval = 300.millis)
-  private val retryPropForward = RetryProp(limit = 3, interval = 300.millis)
+  private val retryPropCreateSession = RetryProp("potamoi.flink-gateway.sql-interaction.fsi-sess-cmd-retry.create-session")
+  private val retryPropExistSession = RetryProp("potamoi.flink-gateway.sql-interaction.fsi-sess-cmd-retry.exist-session")
+  private val retryPropForward = RetryProp("potamoi.flink-gateway.sql-interaction.fsi-sess-cmd-retry.forward")
 
   // FsiSessManagerServiceKeys listing state
   private val sessMgrServiceSlots: mutable.Map[FlinkVerSign, Int] = mutable.Map(FlinkVerSignRange.map(_ -> 0): _*)
@@ -338,5 +339,11 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
    * @param interval interval between retries
    */
   private case class RetryProp(limit: Int, interval: FiniteDuration)
+  private object RetryProp {
+    def apply(path: String): RetryProp = RetryProp(
+      limit = PotaConfig.root.getInt(s"$path.limit"),
+      interval = PotaConfig.root.getDuration(s"$path.interval").asScala(MILLISECONDS)
+    )
+  }
 
 }

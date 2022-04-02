@@ -1,10 +1,11 @@
 package com.github.potamois.potamoi.akka.toolkit
 
-import akka.actor.typed.ActorRef
 import akka.actor.typed.receptionist.Receptionist.Listing
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.ActorContext
+import akka.actor.typed.{ActorRef, Settings}
 
+import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 /**
@@ -13,6 +14,8 @@ import scala.reflect.ClassTag
  * @author Al-assad
  */
 object ActorImplicit {
+
+  def settings(implicit context: ActorContext[_]): Settings = context.system.settings
 
   def receptionist(implicit context: ActorContext[_]): ActorRef[Receptionist.Command] = context.system.receptionist
 
@@ -31,6 +34,8 @@ object ActorImplicit {
 
 
 trait ActorImplicit[T] {
+
+  def settings(implicit context: ActorContext[_]): Settings = context.system.settings
 
   def receptionist(implicit context: ActorContext[T]): ActorRef[Receptionist.Command] = context.system.receptionist
 

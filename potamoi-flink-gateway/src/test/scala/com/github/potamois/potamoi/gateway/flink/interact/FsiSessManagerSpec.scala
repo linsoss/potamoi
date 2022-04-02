@@ -6,7 +6,6 @@ import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 import akka.util.Timeout
 import com.github.potamois.potamoi.akka.testkit.{STAkkaSpec, defaultConfig}
 import com.github.potamois.potamoi.commons.FutureImplicits.Wrapper
-import com.github.potamois.potamoi.commons.Uuid
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.SystemFlinkVerSign
 import com.github.potamois.potamoi.gateway.flink.interact.QuickSqlCases.{explainSqls, selectSqls}
 
@@ -30,6 +29,7 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
     val manager = spawn(FsiSessManager(autoRestart = false))
     test(manager)
     manager ! FsiSessManager.Terminate
+    testKit.stop(manager)
   }
 
   "FsiSessManager's single node behavior" should {
@@ -60,8 +60,8 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
       }
     }
 
+
     "create session with invalid Flink version sign" in newFsiSessManager { manager =>
-      val manager = spawn(FsiSessManager(autoRestart = false))
       probeRef[RejectOrSessionId] {
         manager ! CreateSession(144514, _)
       } receivePF {
@@ -71,7 +71,6 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
     }
 
     "forward command with ack reply" in newFsiSessManager { manager =>
-      val manager = spawn(FsiSessManager(autoRestart = false))
       val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
       val sqlProbe = TestProbe[RejectableDone]
       val ackProbe = TestProbe[Boolean]
@@ -83,7 +82,6 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
     }
 
     "close session while the fsi-executor is still in process" in newFsiSessManager { manager =>
-      val manager = spawn(FsiSessManager(autoRestart = false))
       val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
       manager ! sessionId -> ExecuteSqls(selectSqls.sql, props, system.ignoreRef)
       probeRef[Boolean](manager ! ExistSession(sessionId, _)).expectMessage(true)
@@ -95,7 +93,6 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
     }
 
     "close non-existent session-id" in newFsiSessManager { manager =>
-      val manager = spawn(FsiSessManager(autoRestart = false))
       manager ! CloseSession("114514")
       eventually {
         probeRef[Boolean](manager ! ExistSession("114514", _)).expectMessage(false)
@@ -104,7 +101,7 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
 
     "create multiple session" in newFsiSessManager { manager =>
       implicit val timeout: Timeout = 10.seconds
-      val sessionIds = (1 to 5).map { _=>
+      val sessionIds = (1 to 5).map { _ =>
         sleep(5.millis)
         (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
       }

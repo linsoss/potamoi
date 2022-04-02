@@ -1,11 +1,12 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import com.github.potamois.potamoi.commons.{CborSerializable, RichMutableMap}
+import com.github.potamois.potamoi.commons.{CborSerializable, PotaConfig, RichMutableMap}
 import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy.EvictStrategy
 import com.github.potamois.potamoi.gateway.flink.interact.ExecMode.ExecMode
 
 import scala.collection.mutable
 import scala.language.implicitConversions
+import scala.collection.JavaConverters._
 
 /**
  * Flink interactive operation execution configuration.
@@ -139,9 +140,13 @@ object ExecProps {
 
   /**
    * Default flink configuration for interactive query scenario.
-   * todo support for configuration from hocon
    */
-  lazy val DEFAULT_FLINK_CONFIG: Map[String, String] = Map("rest.retry.max-attempts" -> "1")
+  lazy val DEFAULT_FLINK_CONFIG: Map[String, String] =
+    PotaConfig.root.getConfig("potamoi.flink-gateway.sql-interaction.default-flink-config")
+      .entrySet().asScala.map(e => e.getKey -> e.getValue.unwrapped.toString).toMap
+
+
+  // PotaConfig.root.getConfig("potamoi.flink-gateway.fsi.default-flink-config")
 
   /**
    * Converge effective configuration from ExecConfig to EffectiveExecConfig especially
