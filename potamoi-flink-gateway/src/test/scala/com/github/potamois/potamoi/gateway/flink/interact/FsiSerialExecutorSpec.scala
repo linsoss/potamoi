@@ -53,12 +53,12 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
       probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(false)
 
-      probeRef[RejectableDone] { ref =>
+      probeRef[MaybeDone] { ref =>
         executor ! ExecuteSqls(sqls, props, ref)
         probeRef[Boolean](executor ! IsInProcess(_)).expectMessage(true)
       }.expectMessage(30.seconds, Right(Done))
 
-      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
+      probeRef[ExecPlanResult](executor ! GetExecPlanRsSnapshot(_))
         .receivePF {
           case None => fail
           case Some(r) =>
@@ -94,9 +94,9 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |""".stripMargin
 
       executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
-      probeRef[RejectableDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(30.seconds, Right(Done))
+      probeRef[MaybeDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(30.seconds, Right(Done))
 
-      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
+      probeRef[ExecPlanResult](executor ! GetExecPlanRsSnapshot(_))
         .receivePF {
           case None => fail
           case Some(r) =>
@@ -128,13 +128,13 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |insert into print_table select * from datagen_source;
           |""".stripMargin
 
-      probeRef[RejectableDone] { ref =>
+      probeRef[MaybeDone] { ref =>
         executor ! ExecuteSqls(sqls, props, ref)
         sleep(5.seconds)
         executor ! CancelCurProcess
       }.expectMessage(30.seconds, Right(Done))
 
-      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
+      probeRef[ExecPlanResult](executor ! GetExecPlanRsSnapshot(_))
         .receivePF {
           case None => fail
           case Some(r) =>
@@ -159,11 +159,11 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |select * from datagen_source;
           |""".stripMargin
 
-      probeRef[RejectableDone] { ref =>
+      probeRef[MaybeDone] { ref =>
         executor ! ExecuteSqls(sqls, props.copy(rsCollectSt = DROP_TAIL -> 25), ref)
       }.expectMessage(30.seconds, Right(Done))
       // check SerialStmtsResult
-      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_))
+      probeRef[ExecPlanResult](executor ! GetExecPlanRsSnapshot(_))
         .receivePF {
           case None => fail
           case Some(r) =>
@@ -198,7 +198,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |  );
           |select * from datagen_source limit 10;
           |""".stripMargin
-      probeRef[RejectableDone] {
+      probeRef[MaybeDone] {
         executor ! ExecuteSqls(sqls, props.copy(rsCollectSt = DROP_TAIL -> 25), _)
       }.expectMessage(30.seconds, Right(Done))
 
@@ -227,9 +227,9 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |select * from datagen_source limit 10;
           |""".stripMargin
 
-      probeRef[RejectableDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(25.seconds, Right(Done))
+      probeRef[MaybeDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(25.seconds, Right(Done))
 
-      probeRef[ExecutionPlanResult](executor ! GetExecPlanRsSnapshot(_)).receivePF {
+      probeRef[ExecPlanResult](executor ! GetExecPlanRsSnapshot(_)).receivePF {
         case None => fail
         case Some(r) =>
           r.result.size shouldBe 1
@@ -266,7 +266,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       val executor = newExecutor
       val prop = props.copy(rsCollectSt = DROP_TAIL -> 30)
 
-      probeRef[RejectableDone] {
+      probeRef[MaybeDone] {
         executor ! ExecuteSqls(sqls, prop, _)
       }.expectMessage(30.seconds, Right(Done))
 
@@ -283,7 +283,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
     "with pageable param" in {
       val executor = newExecutor
       val prop = props.copy(rsCollectSt = DROP_TAIL -> 30)
-      probeRef[RejectableDone] {
+      probeRef[MaybeDone] {
         executor ! ExecuteSqls(sqls, prop, _)
       }.expectMessage(30.seconds, Right(Done))
 
@@ -370,7 +370,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       val executor = newExecutor
       val prop = props.copy(rsCollectSt = st)
 
-      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _))
+      probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _))
         .expectMessage(30.seconds, Right(Done))
 
       probeRef[QueryResult](executor ! GetQueryRsSnapshot(-1, _)).receivePF {
@@ -432,7 +432,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       val executor = spawn(FsiSerialExecutor("114514"))
       val prop = props.copy(rsCollectSt = DROP_TAIL -> 30)
       executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514", printEachRowReceived = true)))
-      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(30.seconds, Right(Done))
+      probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(30.seconds, Right(Done))
     }
 
     "custom subscriber" in {
@@ -489,9 +489,9 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
     "rejects another execution plan when the current plan is running" in {
       val executor = newExecutor
       executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514", printEachRowReceived = true)))
-      val probe = TestProbe[RejectableDone]
+      val probe = TestProbe[MaybeDone]
       executor ! ExecuteSqls(sql, prop, probe.ref)
-      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) receivePF {
+      probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _)) receivePF {
         case Left(reject) => reject.isInstanceOf[BusyInProcess] shouldBe true
         case _ => fail
       }
@@ -515,7 +515,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
       // execute
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       // be rejected
-      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) receivePF {
+      probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _)) receivePF {
         case Left(reject) =>
           reject.isInstanceOf[BusyInProcess] shouldBe true
           log.info(reject.asInstanceOf[BusyInProcess].reason)
@@ -580,8 +580,8 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |select name1, age1, age2 from heros;
           |""".stripMargin
       // executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
-      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
-      probeRef[ExecutionPlanResult](executor ! GetExecPlanResult(_)) receivePF {
+      probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
+      probeRef[ExecPlanResult](executor ! GetExecPlanResult(_)) receivePF {
         case None => fail
         case Some(rs) =>
           rs.allSuccess shouldBe true
@@ -614,8 +614,8 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |select f1, f2, f3, my_sum(f1,f2) as f12 from datagen_source;
           |""".stripMargin
       // executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
-      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
-      probeRef[ExecutionPlanResult](executor ! GetExecPlanResult(_)) receivePF {
+      probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
+      probeRef[ExecPlanResult](executor ! GetExecPlanResult(_)) receivePF {
         case None => fail
         case Some(rs) =>
           rs.allSuccess shouldBe true
@@ -651,8 +651,8 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |select name1, age1, age2, my_sum(age1, age2) as sum_age from heros;
           |""".stripMargin
       // executor ! SubscribeState(spawn(RsEventChangePrinter("114514")))
-      probeRef[RejectableDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
-      probeRef[ExecutionPlanResult](executor ! GetExecPlanResult(_)) receivePF {
+      probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(60.seconds, success(Done))
+      probeRef[ExecPlanResult](executor ! GetExecPlanResult(_)) receivePF {
         case None => fail
         case Some(rs) =>
           rs.allSuccess shouldBe true

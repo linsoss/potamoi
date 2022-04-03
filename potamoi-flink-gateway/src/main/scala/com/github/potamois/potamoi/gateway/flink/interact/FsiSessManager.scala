@@ -26,7 +26,7 @@ import scala.reflect.runtime.universe.typeOf
 object FsiSessManager {
 
   type SessionId = String
-  type RejectOrSessionId = Either[CreateSessReqReject, SessionId]
+  type MaybeSessionId = Either[CreateSessReqReject, SessionId]
 
   sealed trait Command extends CborSerializable
 
@@ -43,12 +43,12 @@ object FsiSessManager {
    *                 assign a session-id in [[CreateSessReqReject]],
    *                 The assigned session-id is a 32-bit uuid string.
    */
-  final case class CreateSession(flinkVer: FlinkVerSign, replyTo: ActorRef[RejectOrSessionId])
+  final case class CreateSession(flinkVer: FlinkVerSign, replyTo: ActorRef[MaybeSessionId])
     extends Command with CreateSessionCommand
   /**
    * Create a new Executor locally and return the assigned session-id.
    */
-  final case class CreateLocalSession(replyTo: ActorRef[RejectOrSessionId])
+  final case class CreateLocalSession(replyTo: ActorRef[MaybeSessionId])
     extends Command with CreateSessionCommand
   /**
    * Forward the FsiExecutor Command to the FsiExecutor with the corresponding session-id.
@@ -87,11 +87,11 @@ object FsiSessManager {
   sealed trait Internal extends Command
 
   // Retryable CreatingSession command.
-  private final case class RetryableCreateSession(retryCount: Int, flinkVer: FlinkVerSign, replyTo: ActorRef[RejectOrSessionId])
+  private final case class RetryableCreateSession(retryCount: Int, flinkVer: FlinkVerSign, replyTo: ActorRef[MaybeSessionId])
     extends Internal with CreateSessionCommand
 
   // The session has been created successfully.
-  private final case class CreatedLocalSession(sessId: SessionId, replyTo: ActorRef[RejectOrSessionId])
+  private final case class CreatedLocalSession(sessId: SessionId, replyTo: ActorRef[MaybeSessionId])
     extends Internal with CreateSessionCommand
 
   // Retryable forwarding FsiExecutor command.

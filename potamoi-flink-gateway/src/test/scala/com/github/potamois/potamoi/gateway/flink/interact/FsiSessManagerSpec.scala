@@ -42,12 +42,12 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
       } expectMessage true
 
       // execute sql
-      probeRef[RejectableDone] {
+      probeRef[MaybeDone] {
         manager ! sessionId -> ExecuteSqls(explainSqls.sql, props, _)
       } receivePF explainSqls.passExecuteSqls
 
       // get execute result
-      probeRef[ExecutionPlanResult] {
+      probeRef[ExecPlanResult] {
         manager ! sessionId -> GetExecPlanResult(_)
       } receivePF explainSqls.passGetExecPlanResult
 
@@ -62,7 +62,7 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
 
 
     "create session with invalid Flink version sign" in newFsiSessManager { manager =>
-      probeRef[RejectOrSessionId] {
+      probeRef[MaybeSessionId] {
         manager ! CreateSession(144514, _)
       } receivePF {
         case Left(re) => re.isInstanceOf[UnsupportedFlinkVersion] shouldBe true
@@ -72,7 +72,7 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
 
     "forward command with ack reply" in newFsiSessManager { manager =>
       val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
-      val sqlProbe = TestProbe[RejectableDone]
+      val sqlProbe = TestProbe[MaybeDone]
       val ackProbe = TestProbe[Boolean]
 
       manager ! sessionId -> ExecuteSqls(explainSqls.sql, props, sqlProbe.ref) -> ackProbe.ref
@@ -111,12 +111,12 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
           manager ! ExistSession(sessionId, _)
         } expectMessage true
 
-        probeRef[RejectableDone] {
+        probeRef[MaybeDone] {
           manager ! sessionId -> ExecuteSqls(explainSqls.sql, props, _)
         }.receivePFIn(10.seconds) {
           explainSqls.passExecuteSqls
         }
-        probeRef[ExecutionPlanResult] {
+        probeRef[ExecPlanResult] {
           manager ! sessionId -> GetExecPlanResult(_)
         } receivePF explainSqls.passGetExecPlanResult
       }

@@ -49,7 +49,7 @@ object FsiSerialExecutor {
   sealed trait Internal extends Expansion
 
   // A execution plan process is finished
-  private final case class ProcessFinished(result: RejectableDone, replyTo: ActorRef[RejectableDone]) extends Internal
+  private final case class ProcessFinished(result: MaybeDone, replyTo: ActorRef[MaybeDone]) extends Internal
 
   // A single statements is finished
   private final case class SingleStmtFinished(result: SingleStmtResult) extends Internal
@@ -96,7 +96,7 @@ class FsiSerialExecutor private(sessionId: SessionId)(implicit ctx: ActorContext
   )
 
   // running process
-  private var process: Option[CancellableFuture[RejectableDone]] = None
+  private var process: Option[CancellableFuture[MaybeDone]] = None
   // executed statements result buffer
   private var rsBuffer: Option[StmtsRsBuffer] = None
   // collected table result buffer
@@ -318,7 +318,7 @@ class FsiSerialExecutor private(sessionId: SessionId)(implicit ctx: ActorContext
   /**
    * Execute sql statements plan.
    */
-  private def execStatementsPlan(stmts: Seq[String], effectProps: EffectiveExecProps): RejectableDone = {
+  private def execStatementsPlan(stmts: Seq[String], effectProps: EffectiveExecProps): MaybeDone = {
     val flinkDeps = effectProps.flinkDeps
     // todo Download flink deps and check dep jars from s3
     val depURLs: Seq[URL] = flinkDeps.map(new File(_).toURI.toURL)

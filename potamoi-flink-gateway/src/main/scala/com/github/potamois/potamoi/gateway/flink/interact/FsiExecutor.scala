@@ -14,8 +14,8 @@ import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.Session
  */
 object FsiExecutor {
 
-  type RejectableDone = Either[ExecReqReject, Done]
-  type ExecutionPlanResult = Option[SerialStmtsResult]
+  type MaybeDone = Either[ExecReqReject, Done]
+  type ExecPlanResult = Option[SerialStmtsResult]
   type QueryResult = Option[TableResultSnapshot]
   type PageQueryResult = Option[PageableTableResultSnapshot]
 
@@ -27,7 +27,7 @@ object FsiExecutor {
    * @param sqlStatements sql statements
    * @param props         execution configuration properties
    */
-  final case class ExecuteSqls(sqlStatements: String, props: ExecProps, replyTo: ActorRef[RejectableDone]) extends Command
+  final case class ExecuteSqls(sqlStatements: String, props: ExecProps, replyTo: ActorRef[MaybeDone]) extends Command
 
   /**
    * Check if the current executor is executing the sql plan.
@@ -60,7 +60,7 @@ object FsiExecutor {
   /**
    * Get the current sqls plan result snapshot that has been executed.
    */
-  final case class GetExecPlanRsSnapshot(replyTo: ActorRef[ExecutionPlanResult]) extends GetQueryResult
+  final case class GetExecPlanRsSnapshot(replyTo: ActorRef[ExecPlanResult]) extends GetQueryResult
   val GetExecPlanResult: GetExecPlanRsSnapshot.type = GetExecPlanRsSnapshot
 
   /**

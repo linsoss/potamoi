@@ -1,7 +1,7 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.Done
-import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor.{ExecutionPlanResult, QueryResult, RejectableDone}
+import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor.{ExecPlanResult, QueryResult, MaybeDone}
 import com.github.potamois.potamoi.testkit.STSpec
 
 /**
@@ -47,17 +47,17 @@ object QuickSqlCases extends STSpec {
 
 
   case class SqlPlanExpect(sql: String,
-                           passExecuteSqls: RejectableDone => Unit = expectExecuteSqls,
-                           passGetExecPlanResult: ExecutionPlanResult => Unit = expectGetExecPlanResult(_ => ()),
+                           passExecuteSqls: MaybeDone => Unit = expectExecuteSqls,
+                           passGetExecPlanResult: ExecPlanResult => Unit = expectGetExecPlanResult(_ => ()),
                            passGetQueryResult: QueryResult => Unit
                           )
 
-  private def expectExecuteSqls: RejectableDone => Unit = {
+  private def expectExecuteSqls: MaybeDone => Unit = {
     case Left(_) => fail
     case Right(r) => r shouldBe Done
   }
 
-  private def expectGetExecPlanResult(addition: SerialStmtsResult => Unit): ExecutionPlanResult => Unit = {
+  private def expectGetExecPlanResult(addition: SerialStmtsResult => Unit): ExecPlanResult => Unit = {
     case None => fail
     case Some(r) =>
       r.isFinished shouldBe true
