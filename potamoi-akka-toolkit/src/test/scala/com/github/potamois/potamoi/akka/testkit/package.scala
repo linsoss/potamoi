@@ -10,7 +10,16 @@ package object testkit {
 
   // default akka cluster config for scalatest
   val defaultClusterConfig: Config =
-    ConfigFactory.parseString(""" akka.actor.provider = "cluster" """.stripMargin)
+    ConfigFactory.parseString(
+      """
+        |akka {
+        |   actor.provider = "cluster"
+        |   cluster {
+        |    downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
+        |    jmx.multi-mbeans-in-same-jvm = on
+        |  }
+        | }
+        |""".stripMargin)
       .withFallback(ConfigFactory.load())
       .ensurePotamoi
 
