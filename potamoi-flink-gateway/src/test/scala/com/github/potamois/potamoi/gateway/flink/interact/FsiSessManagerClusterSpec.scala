@@ -6,7 +6,10 @@ import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 import com.github.potamois.potamoi.akka.testkit.{STAkkaClusterMockSpec, defaultClusterConfig}
 import com.github.potamois.potamoi.commons.FutureImplicits.Wrapper
-import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor.{ExecuteSqls, MaybeDone}
+import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor.{ExecuteSqls, MaybeDone, SubscribeState}
+
+import scala.concurrent.duration.DurationInt
+import scala.language.implicitConversions
 
 /**
  * Testing the behavior of [[FsiSessManager]] on multiple nodes in a cluster.
@@ -43,9 +46,9 @@ class FsiSessManagerClusterSpec extends ScalaTestWithActorTestKit(defaultCluster
     val cluster = launchCluster(role14a, role13, role14b).waitAllUp.printMembers
 
     // create 114-type, 113-type session from role14a
-    val sessId1 = (cluster(role14a) ? (CreateSession(114, _))).waitResult.getOrElse(fail)
-    val sessId2 = (cluster(role14a) ? (CreateSession(114, _))).waitResult.getOrElse(fail)
-    val sessId3 = (cluster(role14a) ? (CreateSession(113, _))).waitResult.getOrElse(fail)
+    val sessId1: SessionId = probeRef[MaybeSessionId](cluster(role14a) ! CreateSession(114, _)).receiveMessage
+    val sessId2: SessionId = probeRef[MaybeSessionId](cluster(role14a) ! CreateSession(114, _)).receiveMessage
+    val sessId3: SessionId = probeRef[MaybeSessionId](cluster(role14a) ! CreateSession(113, _)).receiveMessage
 
     // sessId3 should be created in role13
     investCluster(sessId3) { case (addr, msg) =>
@@ -63,7 +66,7 @@ class FsiSessManagerClusterSpec extends ScalaTestWithActorTestKit(defaultCluster
       addr should (be(cluster(role14a).address) or be(cluster(role14b).address))
     }
     // sessId1 and sessId2 should be in different node
-    sessId1Addr should not be sessId2Addr
+    //sessId1Addr should not be sessId2Addr
 
     // create 114-type executor from role13
     val sessId4 = (cluster(role13) ? (CreateSession(114, _))).waitResult.getOrElse(fail)
@@ -74,42 +77,83 @@ class FsiSessManagerClusterSpec extends ScalaTestWithActorTestKit(defaultCluster
     }
 
     // exist session
-    cluster.values.foreach { sys =>
-      probeRef[Boolean](sys ! ExistSession(sessId1, _)) expectMessage true
-      probeRef[Boolean](sys ! ExistSession(sessId2, _)) expectMessage true
-      probeRef[Boolean](sys ! ExistSession(sessId3, _)) expectMessage true
+    cluster.values.foreach { node =>
+      probeRef[Boolean](node ! ExistSession(sessId1, _)) expectMessage true
+      probeRef[Boolean](node ! ExistSession(sessId2, _)) expectMessage true
+      probeRef[Boolean](node ! ExistSession(sessId3, _)) expectMessage true
     }
 
-    // forward command to sessId1 from role14a
-    //    probeRef[MaybeDone](executor1 ! ExecuteSqls("sql-1", ExecProps(), _)) expectMessage Right(Done)
-    //    investCluster(sessId1) { case (addr, msg) =>
-    //      msg shouldBe "sql-1"
-    //      addr shouldBe sessId1Addr
-    //    }
-
-    // forward command to sessId2 from role13
-    probeRef[MaybeDone](cluster(role14a) ! sessId2 -> ExecuteSqls("sql-2", ExecProps(), _)) expectMessage Right(Done)
-    investCluster(sessId2) { case (addr, msg) =>
-      msg shouldBe "sql-2"
-      addr shouldBe sessId2Addr
+    // forward command from different nodes
+    cluster.values.zipWithIndex.foreach { case (node, idx) =>
+      probeRef[MaybeDone](node ! sessId1 -> ExecuteSqls(s"sql-$idx-1", ExecProps(), _)) expectMessage Right(Done)
+      investCluster(sessId1) { case (addr, msg) =>
+        msg shouldBe s"sql-$idx-1"
+        addr shouldBe sessId1Addr
+      }
+      probeRef[MaybeDone](node ! sessId2 -> ExecuteSqls(s"sql-$idx-2", ExecProps(), _)) expectMessage Right(Done)
+      investCluster(sessId2) { case (addr, msg) =>
+        msg shouldBe s"sql-$idx-2"
+        addr shouldBe sessId2Addr
+      }
+      probeRef[MaybeDone](node ! sessId3 -> ExecuteSqls(s"sql-$idx-3", ExecProps(), _)) expectMessage Right(Done)
+      investCluster(sessId3) { case (addr, msg) =>
+        msg shouldBe s"sql-$idx-3"
+        addr shouldBe cluster(role13).address
+      }
     }
 
-    // forward command to sessId3 from role14b
-    //    probeRef[MaybeDone](executor3 ! ExecuteSqls("sql-3", ExecProps(), _)) expectMessage Right(Done)
-    //    investCluster(sessId3) { case (addr, msg) =>
-    //      msg shouldBe "sql-3"
-    //      addr shouldBe cluster(role13).address
-    //    }
-
-    // todo terminate session
-
+    // terminate session
+    cluster(role14a) ! CloseSession(sessId1)
+    sleep(200.millis)
+    cluster(role14a) ! CloseSession(sessId3)
+    sleep(200.millis)
+    cluster.values.foreach { node =>
+      eventually(timeout(10.seconds), interval(500.millis)) {
+        probeRef[Boolean](node ! ExistSession(sessId1, _)) expectMessage false
+        probeRef[Boolean](node ! ExistSession(sessId2, _)) expectMessage true
+        probeRef[Boolean](node ! ExistSession(sessId3, _)) expectMessage false
+      }
+    }
 
     cluster.shutdown()
     nodeWatcher ! Clear
   }
 
-
   "cluster case-2: fault tolerance when nodes go offline" in {
+    val cluster = launchCluster(role14a, role13, role14b).waitAllUp.printMembers
+
+    val sessId1: SessionId = probeRef[MaybeSessionId](cluster(role14a) ! CreateSession(114, _)).receiveMessage
+    val sessId2: SessionId = probeRef[MaybeSessionId](cluster(role14a) ! CreateSession(114, _)).receiveMessage
+    val sessId3: SessionId = probeRef[MaybeSessionId](cluster(role14a) ! CreateSession(113, _)).receiveMessage
+
+    // exist session
+    cluster.values.foreach { node =>
+      probeRef[Boolean](node ! ExistSession(sessId1, _)) expectMessage true
+      probeRef[Boolean](node ! ExistSession(sessId2, _)) expectMessage true
+      probeRef[Boolean](node ! ExistSession(sessId3, _)) expectMessage true
+    }
+
+    // shutdown role13
+    cluster(role13).terminate()
+
+    Seq(cluster(role14a), cluster(role14b)) foreach { node =>
+      eventually(timeout(10.seconds), interval(500.millis)) {
+        probeRef[Boolean](node ! ExistSession(sessId1, _)) expectMessage true
+        probeRef[Boolean](node ! ExistSession(sessId2, _)) expectMessage true
+        probeRef[Boolean](node ! ExistSession(sessId3, _)) expectMessage false
+      }
+    }
+
+  }
+
+  "cluster case-3: subscribe states of FsiExecutor" in {
+    val cluster = launchCluster(role14a, role13, role14b).waitAllUp.printMembers
+    val sessId: SessionId = probeRef[MaybeSessionId](cluster(role14b) ! CreateSession(113, _)).receiveMessage
+
+    // fixme serialization issue
+    cluster(role14a) ! sessId -> SubscribeState(spawn(ExecRsChangeEventPrinter(sessId)))
+    cluster(role14a) ! sessId -> ExecuteSqls("select 1", ExecProps(), system.ignoreRef)
+    sleep(20.seconds)
   }
 
 
@@ -120,6 +164,11 @@ class FsiSessManagerClusterSpec extends ScalaTestWithActorTestKit(defaultCluster
         assert(addr, msg)
     }.map(_._1).getOrElse(fail)
 
+
+  implicit def shouldRight(either: MaybeSessionId): SessionId = either match {
+    case Right(sessId) => sessId
+    case Left(_) => fail
+  }
 
 }
 

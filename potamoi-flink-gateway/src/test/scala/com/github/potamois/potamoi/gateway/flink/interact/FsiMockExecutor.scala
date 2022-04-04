@@ -2,10 +2,12 @@ package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.Done
 import akka.actor.Address
+import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import com.github.potamois.potamoi.akka.serialize.CborSerializable
 import com.github.potamois.potamoi.commons.EitherAlias.success
+import com.github.potamois.potamoi.gateway.flink.interact.ExecRsChangeEvent.AcceptStmtsExecPlanEvent
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.SessionId
 
 import scala.collection.mutable
@@ -23,17 +25,32 @@ object FsiMockExecutor {
 
   val Created = "create"
   val Stopped = "stop"
+  val Subscribed = "subscribe"
 
   def apply(sessionId: SessionId,
             nodeCollector: ActorRef[NodeFsiSessObserver.Command]): Behavior[FsiExecutor.Command] = Behaviors.setup { ctx =>
+
     ctx.log.info(s"FsiMockExecutor[$sessionId] created.")
+
+    val rsChangeTopic: ActorRef[Topic.Command[ExecRsChangeEvent]] = ctx.spawn(Topic[ExecRsChangeEvent](
+      topicName = s"fsi-executor-state-$sessionId"),
+      name = s"fsi-executor-topic-$sessionId"
+    )
+
     nodeCollector ! ReceiveCommand(ctx.system.address, sessionId, Created)
     Behaviors
       .receiveMessage[FsiExecutor.Command] {
         case ExecuteSqls(sqls, _, replyTo) =>
           ctx.log.info(s"FsiMockExecutor[$sessionId] received ExecuteSqls[$sqls].")
           nodeCollector ! ReceiveCommand(ctx.system.address, sessionId, sqls)
+          rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlanEvent(Seq(sqls), props.toEffectiveExecProps))
           replyTo ! success(Done)
+          Behaviors.same
+
+        case SubscribeState(listener) =>
+          ctx.log.info(s"FsiMockExecutor[$sessionId] received SubscribeState.")
+          rsChangeTopic ! Topic.Subscribe(listener)
+          nodeCollector ! ReceiveCommand(ctx.system.address, sessionId, Subscribed)
           Behaviors.same
 
         case Terminate(reason) =>
