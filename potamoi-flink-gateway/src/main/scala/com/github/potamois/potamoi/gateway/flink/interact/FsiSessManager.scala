@@ -195,95 +195,9 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
    * Received message behaviors.
    */
   private def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
-
-    // create session command
-    case cmd: CreateSessionCommand => cmd match {
-      case CreateSession(flinkVer, replyTo) =>
-        ctx.self ! RetryableCreateSession(1, flinkVer, replyTo)
-        Behaviors.same
-
-      case RetryableCreateSession(retryCount, flinkVer, replyTo) =>
-        if (retryCount > retryPropCreateSession.limit)
-          replyTo ! fail(NoActiveFlinkGatewayService(flinkVer))
-        else flinkVer match {
-          case ver if !FlinkVerSignRange.contains(ver) => replyTo ! fail(UnsupportedFlinkVersion(flinkVer))
-          case ver if sessMgrServiceSlots.getOrElse(ver, 0) < 1 =>
-            timers.startSingleTimer(
-              key = s"$flinkVer-ct-${Uuid.genUUID16}",
-              RetryableCreateSession(retryCount + 1, flinkVer, replyTo),
-              retryPropCreateSession.interval)
-          case ver => sessMgrServiceRoutes(ver) ! CreateLocalSession(replyTo)
-        }
-        Behaviors.same
-
-      case CreateLocalSession(replyTo) =>
-        val sessionId = Uuid.genUUID32
-        // create FsiExecutor actor
-        val executor = ctx.spawn(fsiExecutorBehavior(sessionId), fsiExecutorName(sessionId))
-        ctx.watch(executor)
-        receptionist ! Receptionist.register(
-          FsiExecutorServiceKey, executor,
-          messageAdapter[Registered](_ => CreatedLocalSession(sessionId, replyTo))
-        )
-        Behaviors.same
-
-      case CreatedLocalSession(sessionId, replyTo) =>
-        ctx.log.info(s"FsiSessManager[$flinkVer] register FsiExecutor[${fsiExecutorName(sessionId)}] actor to receptionist.")
-        replyTo ! success(sessionId)
-        Behaviors.same
-    }
-
-    // forward command
-    case cmd: ForwardCommand => cmd match {
-      case Forward(sessionId, command) =>
-        ctx.self ! RetryableForward(1, ForwardWithAck(sessionId, command, ctx.system.ignoreRef))
-        Behaviors.same
-
-      case c: ForwardWithAck =>
-        ctx.self ! RetryableForward(1, c)
-        Behaviors.same
-
-      case RetryableForward(retryCount, forward) =>
-        receptionist ! FsiExecutorServiceKey -> (RetryableForwardListing(retryCount, forward, _))
-        Behaviors.same
-
-      case RetryableForwardListing(retryCount, forward, listing) =>
-        listing.serviceInstances(FsiExecutorServiceKey).find(_.path.name == fsiExecutorName(forward.sessionId)) match {
-          case Some(executor) =>
-            executor ! forward.executorCommand
-            forward.ackReply ! true
-          case None =>
-            if (retryCount > retryPropForward.limit) forward.ackReply ! false
-            else timers.startSingleTimer(
-              key = s"${forward.sessionId}-fd-${Uuid.genUUID16}",
-              RetryableForward(retryCount + 1, forward),
-              retryPropForward.interval)
-        }
-        Behaviors.same
-    }
-
-    // exist session command
-    case cmd: ExistSessionCommand => cmd match {
-      case c: ExistSession =>
-        ctx.self ! RetryableExistSession(1, c)
-        Behaviors.same
-
-      case RetryableExistSession(retryCount, c) =>
-        receptionist ! FsiExecutorServiceKey -> (RetryableExistSessionListing(retryCount, c, _))
-        Behaviors.same
-
-      case RetryableExistSessionListing(retryCount, c, listing) =>
-        listing.serviceInstances(FsiExecutorServiceKey).find(_.path.name == fsiExecutorName(c.sessionId)) match {
-          case Some(_) => c.replyTo ! true
-          case None =>
-            if (retryCount > retryPropExistSession.limit) c.replyTo ! false
-            else timers.startSingleTimer(
-              key = s"${c.sessionId}-ex-${Uuid.genUUID16}",
-              RetryableExistSession(retryCount + 1, c),
-              retryPropExistSession.interval)
-        }
-        Behaviors.same
-    }
+    case cmd: CreateSessionCommand => createSessionBehavior(cmd)
+    case cmd: ForwardCommand => forwardBehavior(cmd)
+    case cmd: ExistSessionCommand => existSessionBehavior(cmd)
 
     case CloseSession(sessionId) =>
       ctx.self ! Forward(sessionId, FsiExecutor.Terminate("via FsiSessManager's CloseSession command"))
@@ -320,6 +234,100 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
       Behaviors.same
   }
 
+  /**
+   * [[CreateSessionCommand]] behavior.
+   */
+  private def createSessionBehavior(cmd: CreateSessionCommand): Behavior[Command] = cmd match {
+    case CreateSession(flinkVer, replyTo) =>
+      ctx.self ! RetryableCreateSession(1, flinkVer, replyTo)
+      Behaviors.same
+
+    case RetryableCreateSession(retryCount, flinkVer, replyTo) =>
+      if (retryCount > retryPropCreateSession.limit)
+        replyTo ! fail(NoActiveFlinkGatewayService(flinkVer))
+      else flinkVer match {
+        case ver if !FlinkVerSignRange.contains(ver) => replyTo ! fail(UnsupportedFlinkVersion(flinkVer))
+        case ver if sessMgrServiceSlots.getOrElse(ver, 0) < 1 =>
+          timers.startSingleTimer(
+            key = s"$flinkVer-ct-${Uuid.genUUID16}",
+            RetryableCreateSession(retryCount + 1, flinkVer, replyTo),
+            retryPropCreateSession.interval)
+        case ver => sessMgrServiceRoutes(ver) ! CreateLocalSession(replyTo)
+      }
+      Behaviors.same
+
+    case CreateLocalSession(replyTo) =>
+      val sessionId = Uuid.genUUID32
+      // create FsiExecutor actor
+      val executor = ctx.spawn(fsiExecutorBehavior(sessionId), fsiExecutorName(sessionId))
+      ctx.watch(executor)
+      receptionist ! Receptionist.register(
+        FsiExecutorServiceKey, executor,
+        messageAdapter[Registered](_ => CreatedLocalSession(sessionId, replyTo))
+      )
+      Behaviors.same
+
+    case CreatedLocalSession(sessionId, replyTo) =>
+      ctx.log.info(s"FsiSessManager[$flinkVer] register FsiExecutor[${fsiExecutorName(sessionId)}] actor to receptionist.")
+      replyTo ! success(sessionId)
+      Behaviors.same
+  }
+
+  /**
+   * [[ForwardCommand]] behavior.
+   */
+  private def forwardBehavior(cmd: ForwardCommand): Behavior[Command] = cmd match {
+    case Forward(sessionId, command) =>
+      ctx.self ! RetryableForward(1, ForwardWithAck(sessionId, command, ctx.system.ignoreRef))
+      Behaviors.same
+
+    case c: ForwardWithAck =>
+      ctx.self ! RetryableForward(1, c)
+      Behaviors.same
+
+    case RetryableForward(retryCount, forward) =>
+      receptionist ! FsiExecutorServiceKey -> (RetryableForwardListing(retryCount, forward, _))
+      Behaviors.same
+
+    case RetryableForwardListing(retryCount, forward, listing) =>
+      listing.serviceInstances(FsiExecutorServiceKey).find(_.path.name == fsiExecutorName(forward.sessionId)) match {
+        case Some(executor) =>
+          executor ! forward.executorCommand
+          forward.ackReply ! true
+        case None =>
+          if (retryCount > retryPropForward.limit) forward.ackReply ! false
+          else timers.startSingleTimer(
+            key = s"${forward.sessionId}-fd-${Uuid.genUUID16}",
+            RetryableForward(retryCount + 1, forward),
+            retryPropForward.interval)
+      }
+      Behaviors.same
+  }
+
+  /**
+   * [[ExistSessionCommand]] behavior.
+   */
+  private def existSessionBehavior(cmd: ExistSessionCommand): Behavior[Command] = cmd match {
+    case c: ExistSession =>
+      ctx.self ! RetryableExistSession(1, c)
+      Behaviors.same
+
+    case RetryableExistSession(retryCount, c) =>
+      receptionist ! FsiExecutorServiceKey -> (RetryableExistSessionListing(retryCount, c, _))
+      Behaviors.same
+
+    case RetryableExistSessionListing(retryCount, c, listing) =>
+      listing.serviceInstances(FsiExecutorServiceKey).find(_.path.name == fsiExecutorName(c.sessionId)) match {
+        case Some(_) => c.replyTo ! true
+        case None =>
+          if (retryCount > retryPropExistSession.limit) c.replyTo ! false
+          else timers.startSingleTimer(
+            key = s"${c.sessionId}-ex-${Uuid.genUUID16}",
+            RetryableExistSession(retryCount + 1, c),
+            retryPropExistSession.interval)
+      }
+      Behaviors.same
+  }
 
   /**
    * Subscribe to receptionist listing of FsiSessManagerServiceKeys,
