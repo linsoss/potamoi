@@ -1,14 +1,12 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import com.github.potamois.potamoi.akka.serialize.CborSerializable
-
 
 /**
  * Flink sql serial operation execution result trait
  *
  * @author Al-assad
  */
-trait OperationDone extends CborSerializable
+trait OperationDone
 
 /**
  * flink sql immediate operation execution result like "create ...","explain ..."

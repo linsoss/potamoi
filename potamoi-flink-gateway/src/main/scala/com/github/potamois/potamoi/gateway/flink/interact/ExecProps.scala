@@ -1,13 +1,12 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import com.github.potamois.potamoi.akka.serialize.CborSerializable
 import com.github.potamois.potamoi.commons.{PotaConfig, RichMutableMap}
 import com.github.potamois.potamoi.gateway.flink.interact.EvictStrategy.EvictStrategy
 import com.github.potamois.potamoi.gateway.flink.interact.ExecMode.ExecMode
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.language.implicitConversions
-import scala.collection.JavaConverters._
 
 /**
  * Flink interactive operation execution configuration.
@@ -26,7 +25,7 @@ case class ExecProps(executeMode: ExecMode = ExecMode.LOCAL,
                      remoteAddr: Option[RemoteAddr] = None,
                      flinkConfig: Map[String, String] = Map.empty,
                      flinkDeps: Seq[String] = Seq.empty,
-                     rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) extends CborSerializable {
+                     rsCollectSt: RsCollectStrategy = RsCollectStrategy.default) {
 
   def toEffectiveExecProps: EffectiveExecProps = ExecProps.convergeExecConfig(this)
 }

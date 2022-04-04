@@ -1,8 +1,7 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import com.github.potamois.potamoi.akka.serialize.CborSerializable
-import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.Error
+import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 
 /**
  * Execution result changes event for [[FsiSerialExecutor]] implemented by Akka Cluster Topic,
@@ -14,7 +13,7 @@ import com.github.potamois.potamoi.gateway.flink.Error
  *
  * @author Al-assad
  */
-sealed trait ExecRsChangeEvent extends CborSerializable
+sealed trait ExecRsChangeEvent
 
 object ExecRsChangeEvent {
 

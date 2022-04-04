@@ -1,6 +1,5 @@
 package com.github.potamois.potamoi.gateway.flink
 
-import com.github.potamois.potamoi.akka.serialize.CborSerializable
 import com.github.potamois.potamoi.commons.curTs
 
 /**
@@ -10,7 +9,7 @@ import com.github.potamois.potamoi.commons.curTs
  * @param stack   exception stack
  * @author Al-assad
  */
-case class Error(summary: String, stack: Throwable) extends CborSerializable {
+case class Error(summary: String, stack: Throwable) {
   def toTsError(ts: Long = curTs): TsError = TsError(summary, stack, ts)
   def printStackTrace(): Unit = stack.printStackTrace()
 }
@@ -22,7 +21,7 @@ case class Error(summary: String, stack: Throwable) extends CborSerializable {
  * @param stack   exception stack
  * @param ts      error timestamp marked
  */
-case class TsError(summary: String, stack: Throwable, ts: Long) extends CborSerializable {
+case class TsError(summary: String, stack: Throwable, ts: Long) {
   def toError: Error = Error(summary, stack)
   def printStackTrace(): Unit = stack.printStackTrace()
 }
