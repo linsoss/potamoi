@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 import akka.util.Timeout
@@ -37,26 +37,29 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
     "create session -> execute sql -> close session" in newFsiSessManager { manager =>
       // create session
       val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
-
-      val executor = probeRef[FsiExecutorActor](manager ! FindSession(sessionId, _))
-        .receivePF(_.isDefined shouldBe true).get
+      probeRef[Boolean] {
+        manager ! ExistSession(sessionId, _)
+      } expectMessage true
 
       // execute sql
       probeRef[MaybeDone] {
-        executor ! ExecuteSqls(explainSqls.sql, props, _)
+        manager ! sessionId -> ExecuteSqls(explainSqls.sql, props, _)
       } receivePF explainSqls.passExecuteSqls
 
       // get execute result
       probeRef[ExecPlanResult] {
-        executor ! GetExecPlanResult(_)
+        manager ! sessionId -> GetExecPlanResult(_)
       } receivePF explainSqls.passGetExecPlanResult
 
       // close session
       manager ! CloseSession(sessionId)
       eventually {
-        probeRef[FsiExecutorActor](manager ! FindSession(sessionId, _)).expectMessage(None)
+        probeRef[Boolean] {
+          manager ! ExistSession(sessionId, _)
+        } expectMessage false
       }
     }
+
 
     "create session with invalid Flink version sign" in newFsiSessManager { manager =>
       probeRef[MaybeSessionId] {
@@ -67,23 +70,32 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
       }
     }
 
+    "forward command with ack reply" in newFsiSessManager { manager =>
+      val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
+      val sqlProbe = TestProbe[MaybeDone]
+      val ackProbe = TestProbe[Boolean]
+
+      manager ! sessionId -> ExecuteSqls(explainSqls.sql, props, sqlProbe.ref) -> ackProbe.ref
+      ackProbe.expectMessage(true)
+      manager ! "114514" -> ExecuteSqls(explainSqls.sql, props, sqlProbe.ref) -> ackProbe.ref
+      ackProbe.expectMessage(false)
+    }
+
     "close session while the fsi-executor is still in process" in newFsiSessManager { manager =>
       val sessionId = (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
-
-      val executor = probeRef[FsiExecutorActor](manager ! FindSession(sessionId, _)).receivePF(_.isDefined shouldBe true).get
-
-      executor ! ExecuteSqls(selectSqls.sql, props, system.ignoreRef)
+      manager ! sessionId -> ExecuteSqls(selectSqls.sql, props, system.ignoreRef)
+      probeRef[Boolean](manager ! ExistSession(sessionId, _)).expectMessage(true)
 
       manager ! CloseSession(sessionId)
       eventually {
-        probeRef[FsiExecutorActor](manager ! FindSession(sessionId, _)).expectMessage(None)
+        probeRef[Boolean](manager ! ExistSession(sessionId, _)).expectMessage(false)
       }
     }
 
     "close non-existent session-id" in newFsiSessManager { manager =>
       manager ! CloseSession("114514")
       eventually {
-        probeRef[FsiExecutorActor](manager ! FindSession("114514", _)).expectMessage(None)
+        probeRef[Boolean](manager ! ExistSession("114514", _)).expectMessage(false)
       }
     }
 
@@ -94,15 +106,18 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
         (manager ? (CreateSession(SystemFlinkVerSign, _))).waitResult.getOrElse(fail)
       }
       sessionIds.foreach { sessionId =>
-        val executor = probeRef[FsiExecutorActor](manager ! FindSession(sessionId, _)).receivePF(_.isDefined shouldBe true).get
+        //        manager ! sessionId -> SubscribeState(spawn(ExecRsChangeEventPrinter(sessionId)))
+        probeRef[Boolean] {
+          manager ! ExistSession(sessionId, _)
+        } expectMessage true
 
         probeRef[MaybeDone] {
-          executor ! ExecuteSqls(explainSqls.sql, props, _)
+          manager ! sessionId -> ExecuteSqls(explainSqls.sql, props, _)
         }.receivePFIn(10.seconds) {
           explainSqls.passExecuteSqls
         }
         probeRef[ExecPlanResult] {
-          executor ! GetExecPlanResult(_)
+          manager ! sessionId -> GetExecPlanResult(_)
         } receivePF explainSqls.passGetExecPlanResult
       }
       sessionIds.foreach { sessionId =>
@@ -111,7 +126,9 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
       }
       sessionIds.foreach { sessionId =>
         eventually {
-          probeRef[FsiExecutorActor](manager ! FindSession(sessionId, _)).expectMessage(None)
+          probeRef[Boolean] {
+            manager ! ExistSession(sessionId, _)
+          } expectMessage false
         }
       }
     }
