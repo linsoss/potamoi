@@ -41,7 +41,7 @@ lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"
   )
 
 // potamoi akka-toolkit module
-lazy val akkaToolkit = Project(id = "potamoi-akka-toolkit", base = file("potamoi-akka-toolkit"))
+lazy val akkaToolkit = Project(id = "potamoi-akka-kit", base = file("potamoi-akka-kit"))
   .dependsOn(commons)
   .settings(
     commonSettings,
