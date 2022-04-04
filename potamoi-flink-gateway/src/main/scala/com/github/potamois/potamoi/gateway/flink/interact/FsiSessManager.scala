@@ -6,6 +6,7 @@ import akka.actor.typed.receptionist.Receptionist.Registered
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers, TimerScheduler}
+import akka.util.Timeout
 import com.github.potamois.potamoi.akka.serialize.CborSerializable
 import com.github.potamois.potamoi.akka.toolkit.ActorImplicit
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
@@ -15,9 +16,10 @@ import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, Fli
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Command, SessionId}
 
 import scala.collection.mutable
-import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
-import scala.language.implicitConversions
+import scala.concurrent.duration.{DurationInt, FiniteDuration, MILLISECONDS}
+import scala.language.{implicitConversions, postfixOps}
 import scala.reflect.runtime.universe.typeOf
+import scala.util.Success
 
 /**
  * Flink Sql interaction executor manager.
@@ -28,13 +30,13 @@ object FsiSessManager {
 
   type SessionId = String
   type MaybeSessionId = Either[CreateSessReqReject, SessionId]
+  type FsiExecutorActor = Option[ActorRef[FsiExecutor.Command]]
 
   sealed trait Command extends CborSerializable
 
   private[interact] sealed trait CreateSessionCommand
-  private[interact] sealed trait ForwardCommand
-  private[interact] sealed trait SessionCommand
-  private[interact] sealed trait ExistSessionCommand
+  private[interact] sealed trait FindSessionCommand
+  private[interact] sealed trait CloseSessionCommand
 
   /**
    * Create a new FsiExecutor session.
@@ -44,73 +46,52 @@ object FsiSessManager {
    *                 assign a session-id in [[CreateSessReqReject]],
    *                 The assigned session-id is a 32-bit uuid string.
    */
-  final case class CreateSession(flinkVer: FlinkVerSign, replyTo: ActorRef[MaybeSessionId])
-    extends Command with CreateSessionCommand
+  final case class CreateSession(flinkVer: FlinkVerSign, replyTo: ActorRef[MaybeSessionId]) extends Command with CreateSessionCommand
+
   /**
    * Create a new Executor locally and return the assigned session-id.
    */
-  final case class CreateLocalSession(replyTo: ActorRef[MaybeSessionId])
-    extends Command with CreateSessionCommand
+  final case class CreateLocalSession(replyTo: ActorRef[MaybeSessionId]) extends Command with CreateSessionCommand
+
   /**
-   * Forward the FsiExecutor Command to the FsiExecutor with the corresponding session-id.
+   * Find the FsiExecutor with the specified session-id.
    */
-  final case class Forward(sessionId: SessionId, executorCommand: FsiExecutor.Command)
-    extends Command with ForwardCommand
-  /**
-   * Forward the FsiExecutor Command to the FsiExecutor with the corresponding session-id,
-   * but returns an ack of whether the forwarding was successful.
-   */
-  final case class ForwardWithAck(sessionId: SessionId, executorCommand: FsiExecutor.Command, ackReply: ActorRef[Boolean])
-    extends Command with ForwardCommand
-  /**
-   * Determine if the specified session-id FsiExecutor exist.
-   */
-  final case class ExistSession(sessionId: SessionId, replyTo: ActorRef[Boolean])
-    extends Command with ExistSessionCommand
+  final case class FindSession(sessionId: SessionId, reply: ActorRef[FsiExecutorActor]) extends Command with FindSessionCommand
+
   /**
    * Close the FisExecutor with the specified session-id.
    */
-  final case class CloseSession(sessionId: SessionId) extends Command
+  final case class CloseSession(sessionId: SessionId) extends Command with CloseSessionCommand
+
   /**
    * Terminate the current FsiMessageManager instance gracefully.
    */
   final case object Terminate extends Command
 
 
-  // auto conversion for Forward
-  implicit def forwardConversion(cmd: (SessionId, FsiExecutor.Command)): Forward = Forward(cmd._1, cmd._2)
-
-  // auto conversion for ForwardWithAck
-  implicit def forwardWithAckConversion(cmd: ((SessionId, FsiExecutor.Command), ActorRef[Boolean])): ForwardWithAck =
-    ForwardWithAck(cmd._1._1, cmd._1._2, cmd._2)
-
-
   sealed trait Internal extends Command
 
   // Retryable CreatingSession command.
-  private final case class RetryableCreateSession(retryCount: Int, flinkVer: FlinkVerSign, replyTo: ActorRef[MaybeSessionId])
-    extends Internal with CreateSessionCommand
+  private final case class RetryableCreateSession(retryCount: Int, flinkVer: FlinkVerSign,
+                                                  replyTo: ActorRef[MaybeSessionId]) extends Internal with CreateSessionCommand
 
   // The session has been created successfully.
-  private final case class CreatedLocalSession(sessId: SessionId, replyTo: ActorRef[MaybeSessionId])
-    extends Internal with CreateSessionCommand
+  private final case class CreatedLocalSession(sessId: SessionId,
+                                               replyTo: ActorRef[MaybeSessionId]) extends Internal with CreateSessionCommand
 
-  // Retryable forwarding FsiExecutor command.
-  private final case class RetryableForward(retryCount: Int, forward: ForwardWithAck)
-    extends Internal with ForwardCommand
+  // Retryable FindSession command.
+  private case class RetryableFindSession(retryCount: Int, sessionId: SessionId,
+                                          reply: ActorRef[FsiExecutorActor]) extends Command with FindSessionCommand
 
-  private final case class RetryableForwardListing(retryCount: Int, forward: ForwardWithAck, listing: Receptionist.Listing)
-    extends Internal with ForwardCommand
+  private case class RetryableFindSessionListing(retryCount: Int, sessionId: SessionId, reply: ActorRef[FsiExecutorActor],
+                                                 listing: Receptionist.Listing) extends Internal with FindSessionCommand
 
-  // Retryable ExistSession command.
-  private final case class RetryableExistSession(retryCount: Int, exist: ExistSession)
-    extends Internal with ExistSessionCommand
-
-  private final case class RetryableExistSessionListing(retryCount: Int, exist: ExistSession, listing: Receptionist.Listing)
-    extends Internal with ExistSessionCommand
+  // Found FsiExecutor message adapter.
+  private case class FoundSessionThenCloseAdapter(executor: FsiExecutorActor) extends Internal with CloseSessionCommand
 
   // Update the number of FsiSessManager service slots for the specified FlinkVerSign.
   private final case class UpdateSessManagerServiceSlots(flinkVer: FlinkVerSign, slotSize: Int) extends Internal
+
 
   // receptionist service key for FsiExecutor actor
   val FsiExecutorServiceKey: ServiceKey[FsiExecutor.Command] = ServiceKey[FsiExecutor.Command]("fsi-executor")
@@ -166,10 +147,11 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
 
   import FsiSessManager._
 
+  implicit val askTimeout: Timeout = 3.seconds
+
   // command retryable config
   private val retryPropCreateSession = RetryProp("potamoi.flink-gateway.sql-interaction.fsi-sess-cmd-retry.create-session")
-  private val retryPropExistSession = RetryProp("potamoi.flink-gateway.sql-interaction.fsi-sess-cmd-retry.exist-session")
-  private val retryPropForward = RetryProp("potamoi.flink-gateway.sql-interaction.fsi-sess-cmd-retry.forward")
+  private val retryPropFindSession = RetryProp("potamoi.flink-gateway.sql-interaction.fsi-sess-cmd-retry.find-session")
 
   // FsiSessManagerServiceKeys listing state
   private val sessMgrServiceSlots: mutable.Map[FlinkVerSign, Int] = mutable.Map(FlinkVerSignRange.map(_ -> 0): _*)
@@ -196,6 +178,28 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
    */
   private def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
 
+    case cmd: FindSessionCommand => cmd match {
+      case FindSession(sessionId, reply) =>
+        ctx.self ! RetryableFindSession(1, sessionId, reply)
+        Behaviors.same
+
+      case RetryableFindSession(retryCount, sessionId, reply) =>
+        receptionist ! FsiExecutorServiceKey -> (RetryableFindSessionListing(retryCount, sessionId, reply, _))
+        Behaviors.same
+
+      case RetryableFindSessionListing(retryCount, sessionId, reply, listing) =>
+        listing.serviceInstances(FsiExecutorServiceKey).find(_.path.name == fsiExecutorName(sessionId)) match {
+          case Some(executor) => reply ! Some(executor)
+          case None =>
+            if (retryCount >= retryPropFindSession.limit) reply ! None
+            else timers.startSingleTimer(
+              key = s"$sessionId-fs-${Uuid.genUUID16}",
+              RetryableFindSession(retryCount + 1, sessionId, reply),
+              retryPropFindSession.interval)
+        }
+        Behaviors.same
+    }
+
     // create session command
     case cmd: CreateSessionCommand => cmd match {
       case CreateSession(flinkVer, replyTo) =>
@@ -203,8 +207,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         Behaviors.same
 
       case RetryableCreateSession(retryCount, flinkVer, replyTo) =>
-        if (retryCount > retryPropCreateSession.limit)
-          replyTo ! fail(NoActiveFlinkGatewayService(flinkVer))
+        if (retryCount > retryPropCreateSession.limit) replyTo ! fail(NoActiveFlinkGatewayService(flinkVer))
         else flinkVer match {
           case ver if !FlinkVerSignRange.contains(ver) => replyTo ! fail(UnsupportedFlinkVersion(flinkVer))
           case ver if sessMgrServiceSlots.getOrElse(ver, 0) < 1 =>
@@ -233,61 +236,21 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
         Behaviors.same
     }
 
-    // forward command
-    case cmd: ForwardCommand => cmd match {
-      case Forward(sessionId, command) =>
-        ctx.self ! RetryableForward(1, ForwardWithAck(sessionId, command, ctx.system.ignoreRef))
+    case cmd: CloseSessionCommand => cmd match {
+      case CloseSession(sessionId) =>
+        ctx.ask[FindSession, FsiExecutorActor](ctx.self, ref => FindSession(sessionId, ref)) {
+          case Success(executor) => FoundSessionThenCloseAdapter(executor)
+          case _ => FoundSessionThenCloseAdapter(None)
+        }
         Behaviors.same
 
-      case c: ForwardWithAck =>
-        ctx.self ! RetryableForward(1, c)
-        Behaviors.same
-
-      case RetryableForward(retryCount, forward) =>
-        receptionist ! FsiExecutorServiceKey -> (RetryableForwardListing(retryCount, forward, _))
-        Behaviors.same
-
-      case RetryableForwardListing(retryCount, forward, listing) =>
-        listing.serviceInstances(FsiExecutorServiceKey).find(_.path.name == fsiExecutorName(forward.sessionId)) match {
-          case Some(executor) =>
-            executor ! forward.executorCommand
-            forward.ackReply ! true
-          case None =>
-            if (retryCount > retryPropForward.limit) forward.ackReply ! false
-            else timers.startSingleTimer(
-              key = s"${forward.sessionId}-fd-${Uuid.genUUID16}",
-              RetryableForward(retryCount + 1, forward),
-              retryPropForward.interval)
+      case FoundSessionThenCloseAdapter(executor) =>
+        executor match {
+          case Some(actor) => actor ! FsiExecutor.Terminate("via CloseSession of parent.")
+          case _ =>
         }
         Behaviors.same
     }
-
-    // exist session command
-    case cmd: ExistSessionCommand => cmd match {
-      case c: ExistSession =>
-        ctx.self ! RetryableExistSession(1, c)
-        Behaviors.same
-
-      case RetryableExistSession(retryCount, c) =>
-        receptionist ! FsiExecutorServiceKey -> (RetryableExistSessionListing(retryCount, c, _))
-        Behaviors.same
-
-      case RetryableExistSessionListing(retryCount, c, listing) =>
-        listing.serviceInstances(FsiExecutorServiceKey).find(_.path.name == fsiExecutorName(c.sessionId)) match {
-          case Some(_) => c.replyTo ! true
-          case None =>
-            if (retryCount > retryPropExistSession.limit) c.replyTo ! false
-            else timers.startSingleTimer(
-              key = s"${c.sessionId}-ex-${Uuid.genUUID16}",
-              RetryableExistSession(retryCount + 1, c),
-              retryPropExistSession.interval)
-        }
-        Behaviors.same
-    }
-
-    case CloseSession(sessionId) =>
-      ctx.self ! Forward(sessionId, FsiExecutor.Terminate("via FsiSessManager's CloseSession command"))
-      Behaviors.same
 
     case UpdateSessManagerServiceSlots(flinkVer, slotSize) =>
       sessMgrServiceSlots(flinkVer) = slotSize
@@ -299,8 +262,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign,
       ctx.children
         .filter(child => typeOf[child.type] == typeOf[FsiExecutor.Command])
         .foreach {
-          _.asInstanceOf[ActorRef[FsiExecutor.Command]] ! FsiExecutor.Terminate(
-            "via FsiSessManager's Terminate command, the parent manager is terminating.")
+          _.asInstanceOf[ActorRef[FsiExecutor.Command]] ! FsiExecutor.Terminate("the parent manager is terminating.")
         }
       Behaviors.stopped
 
