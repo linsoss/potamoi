@@ -1,11 +1,14 @@
 lazy val scala = "2.12.15"
-lazy val akkaVersion = "2.6.19"
+
+lazy val akkaVersion = "2.6.18"
 lazy val akkaHttpVersion = "10.2.9"
+lazy val akkaKryoVersion = "2.4.3"
 lazy val flinkVersion = 14
 
 lazy val commonSettings = Seq(
   organization := "com.github.potamois",
   version := "0.1.0",
+  maintainer := "Al-assad <assad.dev@outlook.com>",
   licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0.html")),
 
   scalaVersion := scala,
@@ -63,6 +66,7 @@ def offerAkkaDeps(scope: Configuration) = Seq(
   "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion % scope,
   "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % scope,
   "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion % scope,
+  "io.altoo" %% "akka-kryo-serialization-typed" % akkaKryoVersion % scope,
 
   "com.typesafe.akka" %% "akka-http" % akkaHttpVersion % scope,
   "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion % scope,

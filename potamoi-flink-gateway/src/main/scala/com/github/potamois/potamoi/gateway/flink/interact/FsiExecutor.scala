@@ -2,7 +2,7 @@ package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.Done
 import akka.actor.typed.{ActorRef, Behavior}
-import com.github.potamois.potamoi.commons.CborSerializable
+import com.github.potamois.potamoi.akka.serialize.CborSerializable
 import com.github.potamois.potamoi.gateway.flink.PageReq
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.SessionId
 

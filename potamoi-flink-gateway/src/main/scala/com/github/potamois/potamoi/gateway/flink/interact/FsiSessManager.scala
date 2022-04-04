@@ -6,10 +6,11 @@ import akka.actor.typed.receptionist.Receptionist.Registered
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, Routers, TimerScheduler}
+import com.github.potamois.potamoi.akka.serialize.CborSerializable
 import com.github.potamois.potamoi.akka.toolkit.ActorImplicit
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.JdkDurationConversions.JavaDurationImplicit
-import com.github.potamois.potamoi.commons.{CborSerializable, PotaConfig, Uuid}
+import com.github.potamois.potamoi.commons.{PotaConfig, Uuid}
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, FlinkVerSignRange, SystemFlinkVerSign}
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Command, SessionId}
 

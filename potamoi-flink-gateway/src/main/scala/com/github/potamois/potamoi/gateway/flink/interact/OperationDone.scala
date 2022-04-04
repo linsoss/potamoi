@@ -1,6 +1,7 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import com.github.potamois.potamoi.commons.CborSerializable
+import com.github.potamois.potamoi.akka.serialize.CborSerializable
+
 
 /**
  * Flink sql serial operation execution result trait

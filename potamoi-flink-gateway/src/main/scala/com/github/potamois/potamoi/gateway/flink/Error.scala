@@ -1,6 +1,7 @@
 package com.github.potamois.potamoi.gateway.flink
 
-import com.github.potamois.potamoi.commons.{CborSerializable, curTs}
+import com.github.potamois.potamoi.akka.serialize.CborSerializable
+import com.github.potamois.potamoi.commons.curTs
 
 /**
  * Error information.

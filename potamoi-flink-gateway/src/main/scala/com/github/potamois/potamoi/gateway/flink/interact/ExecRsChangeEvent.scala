@@ -1,6 +1,6 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
-import com.github.potamois.potamoi.commons.CborSerializable
+import com.github.potamois.potamoi.akka.serialize.CborSerializable
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.Error
 

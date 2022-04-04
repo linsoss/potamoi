@@ -1,4 +1,4 @@
-package com.github.potamois.potamoi.commons
+package com.github.potamois.potamoi.akka.serialize
 
 /**
  * Cbor serialization trait.
