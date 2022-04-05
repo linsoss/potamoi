@@ -9,7 +9,7 @@ import com.github.potamois.potamoi.akka.serialize.CborSerializable
 import com.github.potamois.potamoi.akka.toolkit.ActorImplicit
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.JdkDurationConversions.JavaDurationImplicit
-import com.github.potamois.potamoi.commons.{PotaConfig, Uuid}
+import com.github.potamois.potamoi.commons.Uuid
 import com.github.potamois.potamoi.gateway.flink.FlinkVersion.{FlinkVerSign, FlinkVerSignRange, SystemFlinkVerSign}
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessForwardResponder.ProxyTell
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Command, SessionId}
