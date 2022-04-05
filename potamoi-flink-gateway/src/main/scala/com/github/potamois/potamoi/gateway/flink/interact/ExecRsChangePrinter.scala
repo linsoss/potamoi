@@ -8,11 +8,11 @@ import FsiSessManager.SessionId
 /**
  * FsiExecResultChangeEvent printer actor , used to output [[FsiSerialExecutor]]
  * change events during the debugging phase.
- * See [[ExecRsChangeEvent]].
+ * See [[ExecRsChange]].
  *
  * @author Al-assad
  */
-object ExecRsChangeEventPrinter {
+object ExecRsChangePrinter {
 
   import ExecRsChangeEvent._
 
@@ -20,8 +20,8 @@ object ExecRsChangeEventPrinter {
    * @param sessionId            Executor session id
    * @param printEachRowReceived whether to print each row that received from [[ReceiveQueryOpRow]]
    */
-  def apply(sessionId: SessionId, printEachRowReceived: Boolean = false): Behavior[ExecRsChangeEvent] =
-    Behaviors.receive[ExecRsChangeEvent] { (ctx, msg) =>
+  def apply(sessionId: SessionId, printEachRowReceived: Boolean = false): Behavior[ExecRsChange] =
+    Behaviors.receive[ExecRsChange] { (ctx, msg) =>
       val log = ctx.log
       msg match {
 

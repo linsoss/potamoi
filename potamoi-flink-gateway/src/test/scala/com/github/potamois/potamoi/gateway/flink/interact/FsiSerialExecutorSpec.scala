@@ -93,7 +93,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           |insert into print_table select * from datagen_source;
           |""".stripMargin
 
-      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangePrinter("114514")))
       probeRef[MaybeDone](executor ! ExecuteSqls(sqls, props, _)).expectMessage(30.seconds, Right(Done))
 
       probeRef[ExecPlanResult](executor ! GetExecPlanRsSnapshot(_))
@@ -431,7 +431,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
     "testing RsEventChangePrinter" in {
       val executor = spawn(FsiSerialExecutor("114514"))
       val prop = props.copy(rsCollectSt = DROP_TAIL -> 30)
-      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514", printEachRowReceived = true)))
+      executor ! SubscribeState(spawn(ExecRsChangePrinter("114514", printEachRowReceived = true)))
       probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _)) expectMessage(30.seconds, Right(Done))
     }
 
@@ -449,7 +449,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
           case Get(reply) => reply ! signal; Behaviors.same
         }
       })
-      val cusSubscribeActor = spawn(Behaviors.setup[ExecRsChangeEvent] { _ =>
+      val cusSubscribeActor = spawn(Behaviors.setup[ExecRsChange] { _ =>
         Behaviors.receiveMessage {
           case AcceptStmtsExecPlanEvent(stmts, _) => stmts.size shouldBe 2; Behaviors.same
           case AllStmtsDone(_) => trashActor ! Set(true); Behaviors.same
@@ -488,7 +488,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
     "rejects another execution plan when the current plan is running" in {
       val executor = newExecutor
-      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514", printEachRowReceived = true)))
+      executor ! SubscribeState(spawn(ExecRsChangePrinter("114514", printEachRowReceived = true)))
       val probe = TestProbe[MaybeDone]
       executor ! ExecuteSqls(sql, prop, probe.ref)
       probeRef[MaybeDone](executor ! ExecuteSqls(sql, prop, _)) receivePF {
@@ -500,7 +500,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
     "cancel the current execution plan process" in {
       val executor = newExecutor
-      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangePrinter("114514")))
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       executor ! CancelCurProcess
       val probe = TestProbe[Boolean]()
@@ -511,7 +511,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
 
     "test execute -> cancel -> execute process" in {
       val executor = newExecutor
-      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangePrinter("114514")))
       // execute
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       // be rejected
@@ -534,7 +534,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
     "terminal the current executor when the executor is busy" in {
       val watch = createTestProbe[Command]()
       val executor = newExecutor
-      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangePrinter("114514")))
       executor ! ExecuteSqls(sql, prop, system.ignoreRef)
       executor ! Terminate()
       watch.expectTerminated(executor)
@@ -543,7 +543,7 @@ class FsiSerialExecutorSpec extends ScalaTestWithActorTestKit(defaultConfig) wit
     "terminal the current executor when the executor is idle" in {
       val watch = createTestProbe[Command]()
       val executor = newExecutor
-      executor ! SubscribeState(spawn(ExecRsChangeEventPrinter("114514")))
+      executor ! SubscribeState(spawn(ExecRsChangePrinter("114514")))
       executor ! Terminate()
       watch.expectTerminated(executor)
     }

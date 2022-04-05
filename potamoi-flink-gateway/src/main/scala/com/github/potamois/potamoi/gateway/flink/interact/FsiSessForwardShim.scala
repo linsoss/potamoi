@@ -20,13 +20,36 @@ object FsiSessForwardResponder {
   sealed trait Command
   final case class ProxyTell(executor: ActorRef[FsiExecutor.Command], command: FsiExecutor.Command) extends Command
 
-  sealed trait Reply extends Command
-  private case class ExecuteSqlsReply(reply: ActorRef[MaybeDone], rs: MaybeDone) extends Reply
-  private case class IsInProcessReply(reply: ActorRef[Boolean], rs: Boolean) extends Reply
-  private case class GetExecPlanRsSnapshotReply(reply: ActorRef[ExecPlanResult], rs: ExecPlanResult) extends Reply
-  private case class GetQueryRsSnapshotReply(reply: ActorRef[QueryResult], rs: QueryResult) extends Reply
-  private case class GetQueryRsSnapshotByPageReply(reply: ActorRef[PageQueryResult], rs: PageQueryResult) extends Reply
+  sealed trait ProxyReply extends Command
+  private case class ExecuteSqlsReply(reply: ActorRef[MaybeDone], rs: MaybeDone) extends ProxyReply
+  private case class IsInProcessReply(reply: ActorRef[Boolean], rs: Boolean) extends ProxyReply
+  private case class GetExecPlanRsSnapshotReply(reply: ActorRef[ExecPlanResult], rs: ExecPlanResult) extends ProxyReply
+  private case class GetQueryRsSnapshotReply(reply: ActorRef[QueryResult], rs: QueryResult) extends ProxyReply
+  private case class GetQueryRsSnapshotByPageReply(reply: ActorRef[PageQueryResult], rs: PageQueryResult) extends ProxyReply
 
+
+  def apply(): Behavior[Command] = Behaviors.setup {
+    implicit ctx =>
+      ctx.log.info("Local FsiSessForwardResponder started.")
+
+      def receiveBehavior = Behaviors
+        .receiveMessage[Command] {
+          case ProxyTell(executor, command) => proxyTell(executor, command)
+          case cmd: ProxyReply => proxyReply(cmd)
+        }
+        .receiveSignal {
+          case (_ctx, PostStop) =>
+            _ctx.log.info("Local FsiSessForwardResponder stopped.")
+            Behaviors.same
+          case (_ctx, PreRestart) =>
+            _ctx.log.info("Local FsiSessForwardResponder restarting...")
+            Behaviors.same
+        }
+
+      Behaviors.supervise(receiveBehavior).onFailure(SupervisorStrategy.restart)
+  }
+
+  var rsChangeTopicBridge: ActorRef[ExecRsChange] = _
   /**
    * Proxy tell message to [[FsiExecutor.Command]], and receive reply if necessary.
    */
@@ -43,6 +66,14 @@ object FsiSessForwardResponder {
         executor ! GetQueryRsSnapshot(limit, ctx.messageAdapter(GetQueryRsSnapshotReply(replyTo, _)))
       case GetQueryRsSnapshotByPage(page, replyTo) =>
         executor ! GetQueryRsSnapshotByPage(page, ctx.messageAdapter(GetQueryRsSnapshotByPageReply(replyTo, _)))
+
+      case SubscribeState(listener) =>
+        //todo
+        rsChangeTopicBridge = ctx.spawn(ExecRsChangeBridge(listener), "rsChangeTopicBridge")
+        executor ! SubscribeState(rsChangeTopicBridge)
+//        rsChangeEventBus ! GetTopic(fsiSessionIdFromActorRef(executor), ctx.messageAdapter(FoundRsChangeTopicThenSubscribe(_, listener)))
+      case UnsubscribeState(listener) =>
+
       case _ =>
         executor ! command
     }
@@ -52,7 +83,7 @@ object FsiSessForwardResponder {
   /**
    * Proxy reply message to original ActorRef received from [[FsiExecutor.Command]].
    */
-  private def proxyReply(cmd: Reply): Behavior[Command] = {
+  private def proxyReply(cmd: ProxyReply): Behavior[Command] = {
     cmd match {
       case ExecuteSqlsReply(reply, rs) => reply ! rs
       case IsInProcessReply(reply, rs) => reply ! rs
@@ -63,24 +94,17 @@ object FsiSessForwardResponder {
     Behaviors.same
   }
 
-  def apply(): Behavior[Command] = Behaviors.setup { implicit ctx =>
-    ctx.log.info("Local FsiSessForwardResponder started.")
-    Behaviors.supervise {
-      Behaviors
-        .receiveMessage[Command] {
-          case ProxyTell(executor, command) => proxyTell(executor, command)
-          case cmd: Reply => proxyReply(cmd)
-        }
-        .receiveSignal {
-          case (_ctx, PostStop) =>
-            _ctx.log.info("Local FsiSessForwardResponder stopped.")
-            Behaviors.same
-          case (_ctx, PreRestart) =>
-            _ctx.log.info("Local FsiSessForwardResponder restarting...")
-            Behaviors.same
-        }
-    }.onFailure(SupervisorStrategy.restart)
+}
+
+
+object ExecRsChangeBridge {
+
+  def apply(originalListener: ActorRef[ExecRsChange]): Behavior[ExecRsChange] = Behaviors.setup { ctx =>
+    Behaviors.receiveMessage {
+      case event: ExecRsChange =>
+        originalListener ! event
+        Behaviors.same
+
+    }
   }
-
-
 }

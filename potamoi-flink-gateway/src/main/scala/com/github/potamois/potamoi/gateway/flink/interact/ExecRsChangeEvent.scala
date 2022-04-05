@@ -5,15 +5,15 @@ import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 
 /**
  * Execution result changes event for [[FsiSerialExecutor]] implemented by Akka Cluster Topic,
- * the subscribers can select to receive from the following list of [[ExecRsChangeEvent]] as
+ * the subscribers can select to receive from the following list of [[ExecRsChange]] as
  * needed.
  *
- * There is a default implementation [[ExecRsChangeEventPrinter]], it can be used to receive events
+ * There is a default implementation [[ExecRsChangePrinter]], it can be used to receive events
  * in debugging scenario.
  *
  * @author Al-assad
  */
-sealed trait ExecRsChangeEvent
+sealed trait ExecRsChange
 
 object ExecRsChangeEvent {
 
@@ -23,7 +23,7 @@ object ExecRsChangeEvent {
    * @param stmts sql statements that has been split
    * @param props the effective execution configuration properties
    */
-  final case class AcceptStmtsExecPlanEvent(stmts: Seq[String], props: EffectiveExecProps) extends ExecRsChangeEvent
+  final case class AcceptStmtsExecPlanEvent(stmts: Seq[String], props: EffectiveExecProps) extends ExecRsChange
 
   /**
    * Executor rejects a new sql statements execution plan request
@@ -31,28 +31,28 @@ object ExecRsChangeEvent {
    * @param stmts sql statements
    * @param cause rejection reason
    */
-  final case class RejectStmtsExecPlanEvent(stmts: String, cause: ExecReqReject) extends ExecRsChangeEvent
+  final case class RejectStmtsExecPlanEvent(stmts: String, cause: ExecReqReject) extends ExecRsChange
 
   /**
    * A single sql statement begins to be executed.
    *
    * @param stmt sql statement
    */
-  final case class SingleStmtStart(stmt: String) extends ExecRsChangeEvent
+  final case class SingleStmtStart(stmt: String) extends ExecRsChange
 
   /**
    * A single sql statement has been executed.
    *
    * @param rs execution result, may be error or TableResult data
    */
-  final case class SingleStmtDone(rs: SingleStmtResult) extends ExecRsChangeEvent
+  final case class SingleStmtDone(rs: SingleStmtResult) extends ExecRsChange
 
   /**
    * All of the statements in the accepted execution plan has been executed.
    *
    * @param rs execution plan result
    */
-  final case class AllStmtsDone(rs: SerialStmtsResult) extends ExecRsChangeEvent
+  final case class AllStmtsDone(rs: SerialStmtsResult) extends ExecRsChange
 
   /**
    * A flink job is committed to a remote or local flink cluster during execution,
@@ -62,21 +62,21 @@ object ExecRsChangeEvent {
    * @param jobId   flink job id
    * @param jobName job name
    */
-  final case class SubmitJobToFlinkCluster(op: OpType, jobId: String, jobName: String) extends ExecRsChangeEvent
+  final case class SubmitJobToFlinkCluster(op: OpType, jobId: String, jobName: String) extends ExecRsChange
 
   /**
    * Receive new TableResult columns meta information when QueryOperation is executed.
    *
    * @param columns TableResult columns
    */
-  final case class ReceiveQueryOpColumns(columns: Seq[Column]) extends ExecRsChangeEvent
+  final case class ReceiveQueryOpColumns(columns: Seq[Column]) extends ExecRsChange
 
   /**
    * Receive a new single TableResult row when QueryOperation is executed.
    *
    * @param row TableResult row
    */
-  final case class ReceiveQueryOpRow(row: Row) extends ExecRsChangeEvent
+  final case class ReceiveQueryOpRow(row: Row) extends ExecRsChange
 
   /**
    * An error in the execution of QueryOperation often leads to early termination of
@@ -84,17 +84,17 @@ object ExecRsChangeEvent {
    *
    * @param error error info
    */
-  final case class ErrorDuringQueryOp(error: Error) extends ExecRsChangeEvent
+  final case class ErrorDuringQueryOp(error: Error) extends ExecRsChange
 
   /**
    * The current execution plan is been cancelled.
    */
-  final case object StmtsPlanExecCanceled$Event extends ExecRsChangeEvent
+  final case object StmtsPlanExecCanceled$Event extends ExecRsChange
 
   /**
    * The current executor is been terminated actively.
    */
-  final case class ActivelyTerminated(reason: String) extends ExecRsChangeEvent
+  final case class ActivelyTerminated(reason: String) extends ExecRsChange
 
 
 }

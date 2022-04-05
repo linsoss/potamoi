@@ -26,7 +26,7 @@ class FsiSessManagerSpec extends ScalaTestWithActorTestKit(defaultConfig) with S
   import FsiSessManager._
 
   def newFsiSessManager(test: ActorRef[FsiSessManager.Command] => Any): Unit = {
-    val manager = spawn(FsiSessManager(autoRestart = false))
+    val manager = spawn(FsiSessManager())
     test(manager)
     manager ! FsiSessManager.Terminate
     testKit.stop(manager)

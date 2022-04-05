@@ -45,14 +45,14 @@ object FsiExecutor {
   final case class Terminate(reason: String = "") extends Command
 
   /**
-   * Subscribe the result change events from this executor, see [[ExecRsChangeEvent]].
+   * Subscribe the result change events from this executor, see [[ExecRsChange]].
    */
-  final case class SubscribeState(listener: ActorRef[ExecRsChangeEvent]) extends Command
+  final case class SubscribeState(listener: ActorRef[ExecRsChange]) extends Command
 
   /**
    * Unsubscribe the result change events from this executor.
    */
-  final case class UnsubscribeState(listener: ActorRef[ExecRsChangeEvent]) extends Command
+  final case class UnsubscribeState(listener: ActorRef[ExecRsChange]) extends Command
 
 
   sealed trait GetQueryResult extends Command
@@ -78,7 +78,6 @@ object FsiExecutor {
    */
   final case class GetQueryRsSnapshotByPage(page: PageReq, replyTo: ActorRef[PageQueryResult]) extends GetQueryResult
   val GetQueryResultByPage: GetQueryRsSnapshotByPage.type = GetQueryRsSnapshotByPage
-
 
   trait Expansion extends Command
 

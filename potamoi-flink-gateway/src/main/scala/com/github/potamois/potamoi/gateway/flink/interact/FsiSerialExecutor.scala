@@ -69,14 +69,17 @@ object FsiSerialExecutor {
   // Hook the Flink JobClient
   private final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
 
-  def apply(sessionId: SessionId): Behavior[Command] = Behaviors.setup { implicit ctx =>
-    ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
-    new FsiSerialExecutor(sessionId).action()
-  }
+  def apply(sessionId: SessionId): Behavior[Command] =
+    Behaviors.setup { implicit ctx =>
+      ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
+      new FsiSerialExecutor(sessionId).action()
+    }
+
 }
 
 
-class FsiSerialExecutor private(sessionId: SessionId)(implicit ctx: ActorContext[Command]) {
+class FsiSerialExecutor private(sessionId: SessionId)
+                               (implicit ctx: ActorContext[Command]) {
 
   import ExecRsChangeEvent._
   import FsiExecutor._
@@ -90,10 +93,9 @@ class FsiSerialExecutor private(sessionId: SessionId)(implicit ctx: ActorContext
   // private val pcLog: Logger = Logger(getClass)
 
   // result change topic
-  protected val rsChangeTopic: ActorRef[Topic.Command[ExecRsChangeEvent]] = ctx.spawn(Topic[ExecRsChangeEvent](
-    topicName = s"fsi-executor-state-$sessionId"),
-    name = s"fsi-executor-topic-$sessionId"
-  )
+  protected val rsChangeTopic: ActorRef[Topic.Command[ExecRsChange]] = ctx.spawn(
+    Topic[ExecRsChange](topicName = s"fsi-executor-state-$sessionId"),
+    name = s"fsi-executor-topic-$sessionId")
 
   // running process
   private var process: Option[CancellableFuture[MaybeDone]] = None

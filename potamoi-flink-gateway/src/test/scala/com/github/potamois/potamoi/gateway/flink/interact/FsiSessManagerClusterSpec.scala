@@ -147,11 +147,13 @@ class FsiSessManagerClusterSpec extends ScalaTestWithActorTestKit(defaultCluster
   }
 
   "cluster case-3: subscribe states of FsiExecutor" in {
-    val cluster = launchCluster(role14a, role13, role14b).waitAllUp.printMembers
-    val sessId: SessionId = probeRef[MaybeSessionId](cluster(role14b) ! CreateSession(113, _)).receiveMessage
+    val cluster = launchCluster(role14a, role13).waitAllUp.printMembers
+    val sessId: SessionId = probeRef[MaybeSessionId](cluster(role14a) ! CreateSession(113, _)).receiveMessage
 
     // fixme serialization issue
-    cluster(role14a) ! sessId -> SubscribeState(spawn(ExecRsChangeEventPrinter(sessId)))
+    cluster(role14a) ! sessId -> SubscribeState(spawn(ExecRsChangePrinter(sessId)))
+
+    sleep(2.seconds)
     cluster(role14a) ! sessId -> ExecuteSqls("select 1", ExecProps(), system.ignoreRef)
     sleep(20.seconds)
   }

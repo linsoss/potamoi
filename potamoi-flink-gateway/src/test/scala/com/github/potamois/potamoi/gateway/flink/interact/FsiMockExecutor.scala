@@ -32,7 +32,7 @@ object FsiMockExecutor {
 
     ctx.log.info(s"FsiMockExecutor[$sessionId] created.")
 
-    val rsChangeTopic: ActorRef[Topic.Command[ExecRsChangeEvent]] = ctx.spawn(Topic[ExecRsChangeEvent](
+    val rsChangeTopic: ActorRef[Topic.Command[ExecRsChange]] = ctx.spawn(Topic[ExecRsChange](
       topicName = s"fsi-executor-state-$sessionId"),
       name = s"fsi-executor-topic-$sessionId"
     )
