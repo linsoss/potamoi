@@ -30,7 +30,7 @@ object FsiMockExecutor {
   def apply(sessionId: SessionId,
             nodeCollector: ActorRef[NodeFsiSessObserver.Command]): Behavior[FsiExecutor.Command] = Behaviors.setup { ctx =>
 
-    ctx.log.info(s"FsiMockExecutor[$sessionId] created.")
+    ctx.log.info(s"FsiMockExecutor[sessionId: $sessionId] created.")
 
     val rsChangeTopic: ActorRef[Topic.Command[ExecRsChange]] = ctx.spawn(Topic[ExecRsChange](
       topicName = s"fsi-executor-state-$sessionId"),
@@ -41,27 +41,27 @@ object FsiMockExecutor {
     Behaviors
       .receiveMessage[FsiExecutor.Command] {
         case ExecuteSqls(sqls, _, replyTo) =>
-          ctx.log.info(s"FsiMockExecutor[$sessionId] received ExecuteSqls[$sqls].")
+          ctx.log.info(s"FsiMockExecutor[sessionId: $sessionId] received ExecuteSqls[$sqls].")
           nodeCollector ! ReceiveCommand(ctx.system.address, sessionId, sqls)
           rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlanEvent(Seq(sqls), props.toEffectiveExecProps))
           replyTo ! success(Done)
           Behaviors.same
 
         case SubscribeState(listener) =>
-          ctx.log.info(s"FsiMockExecutor[$sessionId] received SubscribeState.")
+          ctx.log.info(s"FsiMockExecutor[sessionId: $sessionId] received SubscribeState.")
           rsChangeTopic ! Topic.Subscribe(listener)
           nodeCollector ! ReceiveCommand(ctx.system.address, sessionId, Subscribed)
           Behaviors.same
 
         case Terminate(reason) =>
-          ctx.log.info(s"FsiMockExecutor[$sessionId] received Terminate $reason.")
+          ctx.log.info(s"FsiMockExecutor[sessionId: $sessionId] received Terminate $reason.")
           Behaviors.stopped
 
         case _ => Behaviors.same
       }
       .receiveSignal {
         case (_, PostStop) =>
-          ctx.log.info(s"FsiMockExecutor[$sessionId] stopped.")
+          ctx.log.info(s"FsiMockExecutor[sessionId: $sessionId] stopped.")
           nodeCollector ! ReceiveCommand(ctx.system.address, sessionId, Stopped)
           Behaviors.same
       }

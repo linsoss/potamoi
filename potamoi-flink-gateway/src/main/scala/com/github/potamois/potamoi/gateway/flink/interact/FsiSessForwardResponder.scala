@@ -39,7 +39,7 @@ object FsiSessForwardResponder {
 
   def apply(): Behavior[Command] = Behaviors.setup {
     implicit ctx =>
-      ctx.log.info("Local FsiSessForwardResponder started.")
+      ctx.log.info("Local FsiSessForwardResponder started")
 
       implicit val rsChangeTopicBridges: ListBuffer[ListenerMapper] = ListBuffer.empty
       val subscriber = ctx.spawn(FsiExecutorServiceSubscriber(), "fsi-exec-service-subscriber")
@@ -53,7 +53,7 @@ object FsiSessForwardResponder {
         }
         .receiveSignal {
           case (_ctx, PostStop) =>
-            _ctx.log.info("Local FsiSessForwardResponder stopped.")
+            _ctx.log.info("Local FsiSessForwardResponder stopped")
             Behaviors.same
           case (_ctx, PreRestart) =>
             _ctx.log.info("Local FsiSessForwardResponder restarting...")

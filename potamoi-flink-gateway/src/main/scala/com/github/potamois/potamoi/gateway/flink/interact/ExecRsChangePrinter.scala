@@ -26,7 +26,7 @@ object ExecRsChangePrinter {
       msg match {
 
         case AcceptStmtsExecPlanEvent(stmts, config) => log.info(
-          s"""@Receive[$sessionId] AcceptStmtsExecPlan => executor accepted a new statements plan.
+          s"""@Receive[sessionId: $sessionId] AcceptStmtsExecPlan => executor accepted a new statements plan.
              |stmts:
              |${stmts.map(e => s"  ${e.compact}").mkString("\n")}"
              |flink-config:
@@ -38,34 +38,34 @@ object ExecRsChangePrinter {
           Behaviors.same
 
         case RejectStmtsExecPlanEvent(stmts, cause) => log.info(
-          s"""@Receive[$sessionId] RejectStmtsExecPlan => executor reject a statements plan.
+          s"""@Receive[sessionId: $sessionId] RejectStmtsExecPlan => executor reject a statements plan.
              |reason: ${cause.reason}
              |stmts: ${stmts.compact}"
              |""".stripMargin)
           Behaviors.same
 
         case SingleStmtStart(stmt) => log.info(
-          s"""@Receive[$sessionId] SingleStmtStart => start to execute a statement.
+          s"""@Receive[sessionId: $sessionId] SingleStmtStart => start to execute a statement.
              |stmts: ${stmt.compact}
              |""".stripMargin)
           Behaviors.same
 
         case SingleStmtDone(rs) => log.info(
-          s"""@Receive[$sessionId] SingleStmtDone => finished a statement.
+          s"""@Receive[sessionId: $sessionId] SingleStmtDone => finished a statement.
              |success: ${rs.isInstanceOf[OperationDone]}
              |""".stripMargin
             .concat(rs.toFriendlyString))
           Behaviors.same
 
         case AllStmtsDone(rs) => log.info(
-          s"""@Receive[$sessionId] AllStmtsDone => finished all statements.
+          s"""@Receive[sessionId: $sessionId] AllStmtsDone => finished all statements.
              |""".stripMargin
             .concat(rs.toFriendlyString)
             .concat("\n"))
           Behaviors.same
 
         case SubmitJobToFlinkCluster(opType, jobId, jobName) => log.info(
-          s"""@Receive[$sessionId] SubmitJobToFlinkCluster => submit a flink job to flink cluster.
+          s"""@Receive[sessionId: $sessionId] SubmitJobToFlinkCluster => submit a flink job to flink cluster.
              |opType: $opType
              |jobId: $jobId
              |jobName: $jobName
@@ -74,7 +74,7 @@ object ExecRsChangePrinter {
 
         case ReceiveQueryOpColumns(cols) =>
           log.info(
-            s"@Receive[$sessionId] ReceiveQueryOpColumns => receive table columns info."
+            s"@Receive[sessionId: $sessionId] ReceiveQueryOpColumns => receive table columns info."
               .concat("\n")
               .concat(Tabulator.format(cols.map(_.name) +: Seq(cols.map(_.dataType))))
               .concat("\n")
@@ -82,22 +82,22 @@ object ExecRsChangePrinter {
           Behaviors.same
 
         case ReceiveQueryOpRow(row) =>
-          if (printEachRowReceived) log.info(s"@Receive[$sessionId] ReceiveQueryOpRow => receive a table row: $row")
+          if (printEachRowReceived) log.info(s"@Receive[sessionId: $sessionId] ReceiveQueryOpRow => receive a table row: $row")
           Behaviors.same
 
         case ErrorDuringQueryOp(error) => log.info(
-          s"""@Receive[$sessionId] ErrorDuringQueryOp => a exception occurred during query operation.
+          s"""@Receive[sessionId: $sessionId] ErrorDuringQueryOp => a exception occurred during query operation.
              |summary: ${error.summary}
              |${error.stack.getStackTraceAsString}
              |""".stripMargin)
           Behaviors.same
 
         case StmtsPlanExecCanceled$Event =>
-          log.info(s"@Receive[$sessionId] StmtsPlanExecCanceled => current statements execution plan has been canceled.")
+          log.info(s"@Receive[sessionId: $sessionId] StmtsPlanExecCanceled => current statements execution plan has been canceled.")
           Behaviors.same
 
         case ActivelyTerminated(reason) =>
-          log.info(s"@Receive[$sessionId] ActivelyTerminated => the executor has been terminated"
+          log.info(s"@Receive[sessionId: $sessionId] ActivelyTerminated => the executor has been terminated"
             + (if(reason.nonEmpty) s" with reason: $reason" else "."))
           Behaviors.same
       }

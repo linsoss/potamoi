@@ -71,7 +71,7 @@ object FsiSerialExecutor {
 
   def apply(sessionId: SessionId): Behavior[Command] =
     Behaviors.setup { implicit ctx =>
-      ctx.log.info(s"SqlSerialExecutor[$sessionId] actor created.")
+      ctx.log.info(s"[sessionId: $sessionId] FsiExecutor actor created")
       new FsiSerialExecutor(sessionId).action()
     }
 
@@ -118,7 +118,7 @@ class FsiSerialExecutor private(sessionId: SessionId)
       if (process.isDefined) {
         process.get.cancel(interrupt = true)
         process = None
-        ctx.log.info(s"SqlSerialExecutor[$sessionId] current process cancelled.")
+        ctx.log.info(s"[sessionId: $sessionId] Current sql execution process cancelled")
         rsChangeTopic ! Topic.Publish(StmtsPlanExecCanceled$Event)
       }
       Behaviors.same
@@ -170,8 +170,7 @@ class FsiSerialExecutor private(sessionId: SessionId)
       rsChangeTopic ! Topic.Unsubscribe(listener)
       Behaviors.same
 
-    case Terminate(reason) =>
-      ctx.log.info(s"SqlSerialExecutor[$sessionId] is actively terminated, reason: $reason")
+    case Terminate(reason) => ctx.log.info(s"FsiExecutor[sessionId: $sessionId] is actively terminated [reason: $reason]")
       rsChangeTopic ! Topic.Publish(ActivelyTerminated(reason))
       Behaviors.stopped
 
@@ -184,11 +183,11 @@ class FsiSerialExecutor private(sessionId: SessionId)
       // release resources before stop
       process.foreach { ps =>
         ps.cancel(true)
-        context.log.info(s"SqlSerialExecutor[$sessionId] interrupt the running statements execution process.")
+        context.log.info(s"SqlSerialExecutor[sessionId: $sessionId] interrupt the running statements execution process.")
       }
       Try(jobClientHook.map(_.cancel))
-        .failed.foreach(context.log.error(s"SqlSerialExecutor[$sessionId] Fail to cancel from Flink JobClient.", _))
-      context.log.info(s"SqlSerialExecutor[$sessionId] stopped.")
+        .failed.foreach(context.log.error(s"SqlSerialExecutor[sessionId: $sessionId] fail to cancel flink job from flink JobClient.", _))
+      context.log.info(s"SqlSerialExecutor[sessionId: $sessionId] stopped.")
       Behaviors.same
   }
 
@@ -200,7 +199,7 @@ class FsiSerialExecutor private(sessionId: SessionId)
 
     case HookFlinkJobClient(jobClient) =>
       jobClientHook = Some(jobClient)
-      ctx.log.info(s"SqlSerialExecutor[$sessionId] Hooked Flink JobClient, jobId=${jobClient.getJobID.toString}.")
+      ctx.log.info(s"[sessionId: $sessionId] Hooked Flink JobClient [jobId: ${jobClient.getJobID.toString}]")
       Behaviors.same
 
     case ProcessFinished(result, replyTo) =>
@@ -213,7 +212,7 @@ class FsiSerialExecutor private(sessionId: SessionId)
       rsChangeTopic ! Topic.Publish(AllStmtsDone(rsBuffer.map(_.toSerialStmtsResult(true)).orNull))
       // cancel flink job if necessary
       Try(jobClientHook.map(_.cancel))
-        .failed.foreach(ctx.log.error(s"SqlSerialExecutor[$sessionId] Fail to cancel from Flink JobClient.", _))
+        .failed.foreach(ctx.log.error(s"[sessionId: $sessionId] Fail to cancel from Flink JobClient", _))
       Behaviors.same
 
     case SingleStmtFinished(stmtRs) =>

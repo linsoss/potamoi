@@ -121,7 +121,7 @@ object FsiSessManager {
     implicit ctx =>
       Behaviors.withTimers { implicit timers =>
         Behaviors.supervise {
-          ctx.log.info(s"FisSessionManager[$flinkVerSign] actor created.")
+          ctx.log.info(s"FisSessionManager[flinkVer: $flinkVerSign] actor created")
           new FsiSessManager(flinkVerSign, fsiExecutorBehavior).action()
         }.onFailure(SupervisorStrategy.restart)
       }
@@ -195,7 +195,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign, fsiExecutorBehavior: Sessio
       Behaviors.same
 
     case Terminate =>
-      ctx.log.info(s"FsiSessManager[$flinkVer] begins a graceful termination.")
+      ctx.log.info(s"FisSessionManager[flinkVer: $flinkVer] begins a graceful termination")
       // stopped all local FsiExecutor actors gracefully.
       ctx.children
         .filter(child => typeOf[child.type] == typeOf[FsiExecutor.Command])
@@ -209,15 +209,15 @@ class FsiSessManager private(flinkVer: FlinkVerSign, fsiExecutorBehavior: Sessio
     // when receive the termination signal of executor, deregister it from receptionist
     case (_, Terminated(actor: ActorRef[FsiExecutor.Command])) =>
       receptionist ! Receptionist.deregister(FsiExecutorServiceKey, actor)
-      ctx.log.info(s"FsiSessManager[$flinkVer] deregister FsiExecutor[${actor.path.name}] actor from receptionist.")
+      ctx.log.info(s"[flinkVer: $flinkVer] Deregister FsiExecutor actor in [path: ${actor.path.name}] from receptionist")
       Behaviors.same
 
     case (_ctx, PreRestart) =>
-      _ctx.log.info(s"FsiSessManager[$flinkVer] restarting.")
+      _ctx.log.info(s"FsiSessManager[flinkVer: $flinkVer] actor restarting")
       Behaviors.same
 
     case (_ctx, PostStop) =>
-      _ctx.log.info(s"FsiSessManager[$flinkVer] stopped.")
+      _ctx.log.info(s"FsiSessManager[flinkVer: $flinkVer] actor stopped")
       Behaviors.same
   }
 
@@ -249,7 +249,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign, fsiExecutorBehavior: Sessio
       val executor = ctx.spawn(fsiExecutorBehavior(sessionId), fsiExecutorName(sessionId))
       ctx.watch(executor)
       receptionist ! Receptionist.register(FsiExecutorServiceKey, executor)
-      ctx.log.info(s"FsiSessManager[$flinkVer] register FsiExecutor[${fsiExecutorName(sessionId)}] actor to receptionist.")
+      ctx.log.info(s"FsiSessManager[flinkVer: $flinkVer] register FsiExecutor[path: ${fsiExecutorName(sessionId)}] actor to receptionist.")
       reply ! sessionId
       Behaviors.same
 
