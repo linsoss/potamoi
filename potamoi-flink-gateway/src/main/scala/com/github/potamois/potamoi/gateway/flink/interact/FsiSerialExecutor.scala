@@ -2,12 +2,11 @@ package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.Done
 import akka.actor.typed.pubsub.Topic
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior, DispatcherSelector, PostStop}
 import com.github.potamois.potamoi.commons.ClassloaderWrapper.tryRunWithExtraDeps
 import com.github.potamois.potamoi.commons.EitherAlias.{fail, success}
 import com.github.potamois.potamoi.commons.{CancellableFuture, FiniteQueue, RichMutableMap, RichString, RichTry, Using, curTs}
-import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor.Command
 import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.SessionId
 import com.github.potamois.potamoi.gateway.flink.interact.OpType.OpType
 import com.github.potamois.potamoi.gateway.flink.parser.FlinkSqlParser
@@ -69,17 +68,21 @@ object FsiSerialExecutor {
   // Hook the Flink JobClient
   private final case class HookFlinkJobClient(jobClient: JobClient) extends Internal
 
+  private final case object CheckIdleTimeout extends Internal
+
   def apply(sessionId: SessionId): Behavior[Command] =
     Behaviors.setup { implicit ctx =>
-      ctx.log.info(s"[sessionId: $sessionId] FsiExecutor actor created")
-      new FsiSerialExecutor(sessionId).action()
+      Behaviors.withTimers { implicit timers =>
+        ctx.log.info(s"[sessionId: $sessionId] FsiExecutor actor created")
+        new FsiSerialExecutor(sessionId).action()
+      }
     }
 
 }
 
 
 class FsiSerialExecutor private(sessionId: SessionId)
-                               (implicit ctx: ActorContext[Command]) {
+                               (implicit ctx: ActorContext[FsiExecutor.Command], timers: TimerScheduler[FsiExecutor.Command]) {
 
   import ExecRsChangeEvent._
   import FsiExecutor._
@@ -109,12 +112,21 @@ class FsiSerialExecutor private(sessionId: SessionId)
   // default flink job name
   protected val defaultJobName = s"potamoi-fsi-$sessionId"
 
+  // executor idle timeout config
+  protected val idleCheckProp: ExecutorIdleCheckProps = FsiExecutorIdleCheckProps.from(ctx.system.settings.config)
+  // last active timestamp
+  private var lastActiveTs = curTs
+  //noinspection UnitMethodIsParameterless
+  private def updateActiveTs: Unit = lastActiveTs = curTs
+  // idle timeout check process
+  timers.startTimerAtFixedRate(CheckIdleTimeout, initialDelay = idleCheckProp.initDelay, interval = idleCheckProp.interval)
+
   private def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
-    case IsInProcess(replyTo) =>
+    case IsInProcess(replyTo) => updateActiveTs
       replyTo ! process.isDefined
       Behaviors.same
 
-    case CancelCurProcess =>
+    case CancelCurProcess => updateActiveTs
       if (process.isDefined) {
         process.get.cancel(interrupt = true)
         process = None
@@ -123,58 +135,61 @@ class FsiSerialExecutor private(sessionId: SessionId)
       }
       Behaviors.same
 
-    case ExecuteSqls(statements, props, replyTo) => process match {
-      // when the previous statements execution process has not been done,
-      // it's not allowed to execute new operation.
-      case Some(_) =>
-        val rejectReason = BusyInProcess(startTs = rsBuffer.map(_.startTs).get)
-        rsChangeTopic ! Topic.Publish(RejectStmtsExecPlanEvent(statements, rejectReason))
-        replyTo ! fail(rejectReason)
-        Behaviors.same
+    case ExecuteSqls(statements, props, replyTo) => updateActiveTs
+      process match {
+        // when the previous statements execution process has not been done,
+        // it's not allowed to execute new operation.
+        case Some(_) =>
+          val rejectReason = BusyInProcess(startTs = rsBuffer.map(_.startTs).get)
+          rsChangeTopic ! Topic.Publish(RejectStmtsExecPlanEvent(statements, rejectReason))
+          replyTo ! fail(rejectReason)
 
-      case None =>
-        // extract effective execution config
-        val effectProps = props.toEffectiveExecProps.updateFlinkConfig { conf =>
-          // set flink job name
-          conf ?+= "pipeline.name" -> defaultJobName
-        }
-        // split sql statements and execute each one
-        val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
-        stmtsPlan match {
-          case stmts if stmts.isEmpty =>
-            replyTo ! fail(StatementIsEmpty())
-          case stmts =>
-            rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlanEvent(stmtsPlan, effectProps))
-            // reset result buffer
-            rsBuffer = Some(StmtsRsBuffer(ListBuffer.empty, curTs))
-            queryRsBuffer = None
-            // parse and execute statements in cancelable future
-            process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
-            ctx.pipeToSelf(process.get) {
-              case Success(re) => ProcessFinished(re, replyTo)
-              case Failure(cause) => cause match {
-                // when the execution process has been cancelled, it still means a success done result.
-                case _: CancellationException => ProcessFinished(success(Done), replyTo)
-                case _ => ProcessFinished(fail(ExecutionFailure(cause)), replyTo)
+        case None =>
+          // extract effective execution config
+          val effectProps = props.toEffectiveExecProps.updateFlinkConfig { conf =>
+            // set flink job name
+            conf ?+= "pipeline.name" -> defaultJobName
+          }
+          // split sql statements and execute each one
+          val stmtsPlan = FlinkSqlParser.extractSqlStatements(statements)
+          stmtsPlan match {
+            case stmts if stmts.isEmpty =>
+              replyTo ! fail(StatementIsEmpty())
+            case stmts =>
+              rsChangeTopic ! Topic.Publish(AcceptStmtsExecPlanEvent(stmtsPlan, effectProps))
+              // reset result buffer
+              rsBuffer = Some(StmtsRsBuffer(ListBuffer.empty, curTs))
+              queryRsBuffer = None
+              // parse and execute statements in cancelable future
+              process = Some(CancellableFuture(execStatementsPlan(stmts, effectProps)))
+              ctx.pipeToSelf(process.get) {
+                case Success(re) => ProcessFinished(re, replyTo)
+                case Failure(cause) => cause match {
+                  // when the execution process has been cancelled, it still means a success done result.
+                  case _: CancellationException => ProcessFinished(success(Done), replyTo)
+                  case _ => ProcessFinished(fail(ExecutionFailure(cause)), replyTo)
+                }
               }
-            }
-        }
-        Behaviors.same
-    }
+          }
+      }
+      Behaviors.same
 
-    case SubscribeState(listener) =>
+    case SubscribeState(listener) => updateActiveTs
       rsChangeTopic ! Topic.Subscribe(listener)
       Behaviors.same
 
-    case UnsubscribeState(listener) =>
+    case UnsubscribeState(listener) => updateActiveTs
       rsChangeTopic ! Topic.Unsubscribe(listener)
       Behaviors.same
 
-    case Terminate(reason) => ctx.log.info(s"FsiExecutor[sessionId: $sessionId] is actively terminated [reason: $reason]")
+    case Terminate(reason) => updateActiveTs
+      ctx.log.info(s"FsiExecutor[sessionId: $sessionId] is actively terminated [reason: $reason]")
       rsChangeTopic ! Topic.Publish(ActivelyTerminated(reason))
       Behaviors.stopped
 
-    case cmd: GetQueryResult => queryResultBehavior(cmd)
+    case cmd: GetQueryResult => updateActiveTs
+      queryResultBehavior(cmd)
+
     case cmd: Internal => internalBehavior(cmd)
     case _ => Behaviors.same
 
@@ -196,6 +211,15 @@ class FsiSerialExecutor private(sessionId: SessionId)
    * [[Internal]] command received behavior
    */
   private def internalBehavior(command: Internal): Behavior[Command] = command match {
+
+    case CheckIdleTimeout =>
+      val durMs = curTs - lastActiveTs
+      if (durMs > idleCheckProp.timeoutMillis) {
+        ctx.log.info(s"FsiExecutor[sessionId: $sessionId] idle for ${durMs}ms [limit: ${idleCheckProp.timeout}], " +
+                     s"about to shutdown automatically.")
+        ctx.self ! Terminate(s"idle timeout for ${durMs}ms")
+      }
+      Behaviors.same
 
     case HookFlinkJobClient(jobClient) =>
       jobClientHook = Some(jobClient)

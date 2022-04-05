@@ -335,8 +335,8 @@ class FsiSessManager private(flinkVer: FlinkVerSign, fsiExecutorBehavior: Sessio
   private case class RetryProp(limit: Int, interval: FiniteDuration)
   private object RetryProp {
     def apply(path: String): RetryProp = RetryProp(
-      limit = PotaConfig.root.getInt(s"$path.limit"),
-      interval = PotaConfig.root.getDuration(s"$path.interval").asScala(MILLISECONDS)
+      limit = ctx.system.settings.config.getInt(s"$path.limit"),
+      interval = ctx.system.settings.config.getDuration(s"$path.interval").asScala(MILLISECONDS)
     )
   }
 
