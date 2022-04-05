@@ -1,8 +1,14 @@
 package com.github.potamois.potamoi.gateway.flink.interact
 
 import akka.actor.typed._
+import akka.actor.typed.receptionist.Receptionist
+import akka.actor.typed.scaladsl.adapter.TypedActorContextOps
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import com.github.potamois.potamoi.akka.toolkit.ActorImplicit.receptionist
 import com.github.potamois.potamoi.gateway.flink.interact.FsiExecutor._
+import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{FsiExecutorServiceKey, SessionId, fsiSessionIdFromActorRef}
+
+import scala.collection.mutable.ListBuffer
 
 /**
  * [[FsiSessManager.Forward]] proxy responder to [[FsiExecutor.Command]] carrying
@@ -21,21 +27,29 @@ object FsiSessForwardResponder {
   final case class ProxyTell(executor: ActorRef[FsiExecutor.Command], command: FsiExecutor.Command) extends Command
 
   sealed trait ProxyReply extends Command
+
   private case class ExecuteSqlsReply(reply: ActorRef[MaybeDone], rs: MaybeDone) extends ProxyReply
   private case class IsInProcessReply(reply: ActorRef[Boolean], rs: Boolean) extends ProxyReply
   private case class GetExecPlanRsSnapshotReply(reply: ActorRef[ExecPlanResult], rs: ExecPlanResult) extends ProxyReply
   private case class GetQueryRsSnapshotReply(reply: ActorRef[QueryResult], rs: QueryResult) extends ProxyReply
   private case class GetQueryRsSnapshotByPageReply(reply: ActorRef[PageQueryResult], rs: PageQueryResult) extends ProxyReply
 
+  private case class FsiExecutorShutdown(executor: Set[ActorRef[FsiExecutor.Command]]) extends Command
+
 
   def apply(): Behavior[Command] = Behaviors.setup {
     implicit ctx =>
       ctx.log.info("Local FsiSessForwardResponder started.")
 
+      implicit val rsChangeTopicBridges: ListBuffer[ListenerMapper] = ListBuffer.empty
+      val subscriber = ctx.spawn(FsiExecutorServiceSubscriber(), "fsi-exec-service-subscriber")
+      receptionist ! Receptionist.Subscribe(FsiExecutorServiceKey, subscriber)
+
       def receiveBehavior = Behaviors
         .receiveMessage[Command] {
           case ProxyTell(executor, command) => proxyTell(executor, command)
           case cmd: ProxyReply => proxyReply(cmd)
+          case FsiExecutorShutdown(sessionId) => executorsShutdown(sessionId)
         }
         .receiveSignal {
           case (_ctx, PostStop) =>
@@ -49,13 +63,19 @@ object FsiSessForwardResponder {
       Behaviors.supervise(receiveBehavior).onFailure(SupervisorStrategy.restart)
   }
 
-  var rsChangeTopicBridge: ActorRef[ExecRsChange] = _
+
+  private type OrigListener = ActorRef[ExecRsChange]
+  private type ProxyListener = ActorRef[ExecRsChange]
+  private case class ListenerMapper(sessId: SessionId, orig: OrigListener, proxy: ProxyListener)
+
   /**
    * Proxy tell message to [[FsiExecutor.Command]], and receive reply if necessary.
    */
   private def proxyTell(executor: ActorRef[FsiExecutor.Command], command: FsiExecutor.Command)
-                       (implicit ctx: ActorContext[Command]): Behavior[Command] = {
+                       (implicit ctx: ActorContext[Command], rsTopicBridges: ListBuffer[ListenerMapper]): Behavior[Command] = {
     command match {
+
+      // Proxy for all FsiExecutor.Command with ActorRef reply params
       case ExecuteSqls(sqlStatements, props, replyTo) =>
         executor ! ExecuteSqls(sqlStatements, props, ctx.messageAdapter(ExecuteSqlsReply(replyTo, _)))
       case IsInProcess(replyTo) =>
@@ -67,15 +87,37 @@ object FsiSessForwardResponder {
       case GetQueryRsSnapshotByPage(page, replyTo) =>
         executor ! GetQueryRsSnapshotByPage(page, ctx.messageAdapter(GetQueryRsSnapshotByPageReply(replyTo, _)))
 
+      // Proxy for SubscribeState and UnsubscribeState command.
       case SubscribeState(listener) =>
-        //todo
-        rsChangeTopicBridge = ctx.spawn(ExecRsChangeBridge(listener), "rsChangeTopicBridge")
-        executor ! SubscribeState(rsChangeTopicBridge)
-//        rsChangeEventBus ! GetTopic(fsiSessionIdFromActorRef(executor), ctx.messageAdapter(FoundRsChangeTopicThenSubscribe(_, listener)))
+        val sessId = fsiSessionIdFromActorRef(executor)
+        if (!rsTopicBridges.exists(e => e.sessId == sessId && e.orig == listener)) {
+          val proxy = ctx.spawnAnonymous(ExecRsChangeBridge(listener))
+          rsTopicBridges += ListenerMapper(sessId, listener, proxy)
+          executor ! SubscribeState(proxy)
+        }
+
       case UnsubscribeState(listener) =>
+        val sessId = fsiSessionIdFromActorRef(executor)
+        val proxies = rsTopicBridges.filter(e => e.sessId == sessId && e.orig == listener)
+        proxies.foreach { e =>
+          executor ! UnsubscribeState(e.proxy)
+          ctx.stop(e.proxy)
+        }
+        rsTopicBridges --= proxies
 
       case _ =>
         executor ! command
+    }
+    Behaviors.same
+  }
+
+  private def executorsShutdown(executors: Set[ActorRef[FsiExecutor.Command]])
+                                 (implicit ctx: ActorContext[Command], rsTopicBridges: ListBuffer[ListenerMapper]): Behavior[Command] = {
+    val sessIds = executors.map(fsiSessionIdFromActorRef)
+    if (sessIds.nonEmpty) {
+      val proxies = rsTopicBridges.filter(e => sessIds.contains(e.sessId))
+      proxies.foreach(e => ctx.stop(e.proxy))
+      rsTopicBridges --= proxies
     }
     Behaviors.same
   }
@@ -94,17 +136,35 @@ object FsiSessForwardResponder {
     Behaviors.same
   }
 
-}
-
-
-object ExecRsChangeBridge {
-
-  def apply(originalListener: ActorRef[ExecRsChange]): Behavior[ExecRsChange] = Behaviors.setup { ctx =>
-    Behaviors.receiveMessage {
-      case event: ExecRsChange =>
-        originalListener ! event
+  /**
+   * [[ExecRsChange]] forward bridge
+   */
+  private object ExecRsChangeBridge {
+    def apply(origListener: ActorRef[ExecRsChange]): Behavior[ExecRsChange] =
+      Behaviors.receiveMessage { event: ExecRsChange =>
+        origListener ! event
         Behaviors.same
-
-    }
+      }
   }
+
+  /**
+   * Subscribe the global FsiExecutor instances.
+   */
+  private object FsiExecutorServiceSubscriber {
+    def apply(): Behavior[Receptionist.Listing] = Behaviors.supervise {
+      var preListing = Set.empty[ActorRef[FsiExecutor.Command]]
+
+      Behaviors.receive[Receptionist.Listing] { (context, listing) =>
+        val instances = listing.serviceInstances(FsiExecutorServiceKey)
+        val shutdownExecutors = preListing -- (preListing & instances)
+        context.toClassic.parent ! FsiExecutorShutdown(shutdownExecutors)
+        preListing = instances
+        Behaviors.same
+      }
+    }.onFailure(SupervisorStrategy.restart)
+  }
+
 }
+
+
+
