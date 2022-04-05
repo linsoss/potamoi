@@ -11,7 +11,7 @@ import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{FsiExe
 import scala.collection.mutable.ListBuffer
 
 /**
- * [[FsiSessManager.Forward]] proxy responder to [[FsiExecutor.Command]] carrying
+ * [[FsiSessManager.Forward]] proxy responder to [[FsiExecutor.Command]] with
  * ActorRef type reply prams, this actor works only in the local ActorSystem.
  *
  * For solving the problem that akka-typed does not serialize ActorRef well between
