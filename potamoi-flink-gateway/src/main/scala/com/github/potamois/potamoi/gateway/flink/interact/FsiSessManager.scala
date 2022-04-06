@@ -16,7 +16,7 @@ import com.github.potamois.potamoi.gateway.flink.interact.FsiSessManager.{Comman
 
 import scala.collection.mutable
 import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
-import scala.language.{implicitConversions, postfixOps}
+import scala.language.implicitConversions
 import scala.reflect.runtime.universe.typeOf
 
 /**

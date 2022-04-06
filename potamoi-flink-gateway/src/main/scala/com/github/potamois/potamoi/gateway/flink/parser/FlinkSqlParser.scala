@@ -73,7 +73,7 @@ object FlinkSqlParser {
 
     for (ch <- sql) {
       ch match {
-        case ''' =>
+        case '\'' =>
           sglQuoteToken = !sglQuoteToken
           buf += ch
         case '*' =>
@@ -146,7 +146,7 @@ object FlinkSqlParser {
             buf.clear
             cmtToken.reset
           }
-        case ''' =>
+        case '\'' =>
           sglQuoteToken = !sglQuoteToken
           buf += ch
         case '-' =>

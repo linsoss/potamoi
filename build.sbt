@@ -13,7 +13,7 @@ lazy val commonSettings = Seq(
 
   scalaVersion := scala,
   Compile / scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls", "-Xlint"),
-  Compile / javacOptions ++= Seq("-encoding:UTF-8", "-Xlint:unchecked", "-Xlint:deprecation"),
+  Compile / javacOptions ++= Seq("-Xlint:unchecked", "-Xlint:deprecation"),
   run / fork := true,
   Global / cancelable := false,
   Test / parallelExecution := false,
@@ -34,10 +34,11 @@ lazy val root = Project(id = "potamoi", base = file("."))
   .settings(commonSettings)
 
 // potamoi commons module
+// todo support s3 in commons module temporarily
 lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"))
   .settings(
     commonSettings,
-    libraryDependencies ++= deps(hoconConfigDep, apacheCommonsTextDep, nscalaTimeDep),
+    libraryDependencies ++= deps(hoconConfigDep, apacheCommonsTextDep, nscalaTimeDep, minioDep),
   )
 
 // potamoi akka-toolkit module
@@ -48,12 +49,12 @@ lazy val akkaToolkit = Project(id = "potamoi-akka-kit", base = file("potamoi-akk
     libraryDependencies ++= deps(offerAkkaDeps(Provided))
   )
 
-// potamoi flink gateway module
+// potamoi flink-gateway module
 lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potamoi-flink-gateway"))
   .dependsOn(commons, akkaToolkit)
   .settings(
     commonSettings,
-    libraryDependencies ++= deps(akkaDeps, flinkDeps(flinkVersion), sprayDep, minioDep)
+    libraryDependencies ++= deps(akkaDeps, flinkDeps(flinkVersion), sprayDep)
   )
   .enablePlugins(JavaAppPackaging)
 
@@ -88,11 +89,13 @@ lazy val flinkVersionMap = Map(
 def flinkDeps(majorVer: Int = 14) =
   if (majorVer >= 14) Seq(
     "org.apache.flink" %% "flink-table-planner",
-    "org.apache.flink" %% "flink-clients")
+    "org.apache.flink" %% "flink-clients",
+    "org.apache.flink" %% "flink-kubernetes")
     .map(_ % flinkVersionMap(majorVer))
   else Seq(
     "org.apache.flink" %% "flink-table-planner-blink",
-    "org.apache.flink" %% "flink-clients")
+    "org.apache.flink" %% "flink-clients",
+    "org.apache.flink" %% "flink-kubernetes")
     .map(_ % flinkVersionMap(majorVer) exclude("com.typesafe.akka", s"akka-protobuf_$scalaMajorVer"))
 
 // other dependencies

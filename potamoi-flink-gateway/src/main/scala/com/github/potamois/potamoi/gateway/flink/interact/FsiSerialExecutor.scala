@@ -116,17 +116,16 @@ class FsiSerialExecutor private(sessionId: SessionId)
   protected val idleCheckProp: ExecutorIdleCheckProps = FsiExecutorIdleCheckProps.from(ctx.system.settings.config)
   // last active timestamp
   private var lastActiveTs = curTs
-  //noinspection UnitMethodIsParameterless
-  private def updateActiveTs: Unit = lastActiveTs = curTs
+  private def updateActiveTs(): Unit = lastActiveTs = curTs
   // idle timeout check process
   timers.startTimerAtFixedRate(CheckIdleTimeout, initialDelay = idleCheckProp.initDelay, interval = idleCheckProp.interval)
 
   private def action(): Behavior[Command] = Behaviors.receiveMessage[Command] {
-    case IsInProcess(replyTo) => updateActiveTs
+    case IsInProcess(replyTo) => updateActiveTs()
       replyTo ! process.isDefined
       Behaviors.same
 
-    case CancelCurProcess => updateActiveTs
+    case CancelCurProcess => updateActiveTs()
       if (process.isDefined) {
         process.get.cancel(interrupt = true)
         process = None
@@ -135,7 +134,7 @@ class FsiSerialExecutor private(sessionId: SessionId)
       }
       Behaviors.same
 
-    case ExecuteSqls(statements, props, replyTo) => updateActiveTs
+    case ExecuteSqls(statements, props, replyTo) => updateActiveTs()
       process match {
         // when the previous statements execution process has not been done,
         // it's not allowed to execute new operation.
@@ -174,20 +173,20 @@ class FsiSerialExecutor private(sessionId: SessionId)
       }
       Behaviors.same
 
-    case SubscribeState(listener) => updateActiveTs
+    case SubscribeState(listener) => updateActiveTs()
       rsChangeTopic ! Topic.Subscribe(listener)
       Behaviors.same
 
-    case UnsubscribeState(listener) => updateActiveTs
+    case UnsubscribeState(listener) => updateActiveTs()
       rsChangeTopic ! Topic.Unsubscribe(listener)
       Behaviors.same
 
-    case Terminate(reason) => updateActiveTs
+    case Terminate(reason) => updateActiveTs()
       ctx.log.info(s"FsiExecutor[sessionId: $sessionId] is actively terminated [reason: $reason]")
       rsChangeTopic ! Topic.Publish(ActivelyTerminated(reason))
       Behaviors.stopped
 
-    case cmd: GetQueryResult => updateActiveTs
+    case cmd: GetQueryResult => updateActiveTs()
       queryResultBehavior(cmd)
 
     case cmd: Internal => internalBehavior(cmd)
