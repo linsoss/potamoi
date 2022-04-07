@@ -42,7 +42,7 @@ object FsiSessForwardResponder {
       ctx.log.info("Local FsiSessForwardResponder started")
 
       implicit val rsChangeTopicBridges: ListBuffer[ListenerMapper] = ListBuffer.empty
-      val subscriber = ctx.spawn(FsiExecutorServiceSubscriber(), "fsi-exec-service-subscriber")
+      val subscriber = ctx.spawn(subscribeFsiExecutorServiceBehavior(), "fsi-exec-service-subscriber")
       receptionist ! Receptionist.Subscribe(FsiExecutorServiceKey, subscriber)
 
       def receiveBehavior = Behaviors
@@ -112,7 +112,7 @@ object FsiSessForwardResponder {
   }
 
   private def executorsShutdown(executors: Set[ActorRef[FsiExecutor.Command]])
-                                 (implicit ctx: ActorContext[Command], rsTopicBridges: ListBuffer[ListenerMapper]): Behavior[Command] = {
+                               (implicit ctx: ActorContext[Command], rsTopicBridges: ListBuffer[ListenerMapper]): Behavior[Command] = {
     val sessIds = executors.map(fsiSessionIdFromActorRef)
     if (sessIds.nonEmpty) {
       val proxies = rsTopicBridges.filter(e => sessIds.contains(e.sessId))
@@ -150,19 +150,18 @@ object FsiSessForwardResponder {
   /**
    * Subscribe the global FsiExecutor instances.
    */
-  private object FsiExecutorServiceSubscriber {
-    def apply(): Behavior[Receptionist.Listing] = Behaviors.supervise {
-      var preListing = Set.empty[ActorRef[FsiExecutor.Command]]
 
-      Behaviors.receive[Receptionist.Listing] { (context, listing) =>
-        val instances = listing.serviceInstances(FsiExecutorServiceKey)
-        val shutdownExecutors = preListing -- (preListing & instances)
-        context.toClassic.parent ! FsiExecutorShutdown(shutdownExecutors)
-        preListing = instances
-        Behaviors.same
-      }
-    }.onFailure(SupervisorStrategy.restart)
-  }
+  private def subscribeFsiExecutorServiceBehavior(): Behavior[Receptionist.Listing] = Behaviors.supervise {
+    var preListing = Set.empty[ActorRef[FsiExecutor.Command]]
+
+    Behaviors.receive[Receptionist.Listing] { (context, listing) =>
+      val instances = listing.serviceInstances(FsiExecutorServiceKey)
+      val shutdownExecutors = preListing -- (preListing & instances)
+      context.toClassic.parent ! FsiExecutorShutdown(shutdownExecutors)
+      preListing = instances
+      Behaviors.same
+    }
+  }.onFailure(SupervisorStrategy.restart)
 
 }
 

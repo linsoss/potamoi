@@ -163,7 +163,7 @@ class FsiSessManager private(flinkVer: FlinkVerSign, fsiExecutorBehavior: Sessio
 
   // subscribe receptionist listing of all FsiSessManagerServiceKeys
   FsiSessManagerServiceKeys.foreach { case (flinkVer, serviceKey) =>
-    val subscriber = ctx.spawn(SessManagerServiceSubscriber(flinkVer), s"fsi-sess-manager-subscriber-$flinkVer")
+    val subscriber = ctx.spawn(subscribeSessManagerServiceBehavior(flinkVer), s"fsi-sess-manager-subscriber-$flinkVer")
     receptionist ! Receptionist.Subscribe(serviceKey, subscriber)
   }
 
@@ -318,15 +318,14 @@ class FsiSessManager private(flinkVer: FlinkVerSign, fsiExecutorBehavior: Sessio
    * Subscribe to receptionist listing of FsiSessManagerServiceKeys,
    * this actor can only be used by [[FsiSessManager]].
    */
-  private object SessManagerServiceSubscriber {
-    def apply(flinkVer: FlinkVerSign): Behavior[Receptionist.Listing] = Behaviors.supervise {
+  private def subscribeSessManagerServiceBehavior(flinkVer: FlinkVerSign): Behavior[Receptionist.Listing] =
+    Behaviors.supervise {
       Behaviors.receive[Receptionist.Listing] { (context, listing) =>
         val instances = listing.serviceInstances(FsiSessManagerServiceKeys(flinkVer))
         context.toClassic.parent ! UpdateSessManagerServiceSlots(flinkVer, instances.size)
         Behaviors.same
       }
     }.onFailure(SupervisorStrategy.restart)
-  }
 
   /**
    * @param limit    max retry count
