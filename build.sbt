@@ -1,113 +1,111 @@
-lazy val scala = "2.12.15"
+lazy val Scala = "3.2.0"
 
-lazy val akkaVersion = "2.6.18"
-lazy val akkaHttpVersion = "10.2.9"
-lazy val akkaKryoVersion = "2.4.3"
-lazy val flinkVersion = 14
+lazy val ScalaLoggingVer = "3.9.5"
+lazy val LogbackVer = "1.2.11"
+lazy val HoconVer = "1.4.2"
+
+lazy val ZIOVer = "2.0.1"
+lazy val ZIOConfigVer = "3.0.2"
+lazy val ZIOHttpVer = "2.0.0-RC11"
+lazy val ZIOJsonVer = "0.3.0-RC11"
+
+lazy val TapirVer = "1.1.0"
+lazy val QuillVer = "4.4.1"
+lazy val HikariVer = "3.4.5"
+lazy val PostgresDriverVer = "42.4.2"
+lazy val JwtCoreVer = "9.1.1"
+lazy val MUnitVer = "0.7.29"
+lazy val MunitZIOVer = "0.1.1"
 
 lazy val commonSettings = Seq(
   organization := "com.github.potamois",
-  version := "0.1.0",
-  maintainer := "Al-assad <assad.dev@outlook.com>",
-  licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0.html")),
-
-  scalaVersion := scala,
-  Compile / scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls", "-Xlint"),
-  Compile / javacOptions ++= Seq("-Xlint:unchecked", "-Xlint:deprecation"),
+  version := "0.1",
+  scalaVersion := Scala,
+  Compile / javacOptions ++= Seq("-source", "11", "-target", "11"),
+  Compile / scalaSource := baseDirectory.value / "src",
+  Compile / javaSource := baseDirectory.value / "src",
+  Compile / resourceDirectory := baseDirectory.value / "resources",
+  Test / scalaSource := baseDirectory.value / "test" / "src",
+  Test / javaSource := baseDirectory.value / "test" / "src",
+  Test / resourceDirectory := baseDirectory.value / "test" / "resources",
   run / fork := true,
   Global / cancelable := false,
-  Test / parallelExecution := false,
-
-  libraryDependencies ++= Seq(
-    "ch.qos.logback" % "logback-classic" % "1.2.11",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4",
-    "org.scalatest" %% "scalatest" % "3.2.11" % Test
-  )
+  Test / parallelExecution := false
 )
 
-// scala major version like "2.13"
-lazy val scalaMajorVer = scala.split("\\.").take(2).mkString(".")
 
-// root module
-lazy val root = Project(id = "potamoi", base = file("."))
-  .aggregate(commons, akkaToolkit, flinkGateway)
-  .settings(commonSettings)
+lazy val Root = Project(id = "potamoi", base = file("."))
+  .aggregate(PotamoiCommon, PotamoiCore)
 
-// potamoi commons module
-// todo support s3 in commons module temporarily
-lazy val commons = Project(id = "potamoi-commons", base = file("potamoi-commons"))
+lazy val PotamoiCommon = Project(id = "potamoi-common", base = file("potamoi-common"))
+  .settings(commonSettings: _*)
   .settings(
-    commonSettings,
-    libraryDependencies ++= deps(hoconConfigDep, apacheCommonsTextDep, nscalaTimeDep, minioDep),
+    name := "potamoi-common",
+    libraryDependencies ++= Seq(
+      "com.typesafe.scala-logging" %% "scala-logging" % ScalaLoggingVer,
+      "ch.qos.logback" % "logback-classic" % LogbackVer,
+      "com.typesafe" % "config" % HoconVer
+    )
   )
 
-// potamoi akka-toolkit module
-lazy val akkaToolkit = Project(id = "potamoi-akka-kit", base = file("potamoi-akka-kit"))
-  .dependsOn(commons)
+lazy val PotamoiCore = Project(id = "potamoi-core", base = file("potamoi-core"))
+  .settings(commonSettings: _*)
   .settings(
-    commonSettings,
-    libraryDependencies ++= deps(offerAkkaDeps(Provided))
+    name := "potamoi-core",
+    libraryDependencies ++=
+    ZIODep ++
+    ZIOTestKitDep.map(_ % Test) ++
+    ZIOConfigDep ++
+    ZIOJsonDep ++
+    ZIOHttpDep ++
+    TapirDep ++
+    QuillDep
   )
-
-// potamoi flink-gateway module
-lazy val flinkGateway = Project(id = "potamoi-flink-gateway", base = file("potamoi-flink-gateway"))
-  .dependsOn(commons, akkaToolkit)
-  .settings(
-    commonSettings,
-    libraryDependencies ++= deps(akkaDeps, flinkDeps(flinkVersion), sprayDep)
-  )
-  .enablePlugins(JavaAppPackaging)
+  .dependsOn(PotamoiCommon)
 
 
-// akka dependencies
-lazy val akkaDeps = offerAkkaDeps(Compile)
+lazy val ZIODep = Seq(
+  "zio",
+  "zio-concurrent",
+  "zio-streams",
+  "zio-logging"
+).map("dev.zio" %% _ % ZIOVer)
 
-def offerAkkaDeps(scope: Configuration) = Seq(
-  "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion % scope,
-  "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion % scope,
-  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % scope,
-  "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion % scope,
-  "io.altoo" %% "akka-kryo-serialization-typed" % akkaKryoVersion % scope,
+lazy val ZIOTestKitDep = Seq(
+  "zio-test",
+  "zio-test-sbt",
+  "zio-test-magnolia",
+).map("dev.zio" %% _ % ZIOVer) ++ MunitZIODep
 
-  "com.typesafe.akka" %% "akka-http" % akkaHttpVersion % scope,
-  "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion % scope,
-  "com.typesafe.akka" %% "akka-stream-typed" % akkaVersion % scope,
-
-  "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
-  "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion % Test,
-  "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test
+lazy val MunitZIODep = Seq(
+  "org.scalameta" %% "munit" % MUnitVer,
+  "com.github.poslegm" %% "munit-zio" % MunitZIOVer
 )
 
-// flink dependencies
-lazy val flinkVersionMap = Map(
-  14 -> "1.14.3",
-  13 -> "1.13.5",
-  12 -> "1.12.7",
-  11 -> "1.11.6"
+lazy val ZIOConfigDep = Seq(
+  "zio-config",
+  "zio-config-magnolia",
+  "zio-config-typesafe"
+).map("dev.zio" %% _ % ZIOConfigVer)
+
+lazy val ZIOHttpDep = Seq(
+  "io.d11" %% "zhttp" % ZIOHttpVer,
+  "com.github.jwt-scala" %% "jwt-core" % JwtCoreVer
 )
 
-def flinkDeps(majorVer: Int = 14) =
-  if (majorVer >= 14) Seq(
-    "org.apache.flink" %% "flink-table-planner",
-    "org.apache.flink" %% "flink-clients",
-    "org.apache.flink" %% "flink-kubernetes")
-    .map(_ % flinkVersionMap(majorVer))
-  else Seq(
-    "org.apache.flink" %% "flink-table-planner-blink",
-    "org.apache.flink" %% "flink-clients",
-    "org.apache.flink" %% "flink-kubernetes")
-    .map(_ % flinkVersionMap(majorVer) exclude("com.typesafe.akka", s"akka-protobuf_$scalaMajorVer"))
+lazy val ZIOJsonDep = Seq(
+  "dev.zio" %% "zio-json" % ZIOJsonVer
+)
 
-// other dependencies
-lazy val hoconConfigDep = "com.typesafe" % "config" % "1.4.2"
-lazy val sprayDep = "io.spray" %% "spray-json" % "1.3.6"
-lazy val nscalaTimeDep = "com.github.nscala-time" %% "nscala-time" % "2.30.0"
-lazy val apacheCommonsTextDep = "org.apache.commons" % "commons-text" % "1.9"
-lazy val minioDep = "io.minio" % "minio" % "8.3.7"
+lazy val QuillDep = Seq(
+  "io.getquill" %% "quill-jdbc-zio" % QuillVer,
+  "io.getquill" %% "quill-jdbc" % QuillVer,
+  "org.postgresql" % "postgresql" % PostgresDriverVer
+)
 
-
-def deps(moduleIds: Any*): Seq[ModuleID] = moduleIds.flatMap {
-  case id: ModuleID => Seq(id)
-  case ids: Seq[ModuleID@unchecked] => ids
-  case _ => Seq()
-}
+lazy val TapirDep = Seq(
+  "tapir-core",
+  "tapir-sttp-client",
+  "tapir-swagger-ui-bundle",
+  "tapir-zio-http-server"
+).map("com.softwaremill.sttp.tapir" %% _ % TapirVer)
