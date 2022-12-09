@@ -1,105 +1,120 @@
-import BuildHelper._
+lazy val scala3   = "3.2.1"
+lazy val scala213 = "2.13.10"
+lazy val scala212 = "2.12.17"
+lazy val javaVer  = "17"
 
-lazy val Scala = "3.2.0"
+lazy val zioVer        = "2.0.4"
+lazy val zioLoggingVer = "2.1.5"
+lazy val zioConfig     = "3.0.2"
+lazy val zioJsonVer    = "0.3.0"
+lazy val zioHttpVer    = "0.0.3"
+lazy val zioK8sVer     = "2.0.1"
+lazy val zioDirect     = "1.0.0-RC1"
+lazy val shardcakeVer  = "2.0.5"
 
-lazy val ScalaLoggingVer   = "3.9.5"
-lazy val LogbackVer        = "1.2.11"
-lazy val HoconVer          = "1.4.2"
-lazy val ZIOVer            = "2.0.2"
-lazy val ZIOLoggingVer     = "2.1.1"
-lazy val ZIOConfigVer      = "3.0.2"
-lazy val ZIOHttpVer        = "2.0.0-RC11"
-lazy val ZIOJsonVer        = "0.3.0-RC11"
-lazy val TapirVer          = "1.1.0"
-lazy val QuillVer          = "4.4.1"
-lazy val HikariVer         = "3.4.5"
-lazy val PostgresDriverVer = "42.4.2"
-lazy val JwtCoreVer        = "9.1.1"
-lazy val MUnitVer          = "0.7.29"
-lazy val MunitZIOVer       = "0.1.1"
+lazy val catsVer      = "2.9.0"
+lazy val sttpVer      = "3.8.3"
+lazy val quicklensVer = "1.9.0"
+lazy val upickleVer   = "2.0.0"
+lazy val pprintVer    = "0.8.1"
+lazy val osLibVer     = "0.8.1"
+
+lazy val slf4jVer    = "1.7.36"
+lazy val munitVer    = "1.0.0-M7"
+lazy val hoconVer    = "1.4.2"
+lazy val jodaTimeVer = "2.12.1"
+lazy val minioVer    = "8.4.6"
+lazy val quillVer    = "4.6.0"
+lazy val postgresVer = "42.5.1"
+
+lazy val flinkVer = "1.16.0"
 
 lazy val commonSettings = Seq(
-  organization := "com.github.potamois",
-  version      := "0.1",
-  scalaVersion := Scala,
-  Compile / javacOptions ++= Seq("-source", "11", "-target", "11"),
-  Compile / scalaSource       := baseDirectory.value / "src",
-  Compile / javaSource        := baseDirectory.value / "src",
-  Compile / resourceDirectory := baseDirectory.value / "resources",
-  Test / scalaSource          := baseDirectory.value / "test" / "src",
-  Test / javaSource           := baseDirectory.value / "test" / "src",
-  Test / resourceDirectory    := baseDirectory.value / "test" / "resources",
-  run / fork                  := true,
-  Global / cancelable         := false,
-  Test / parallelExecution    := false
+  ThisBuild / organization := "com.github.potamois",
+  ThisBuild / version      := "0.1.0-SNAPSHOT",
+  ThisBuild / developers := List(
+    Developer(
+      id = "Al-assad",
+      name = "Linying Assad",
+      email = "assad.dev@outlook.com",
+      url = new URL("https://github.com/Al-assad")
+    )),
+  ThisBuild / scalaVersion := scala3,
+  ThisBuild / javacOptions ++= Seq("-source", javaVer, "-target", javaVer),
+  libraryDependencies ++= Seq(
+    "dev.zio"       %% "zio"                 % zioVer,
+    "dev.zio"       %% "zio-config"          % zioConfig,
+    "dev.zio"       %% "zio-config-magnolia" % zioConfig,
+    "dev.zio"       %% "zio-config-typesafe" % zioConfig,
+    "com.typesafe"   % "config"              % hoconVer,
+    "dev.zio"       %% "zio-test"            % zioVer   % Test,
+    "dev.zio"       %% "zio-test-sbt"        % zioVer   % Test,
+    "org.scalameta" %% "munit"               % munitVer % Test,
+  ),
+  testFrameworks := Seq(TestFramework("zio.test.sbt.ZTestFramework"), TestFramework("munit.Framework")),
 )
 
-lazy val Root = Project(id = "potamoi", base = file("."))
-  .aggregate(PotamoiCommon, PotamoiCore)
+lazy val root = (project in file("."))
+  .settings(name := "potamoi")
+  .aggregate(potaLogger, potaCore, potaFlink, potaServer)
 
-lazy val PotamoiCommon = Project(id = "potamoi-common", base = file("potamoi-common"))
-  .settings(commonSettings: _*)
+lazy val potaLogger = (project in file("potamoi-logger"))
+  .settings(commonSettings)
   .settings(
-    name := "potamoi-common",
+    name := "potamoi-logger",
     libraryDependencies ++= Seq(
-      "com.typesafe.scala-logging" %% "scala-logging"   % ScalaLoggingVer,
-      "ch.qos.logback"              % "logback-classic" % LogbackVer,
-      "com.typesafe"                % "config"          % HoconVer
+      "org.slf4j" % "slf4j-api"         % slf4jVer,
+      "dev.zio"  %% "zio-logging"       % zioLoggingVer,
+      "dev.zio"  %% "zio-logging-slf4j" % zioLoggingVer,
     )
   )
 
-lazy val PotamoiCore = Project(id = "potamoi-core", base = file("potamoi-core"))
-  .settings(commonSettings: _*)
+lazy val potaCore = (project in file("potamoi-core"))
+  .dependsOn(potaLogger)
+  .settings(commonSettings)
   .settings(
     name := "potamoi-core",
-    libraryDependencies ++=
-      ZIODep ~
-        ZIOTestKitDep.map(_ % Test) ~
-        ZIOConfigDep ~
-        ZIOJsonDep ~
-        ZIOHttpDep ~
-        TapirDep ~
-        QuillDep
+    libraryDependencies ++= Seq(
+      "dev.zio"                       %% "zio-concurrent"          % zioVer,
+      "dev.zio"                       %% "zio-json"                % zioJsonVer,
+      "dev.zio"                       %% "zio-http"                % zioHttpVer,
+      "dev.zio"                       %% "zio-direct"              % zioDirect exclude ("com.lihaoyi", "geny_2.13"),
+      "org.typelevel"                 %% "cats-core"               % catsVer,
+      "com.lihaoyi"                   %% "upickle"                 % upickleVer,
+      "com.lihaoyi"                   %% "pprint"                  % pprintVer,
+      "com.lihaoyi"                   %% "os-lib"                  % osLibVer,
+      "com.softwaremill.quicklens"    %% "quicklens"               % quicklensVer,
+      "com.softwaremill.sttp.client3" %% "core"                    % sttpVer,
+      "com.softwaremill.sttp.client3" %% "zio"                     % sttpVer,
+      "com.softwaremill.sttp.client3" %% "zio-json"                % sttpVer,
+      "com.softwaremill.sttp.client3" %% "slf4j-backend"           % sttpVer,
+      "joda-time"                      % "joda-time"               % jodaTimeVer,
+      "com.coralogix"                 %% "zio-k8s-client"          % zioK8sVer,
+      "io.getquill"                   %% "quill-jdbc-zio"          % quillVer exclude ("com.lihaoyi", "geny_2.13"),
+      "org.postgresql"                 % "postgresql"              % postgresVer,
+      "io.minio"                       % "minio"                   % minioVer,
+      "com.devsisters"                %% "shardcake-manager"       % shardcakeVer,
+      "com.devsisters"                %% "shardcake-entities"      % shardcakeVer,
+      "com.devsisters"                %% "shardcake-protocol-grpc" % shardcakeVer,
+    )
   )
-  .dependsOn(PotamoiCommon)
 
-lazy val ZIODep = Seq(
-  "dev.zio" %% "zio"            % ZIOVer,
-  "dev.zio" %% "zio-concurrent" % ZIOVer,
-  "dev.zio" %% "zio-streams"    % ZIOVer,
-  "dev.zio" %% "zio-logging"    % ZIOLoggingVer
-)
+lazy val potaFlink = (project in file("potamoi-flink"))
+  .dependsOn(potaCore)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-flink",
+    libraryDependencies ++= Seq(
+      "org.apache.flink" % "flink-clients"    % flinkVer,
+      "org.apache.flink" % "flink-kubernetes" % flinkVer
+    )
+  )
 
-lazy val ZIOTestKitDep = Seq(
-  "dev.zio"            %% "zio-test"          % ZIOVer,
-  "dev.zio"            %% "zio-test-sbt"      % ZIOVer,
-  "dev.zio"            %% "zio-test-magnolia" % ZIOVer,
-  "org.scalameta"      %% "munit"             % MUnitVer,
-  "com.github.poslegm" %% "munit-zio"         % MunitZIOVer
-)
-
-lazy val ZIOConfigDep = Seq(
-  "dev.zio" %% "zio-config"          % ZIOConfigVer,
-  "dev.zio" %% "zio-config-magnolia" % ZIOConfigVer,
-  "dev.zio" %% "zio-config-typesafe" % ZIOConfigVer
-)
-
-lazy val ZIOHttpDep = Seq(
-  "io.d11"               %% "zhttp"    % ZIOHttpVer,
-  "com.github.jwt-scala" %% "jwt-core" % JwtCoreVer
-)
-
-lazy val ZIOJsonDep = "dev.zio" %% "zio-json" % ZIOJsonVer
-
-lazy val QuillDep = Seq(
-  "io.getquill"   %% "quill-jdbc-zio" % QuillVer,
-  "io.getquill"   %% "quill-jdbc"     % QuillVer,
-  "org.postgresql" % "postgresql"     % PostgresDriverVer
-)
-
-lazy val TapirDep = Seq(
-  "tapir-core",
-  "tapir-sttp-client",
-  "tapir-swagger-ui-bundle",
-  "tapir-zio-http-server"
-).map("com.softwaremill.sttp.tapir" %% _ % TapirVer)
+lazy val potaServer = (project in file("potamoi-server"))
+  .dependsOn(potaCore)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-server",
+    libraryDependencies ++= Seq(
+    )
+  )
