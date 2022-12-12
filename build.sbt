@@ -3,17 +3,18 @@ lazy val scala213 = "2.13.10"
 lazy val scala212 = "2.12.17"
 lazy val javaVer  = "17"
 
-lazy val zioVer        = "2.0.4"
+lazy val zioVer        = "2.0.2"
 lazy val zioLoggingVer = "2.1.5"
 lazy val zioConfig     = "3.0.2"
-lazy val zioJsonVer    = "0.3.0"
+lazy val zioJsonVer    = "0.4.2"
 lazy val zioHttpVer    = "0.0.3"
 lazy val zioK8sVer     = "2.0.1"
-lazy val zioDirect     = "1.0.0-RC1"
+lazy val zioDirectVer  = "1.0.0-RC1"
+lazy val zioSchemaVer  = "0.4.0"
 lazy val shardcakeVer  = "2.0.5"
 
 lazy val catsVer      = "2.9.0"
-lazy val sttpVer      = "3.8.3"
+lazy val sttpVer      = "3.8.5"
 lazy val quicklensVer = "1.9.0"
 lazy val upickleVer   = "2.0.0"
 lazy val pprintVer    = "0.8.1"
@@ -42,21 +43,26 @@ lazy val commonSettings = Seq(
   ThisBuild / scalaVersion := scala3,
   ThisBuild / javacOptions ++= Seq("-source", javaVer, "-target", javaVer),
   libraryDependencies ++= Seq(
-    "dev.zio"       %% "zio"                 % zioVer,
-    "dev.zio"       %% "zio-config"          % zioConfig,
-    "dev.zio"       %% "zio-config-magnolia" % zioConfig,
-    "dev.zio"       %% "zio-config-typesafe" % zioConfig,
-    "com.typesafe"   % "config"              % hoconVer,
-    "dev.zio"       %% "zio-test"            % zioVer   % Test,
-    "dev.zio"       %% "zio-test-sbt"        % zioVer   % Test,
-    "org.scalameta" %% "munit"               % munitVer % Test,
+    "dev.zio"       %% "zio"                   % zioVer,
+    "dev.zio"       %% "zio-config"            % zioConfig,
+    "dev.zio"       %% "zio-config-magnolia"   % zioConfig,
+    "dev.zio"       %% "zio-config-typesafe"   % zioConfig,
+    "com.typesafe"   % "config"                % hoconVer,
+    "dev.zio"       %% "zio-json"              % zioJsonVer,
+    "dev.zio"       %% "zio-schema"            % zioSchemaVer,
+    "dev.zio"       %% "zio-schema-derivation" % zioSchemaVer,
+    "dev.zio"       %% "zio-schema-json"       % zioSchemaVer,
+    "dev.zio"       %% "zio-schema-protobuf"   % zioSchemaVer,
+    "dev.zio"       %% "zio-test"              % zioVer   % Test,
+    "dev.zio"       %% "zio-test-sbt"          % zioVer   % Test,
+    "org.scalameta" %% "munit"                 % munitVer % Test,
   ),
   testFrameworks := Seq(TestFramework("zio.test.sbt.ZTestFramework"), TestFramework("munit.Framework")),
 )
 
 lazy val root = (project in file("."))
   .settings(name := "potamoi")
-  .aggregate(potaLogger, potaCore, potaFlink, potaServer)
+  .aggregate(potaLogger, potaCommon, potaKubernetes, potaFlink, potaFlinkShare, potaServer)
 
 lazy val potaLogger = (project in file("potamoi-logger"))
   .settings(commonSettings)
@@ -69,27 +75,25 @@ lazy val potaLogger = (project in file("potamoi-logger"))
     )
   )
 
-lazy val potaCore = (project in file("potamoi-core"))
+lazy val potaCommon = (project in file("potamoi-common"))
   .dependsOn(potaLogger)
   .settings(commonSettings)
   .settings(
-    name := "potamoi-core",
+    name := "potamoi-common",
     libraryDependencies ++= Seq(
       "dev.zio"                       %% "zio-concurrent"          % zioVer,
-      "dev.zio"                       %% "zio-json"                % zioJsonVer,
-      "dev.zio"                       %% "zio-http"                % zioHttpVer,
-      "dev.zio"                       %% "zio-direct"              % zioDirect exclude ("com.lihaoyi", "geny_2.13"),
+      "dev.zio"                       %% "zio-http"                % zioHttpVer exclude ("dev.zio", "zio_3") exclude ("dev.zio", "zio-streams_3"),
+      "dev.zio"                       %% "zio-direct"              % zioDirectVer exclude ("com.lihaoyi", "geny_2.13"),
       "org.typelevel"                 %% "cats-core"               % catsVer,
       "com.lihaoyi"                   %% "upickle"                 % upickleVer,
       "com.lihaoyi"                   %% "pprint"                  % pprintVer,
       "com.lihaoyi"                   %% "os-lib"                  % osLibVer,
       "com.softwaremill.quicklens"    %% "quicklens"               % quicklensVer,
       "com.softwaremill.sttp.client3" %% "core"                    % sttpVer,
-      "com.softwaremill.sttp.client3" %% "zio"                     % sttpVer,
       "com.softwaremill.sttp.client3" %% "zio-json"                % sttpVer,
+      "com.softwaremill.sttp.client3" %% "zio"                     % sttpVer,
       "com.softwaremill.sttp.client3" %% "slf4j-backend"           % sttpVer,
       "joda-time"                      % "joda-time"               % jodaTimeVer,
-      "com.coralogix"                 %% "zio-k8s-client"          % zioK8sVer,
       "io.getquill"                   %% "quill-jdbc-zio"          % quillVer exclude ("com.lihaoyi", "geny_2.13"),
       "org.postgresql"                 % "postgresql"              % postgresVer,
       "io.minio"                       % "minio"                   % minioVer,
@@ -99,8 +103,18 @@ lazy val potaCore = (project in file("potamoi-core"))
     )
   )
 
+lazy val potaKubernetes = (project in file("potamoi-kubernetes"))
+  .dependsOn(potaLogger, potaCommon)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-kubernetes",
+    libraryDependencies ++= Seq(
+      "com.coralogix" %% "zio-k8s-client" % zioK8sVer,
+    )
+  )
+
 lazy val potaFlink = (project in file("potamoi-flink"))
-  .dependsOn(potaCore)
+  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFlinkShare)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink",
@@ -110,8 +124,13 @@ lazy val potaFlink = (project in file("potamoi-flink"))
     )
   )
 
+lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
+  .dependsOn(potaLogger)
+  .settings(commonSettings)
+  .settings(name := "potamoi-flink-share")
+
 lazy val potaServer = (project in file("potamoi-server"))
-  .dependsOn(potaCore)
+  .dependsOn(potaLogger, potaCommon, potaKubernetes)
   .settings(commonSettings)
   .settings(
     name := "potamoi-server",
