@@ -11,21 +11,15 @@ import zio.stream.Stream
 trait ClustersQuery {
 
   def getOverview(fcid: Fcid): IO[FlinkErr, Option[FlinkClusterOverview]]
-
   def listOverview: IO[FlinkErr, List[FlinkClusterOverview]]
-
   def listAllOverview: Stream[FlinkErr, FlinkClusterOverview]
 
+  def listTmIds(fcid: Fcid): IO[FlinkErr, List[String]]
   def getTmDetail(ftid: Ftid): IO[FlinkErr, Option[FlinkTmDetail]]
-
   def listTmDetails(fcid: Fcid): IO[FlinkErr, List[FlinkTmDetail]]
 
-  def listTmIds(fcid: Fcid): IO[FlinkErr, List[String]]
-
   def getCurJmMetrics(fcid: Fcid): IO[FlinkErr, Option[FlinkJmMetrics]]
-
   def getCurTmMetrics(ftid: Ftid): IO[FlinkErr, Option[FlinkTmMetrics]]
-
   def listCurTmMetrics(fcid: Fcid): IO[FlinkErr, List[FlinkTmMetrics]]
 
 }
