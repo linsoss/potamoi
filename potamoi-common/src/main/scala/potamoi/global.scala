@@ -3,10 +3,10 @@ package potamoi
 import potamoi.common.{FutureExtension, NumExtension, SttpExtension, Syntax, TimeExtension, ZIOExtension}
 
 val syntax  = Syntax
-val ziox    = ZIOExtension
-val futurex = FutureExtension
-val sttpx   = SttpExtension
-val timex   = TimeExtension
-val numx    = NumExtension
+val zios    = ZIOExtension
+val futures = FutureExtension
+val sttps   = SttpExtension
+val times   = TimeExtension
+val nums    = NumExtension
 
 def curTs: Long = System.currentTimeMillis
