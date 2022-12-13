@@ -1,16 +1,20 @@
 package potamoi.flink
 
 import potamoi.common.SilentErr
+import potamoi.flink.model.Fcid
 
 /**
- * Flink operation error.
+ * Flink error.
  */
-sealed trait FlinkErr extends Throwable
+sealed abstract class FlinkErr(msg: String, cause: Throwable = SilentErr) extends Throwable
+
+object FlinkErr:
+  case class ClusterNotFound(fcid: Fcid) extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
 
 /**
  * Flink rest api error
  */
-sealed abstract class FlinkRestErr(msg: String, cause: Throwable = SilentErr) extends Exception(msg, cause) with FlinkErr
+sealed abstract class FlinkRestErr(msg: String, cause: Throwable = SilentErr) extends FlinkErr(msg, cause)
 
 object FlinkRestErr:
   case class RequestApiErr(method: String, uri: String, cause: Throwable) extends FlinkRestErr(s"Fail to request flink rest api: $method $uri", cause)

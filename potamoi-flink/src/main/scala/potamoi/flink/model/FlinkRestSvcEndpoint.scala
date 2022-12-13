@@ -39,16 +39,15 @@ case class FlinkRestSvcEndpoint(svcName: String, svcNs: String, port: Int, clust
 
 }
 
-object FlinkRestSvcEndpoint {
+object FlinkRestSvcEndpoint:
 
-//  def of(svcSnap: FK8sServiceSnap): Option[FlinkRestSvcEndpoint] =
-//    if (!svcSnap.isFlinkRestSvc) None
-//    else {
-//      for {
-//        clusterIp <- svcSnap.clusterIP
-//        port      <- svcSnap.ports.find(_.name == "rest").map(_.port)
-//        name = svcSnap.name
-//        ns   = svcSnap.namespace
-//      } yield FlinkRestSvcEndpoint(name, ns, port, clusterIp)
-//    }
-}
+  def of(svcSnap: FK8sServiceSnap): Option[FlinkRestSvcEndpoint] = {
+    if (!svcSnap.isFlinkRestSvc) None
+    else
+      for {
+        clusterIp <- svcSnap.clusterIP
+        port      <- svcSnap.ports.find(_.name == "rest").map(_.port)
+        name = svcSnap.name
+        ns   = svcSnap.namespace
+      } yield FlinkRestSvcEndpoint(name, ns, port, clusterIp)
+  }
