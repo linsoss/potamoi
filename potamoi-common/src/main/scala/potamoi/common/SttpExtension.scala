@@ -7,14 +7,19 @@ import zio.ZIO
 import zio.*
 
 import scala.annotation.targetName
+import scala.util.control.NoStackTrace
 
 /**
  * Sttp client extension.
  */
+
 object SttpExtension {
 
-  case class HttpRequestNonPass(message: String) extends Exception(message)
-  case class ResolveBodyErr(cause: Throwable)    extends Exception(cause)
+  trait SttpErr                        extends Throwable
+  case class NotPass(cause: Throwable) extends Exception(cause) with SttpErr
+  case class NotOk(message: String)    extends Exception(message) with SttpErr
+  case class NotOkT(cause: Throwable)  extends Exception(cause) with SttpErr
+  case object NotFound                 extends NoStackTrace with SttpErr
 
   /**
    * Using Sttp backend to create http request effect and then release the request
@@ -26,66 +31,39 @@ object SttpExtension {
     }
 
   /**
-   * Similar to [[usingSttp]] but narrow side effect channel type.
+   * Get response body from Response and narrow error type to [[SttpErr]].
    */
-  def usingTypedSttp[E, A](request: SttpBackend[Task, Any] => IO[E, A])(implicit narrowErr: Throwable => E): IO[E, A] =
-    ZIO.scoped {
-      HttpClientZioBackend
-        .scoped()
-        .mapError(narrowErr)
-        .flatMap(backend => request(backend))
-    }
-
-  /**
-   * Get response body from Response and narrow error type.
-   */
-  implicit class ResponseHandler[A](requestIO: Task[Response[Either[String, A]]]) {
-    def narrowBody[E](implicit narrowErr: Throwable => E): IO[E, A] =
+  extension [A](requestIO: Task[Response[Either[String, A]]]) {
+    def flattenBody: IO[SttpErr, A] =
       requestIO
-        .mapError(narrowErr)
-        .flatMap(rsp => ZIO.fromEither(rsp.body).mapError(e => narrowErr(HttpRequestNonPass(e))))
-
-    def narrowBodyT[E](notFound: => E)(implicit narrowErr: Throwable => E): IO[E, A] =
-      requestIO
-        .mapError(narrowErr)
+        .mapError(NotPass.apply)
         .flatMap { rsp =>
-          rsp.code match {
-            case StatusCode.NotFound => ZIO.fail(notFound)
-            case _                   => ZIO.fromEither(rsp.body).mapError(e => narrowErr(HttpRequestNonPass(e)))
-          }
+          rsp.code match
+            case StatusCode.NotFound => ZIO.fail(NotFound)
+            case _                   => ZIO.fromEither(rsp.body).mapError(NotOk.apply)
         }
   }
 
   /**
-   * Get response body from Response and narrow error type.
+   * Get response body from Response and narrow error type to [[SttpErr]].
    */
-  implicit class ResponseHandler2[A](requestIO: Task[Response[Either[ResponseException[String, String], A]]]) {
-    def narrowBody[E](implicit narrowErr: Throwable => E): IO[E, A] =
+  extension [A](requestIO: Task[Response[Either[ResponseException[String, String], A]]]) {
+    def flattenBodyT: IO[SttpErr, A] =
       requestIO
-        .mapError(narrowErr)
-        .flatMap(rsp => ZIO.fromEither(rsp.body).mapError(e => narrowErr(e)))
-
-    def narrowBodyT[E](notFound: => E)(implicit narrowErr: Throwable => E): IO[E, A] =
-      requestIO
-        .mapError(narrowErr)
+        .mapError(NotPass.apply)
         .flatMap { rsp =>
-          rsp.code match {
-            case StatusCode.NotFound => ZIO.fail(notFound)
-            case _                   => ZIO.fromEither(rsp.body).mapError(e => narrowErr(e))
-          }
+          rsp.code match
+            case StatusCode.NotFound => ZIO.fail(NotFound)
+            case _                   => ZIO.fromEither(rsp.body).mapError(NotOkT.apply)
         }
   }
 
   /**
    * Handle string response body and narrow error type.
    */
-  extension [E, A](requestIO: IO[E, String]) {
-    def attemptBody(f: String => A)(implicit narrowErr: Throwable => E): IO[E, A] =
-      requestIO.flatMap { body =>
-        ZIO
-          .attempt(f(body))
-          .mapError(e => narrowErr(ResolveBodyErr(e)))
-      }
+  extension [A](requestIO: Task[String]) {
+    def attemptBody(f: String => A): IO[Throwable, A] =
+      requestIO.flatMap { body => ZIO.attempt(f(body)) }
   }
 
   /**
@@ -93,7 +71,7 @@ object SttpExtension {
    */
   implicit class RequestBodyIOWrapper[A](requestIO: IO[Throwable, Either[String, A]]) {
     def narrowEither: IO[Throwable, A] = requestIO.flatMap {
-      case Left(err)  => ZIO.fail(HttpRequestNonPass(err))
+      case Left(err)  => ZIO.fail(NotOk(err))
       case Right(rsp) => ZIO.succeed(rsp)
     }
   }
