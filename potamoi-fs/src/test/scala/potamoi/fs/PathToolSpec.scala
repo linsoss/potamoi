@@ -1,6 +1,6 @@
-package potamoi.common
+package potamoi.fs
 
-import potamoi.common.PathTool.*
+import potamoi.fs.paths.*
 
 class PathToolSpec extends munit.FunSuite:
 

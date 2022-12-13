@@ -1,10 +1,13 @@
-package potamoi.common
+package potamoi.fs
+
 import potamoi.common.Syntax.contra
 
 /**
- * Tools for handling paths.
+ * Tools for handling file paths.
  */
-object PathTool {
+val paths = PathTool
+
+object PathTool:
 
   /**
    * remove path schema likes from "s3://bucket/xx.jar" to "bucket/xx.jar".
@@ -42,4 +45,3 @@ object PathTool {
     }
   }
 
-}

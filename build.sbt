@@ -44,6 +44,7 @@ lazy val commonSettings = Seq(
   ThisBuild / javacOptions ++= Seq("-source", javaVer, "-target", javaVer),
   libraryDependencies ++= Seq(
     "dev.zio"       %% "zio"                   % zioVer,
+    "dev.zio"       %% "zio-concurrent"        % zioVer,
     "dev.zio"       %% "zio-config"            % zioConfig,
     "dev.zio"       %% "zio-config-magnolia"   % zioConfig,
     "dev.zio"       %% "zio-config-typesafe"   % zioConfig,
@@ -53,6 +54,7 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-schema-derivation" % zioSchemaVer,
     "dev.zio"       %% "zio-schema-json"       % zioSchemaVer,
     "dev.zio"       %% "zio-schema-protobuf"   % zioSchemaVer,
+    "org.typelevel" %% "cats-core"             % catsVer,
     "dev.zio"       %% "zio-test"              % zioVer   % Test,
     "dev.zio"       %% "zio-test-sbt"          % zioVer   % Test,
     "org.scalameta" %% "munit"                 % munitVer % Test,
@@ -62,7 +64,7 @@ lazy val commonSettings = Seq(
 
 lazy val root = (project in file("."))
   .settings(name := "potamoi")
-  .aggregate(potaLogger, potaCommon, potaKubernetes, potaFlink, potaFlinkShare, potaServer)
+  .aggregate(potaLogger, potaCommon, potaFs, potaKubernetes, potaFlink, potaFlinkShare, potaServer)
 
 lazy val potaLogger = (project in file("potamoi-logger"))
   .settings(commonSettings)
@@ -81,13 +83,10 @@ lazy val potaCommon = (project in file("potamoi-common"))
   .settings(
     name := "potamoi-common",
     libraryDependencies ++= Seq(
-      "dev.zio"                       %% "zio-concurrent"          % zioVer,
       "dev.zio"                       %% "zio-http"                % zioHttpVer exclude ("dev.zio", "zio_3") exclude ("dev.zio", "zio-streams_3"),
       "dev.zio"                       %% "zio-direct"              % zioDirectVer exclude ("com.lihaoyi", "geny_2.13"),
-      "org.typelevel"                 %% "cats-core"               % catsVer,
       "com.lihaoyi"                   %% "upickle"                 % upickleVer,
       "com.lihaoyi"                   %% "pprint"                  % pprintVer,
-      "com.lihaoyi"                   %% "os-lib"                  % osLibVer,
       "com.softwaremill.quicklens"    %% "quicklens"               % quicklensVer,
       "com.softwaremill.sttp.client3" %% "core"                    % sttpVer,
       "com.softwaremill.sttp.client3" %% "zio-json"                % sttpVer,
@@ -96,7 +95,6 @@ lazy val potaCommon = (project in file("potamoi-common"))
       "joda-time"                      % "joda-time"               % jodaTimeVer,
       "io.getquill"                   %% "quill-jdbc-zio"          % quillVer exclude ("com.lihaoyi", "geny_2.13"),
       "org.postgresql"                 % "postgresql"              % postgresVer,
-      "io.minio"                       % "minio"                   % minioVer,
       "com.devsisters"                %% "shardcake-manager"       % shardcakeVer,
       "com.devsisters"                %% "shardcake-entities"      % shardcakeVer,
       "com.devsisters"                %% "shardcake-protocol-grpc" % shardcakeVer,
@@ -113,8 +111,19 @@ lazy val potaKubernetes = (project in file("potamoi-kubernetes"))
     )
   )
 
+lazy val potaFs = (project in file("potamoi-fs"))
+  .dependsOn(potaLogger, potaCommon)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-fs",
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "os-lib" % osLibVer,
+      "io.minio"     % "minio"  % minioVer
+    )
+  )
+
 lazy val potaFlink = (project in file("potamoi-flink"))
-  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFlinkShare)
+  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs, potaFlinkShare)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink",
@@ -130,7 +139,7 @@ lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
   .settings(name := "potamoi-flink-share")
 
 lazy val potaServer = (project in file("potamoi-server"))
-  .dependsOn(potaLogger, potaCommon, potaKubernetes)
+  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs)
   .settings(commonSettings)
   .settings(
     name := "potamoi-server",
