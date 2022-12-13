@@ -41,3 +41,5 @@ object S3Operator:
   def upload(filePath: String, s3Path: String, contentType: String): ZIO[S3Operator, S3Err, Unit] = ZIO.serviceWithZIO[S3Operator](
     _.upload(filePath, s3Path, contentType)
   )
+
+val s3fs = S3Operator
