@@ -1,6 +1,7 @@
 package potamoi.common
 
 import zio.{Exit, *}
+import potamoi.syntax.toPrettyString
 
 /**
  * ZIO syntax extension.
@@ -27,6 +28,12 @@ object ZIOExtension {
   extension [E, A](zio: IO[E, A]) {
     inline def run: Exit[E, A]                  = zioRun(zio)
     inline def runToFuture: CancelableFuture[A] = zioRunToFuture(zio)
+  }
+
+  extension [R, E, A](zio: ZIO[R, E, A]) {
+    inline def debugPretty: ZIO[R, E, A] = zio
+      .tap(value => ZIO.succeed(println(toPrettyString(value))))
+      .tapErrorCause(error => ZIO.succeed(println(s"<FAIL> $error")))
   }
 
   extension [E, A](zio: ZIO[Scope, E, A]) {
