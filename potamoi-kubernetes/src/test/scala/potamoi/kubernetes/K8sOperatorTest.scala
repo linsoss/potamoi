@@ -1,7 +1,7 @@
 package potamoi.kubernetes
 
 import potamoi.syntax.*
-import potamoi.ziox.*
+import potamoi.zios.*
 
 object K8sOperatorTest:
 

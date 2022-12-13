@@ -6,7 +6,7 @@ import org.joda.time.DateTime
 import potamoi.kubernetes.model.{ContainerMetrics, K8sQuantity, PodMetrics}
 import zio.{IO, UIO, ZIO}
 import zio.ZIO.attempt
-import potamoi.sttpx.*
+import potamoi.sttps.*
 import sttp.client3.*
 import zio.prelude.data.Optional.{Absent, Present}
 import zio.stream.ZStream
@@ -18,7 +18,7 @@ class K8sOperatorLive(k8sClient: K8sClient) extends K8sOperator {
 
   override def client: UIO[K8sClient] = ZIO.succeed(k8sClient)
 
-  override def getPodMetrics(name: String, namespace: String): IO[K8sErr, PodMetrics] =
+  override def getPodMetrics(name: String, namespace: String): IO[DirectRequestK8sApiErr, PodMetrics] =
     k8sClient.usingSttp { (request, backend, host) =>
       request
         .get(uri"$host/apis/metrics.k8s.io/v1beta1/namespaces/$namespace/pods/$name")
@@ -41,7 +41,7 @@ class K8sOperatorLive(k8sClient: K8sClient) extends K8sOperator {
         .mapError(e => DirectRequestK8sApiErr(e))
     }
 
-  override def getDeploymentSpec(name: String, namespace: String): IO[K8sErr, DeploymentSpec] =
+  override def getDeploymentSpec(name: String, namespace: String): IO[DeploymentNotFound | RequestK8sApiErr, DeploymentSpec] =
     k8sClient.deployments
       .get(name, namespace)
       .flatMap(_.getSpec)
@@ -50,7 +50,7 @@ class K8sOperatorLive(k8sClient: K8sClient) extends K8sOperator {
         case e        => RequestK8sApiErr(e)
       }
 
-  override def getServiceSpec(name: String, namespace: String): IO[K8sErr, ServiceSpec] =
+  override def getServiceSpec(name: String, namespace: String): IO[ServiceNotFound | RequestK8sApiErr, ServiceSpec] =
     k8sClient.services
       .get(name, namespace)
       .flatMap(_.getSpec)
@@ -59,7 +59,7 @@ class K8sOperatorLive(k8sClient: K8sClient) extends K8sOperator {
         case e        => RequestK8sApiErr(e)
       }
 
-  override def getPodSpec(name: String, namespace: String): IO[K8sErr, PodSpec] =
+  override def getPodSpec(name: String, namespace: String): IO[PodNotFound | RequestK8sApiErr, PodSpec] =
     k8sClient.pods
       .get(name, namespace)
       .flatMap(_.getSpec)
@@ -68,7 +68,7 @@ class K8sOperatorLive(k8sClient: K8sClient) extends K8sOperator {
         case e        => RequestK8sApiErr(e)
       }
 
-  override def getConfigMapsData(name: String, namespace: String): IO[K8sErr, Map[String, String]] =
+  override def getConfigMapsData(name: String, namespace: String): IO[ConfigMapNotFound | RequestK8sApiErr, Map[String, String]] =
     k8sClient.configMaps
       .get(name, namespace)
       .mapBoth(
@@ -88,7 +88,7 @@ class K8sOperatorLive(k8sClient: K8sClient) extends K8sOperator {
       containerName: Option[String],
       follow: Boolean,
       tailLines: Option[Int],
-      sinceSec: Option[Int]): ZStream[Any, K8sErr, String] =
+      sinceSec: Option[Int]): ZStream[Any, PodNotFound | RequestK8sApiErr, String] =
     k8sClient.pods
       .getLog(
         name = podName,

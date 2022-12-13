@@ -13,7 +13,7 @@ import scala.util.control.NoStackTrace
 /**
  * Kubernetes operation error.
  */
-abstract class K8sErr(msg: String, cause: Throwable = SilentErr) extends Exception(msg, cause)
+sealed abstract class K8sErr(msg: String, cause: Throwable = SilentErr) extends Exception(msg, cause)
 
 object K8sErr:
   case class DirectRequestK8sApiErr(cause: Throwable)                   extends K8sErr("Request k8s api failure", cause)
