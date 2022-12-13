@@ -41,6 +41,7 @@ lazy val commonSettings = Seq(
       url = new URL("https://github.com/Al-assad")
     )),
   ThisBuild / scalaVersion := scala3,
+  ThisBuild / scalacOptions ++= Seq("-Xmax-inlines", "64"),
   ThisBuild / javacOptions ++= Seq("-source", javaVer, "-target", javaVer),
   libraryDependencies ++= Seq(
     "dev.zio"       %% "zio"                   % zioVer,
