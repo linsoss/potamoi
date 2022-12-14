@@ -84,21 +84,18 @@ lazy val potaCommon = (project in file("potamoi-common"))
   .settings(
     name := "potamoi-common",
     libraryDependencies ++= Seq(
-      "dev.zio"                       %% "zio-http"                % zioHttpVer exclude ("dev.zio", "zio_3") exclude ("dev.zio", "zio-streams_3"),
-      "dev.zio"                       %% "zio-direct"              % zioDirectVer exclude ("com.lihaoyi", "geny_2.13"),
-      "com.lihaoyi"                   %% "upickle"                 % upickleVer,
-      "com.lihaoyi"                   %% "pprint"                  % pprintVer,
-      "com.softwaremill.quicklens"    %% "quicklens"               % quicklensVer,
-      "com.softwaremill.sttp.client3" %% "core"                    % sttpVer,
-      "com.softwaremill.sttp.client3" %% "zio-json"                % sttpVer,
-      "com.softwaremill.sttp.client3" %% "zio"                     % sttpVer,
-      "com.softwaremill.sttp.client3" %% "slf4j-backend"           % sttpVer,
-      "joda-time"                      % "joda-time"               % jodaTimeVer,
-      "io.getquill"                   %% "quill-jdbc-zio"          % quillVer exclude ("com.lihaoyi", "geny_2.13"),
-      "org.postgresql"                 % "postgresql"              % postgresVer,
-      "com.devsisters"                %% "shardcake-manager"       % shardcakeVer,
-      "com.devsisters"                %% "shardcake-entities"      % shardcakeVer,
-      "com.devsisters"                %% "shardcake-protocol-grpc" % shardcakeVer,
+      "dev.zio"                       %% "zio-http"       % zioHttpVer exclude ("dev.zio", "zio_3") exclude ("dev.zio", "zio-streams_3"),
+      "dev.zio"                       %% "zio-direct"     % zioDirectVer exclude ("com.lihaoyi", "geny_2.13"),
+      "com.lihaoyi"                   %% "upickle"        % upickleVer,
+      "com.lihaoyi"                   %% "pprint"         % pprintVer,
+      "com.softwaremill.quicklens"    %% "quicklens"      % quicklensVer,
+      "com.softwaremill.sttp.client3" %% "core"           % sttpVer,
+      "com.softwaremill.sttp.client3" %% "zio-json"       % sttpVer,
+      "com.softwaremill.sttp.client3" %% "zio"            % sttpVer,
+      "com.softwaremill.sttp.client3" %% "slf4j-backend"  % sttpVer,
+      "joda-time"                      % "joda-time"      % jodaTimeVer,
+      "io.getquill"                   %% "quill-jdbc-zio" % quillVer exclude ("com.lihaoyi", "geny_2.13"),
+      "org.postgresql"                 % "postgresql"     % postgresVer
     )
   )
 
@@ -123,8 +120,23 @@ lazy val potaFs = (project in file("potamoi-fs"))
     )
   )
 
+lazy val potaSharding = (project in file("potamoi-sharding"))
+  .dependsOn(potaLogger, potaCommon, potaKubernetes)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-sharding",
+    libraryDependencies ++= Seq(
+      "com.devsisters" %% "shardcake-manager"            % shardcakeVer,
+      "com.devsisters" %% "shardcake-entities"           % shardcakeVer,
+      "com.devsisters" %% "shardcake-protocol-grpc"      % shardcakeVer,
+      "com.devsisters" %% "shardcake-serialization-kryo" % shardcakeVer,
+      "com.devsisters" %% "shardcake-storage-redis"      % shardcakeVer,
+      "com.devsisters" %% "shardcake-health-k8s"         % shardcakeVer
+    )
+  )
+
 lazy val potaFlink = (project in file("potamoi-flink"))
-  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs, potaFlinkShare)
+  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs, potaSharding, potaFlinkShare)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink",

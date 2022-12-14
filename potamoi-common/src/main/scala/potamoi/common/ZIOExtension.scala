@@ -56,4 +56,9 @@ object ZIOExtension {
   def usingAttemptBlocking[RS <: AutoCloseable](code: => RS): ZIO[Scope, Throwable, RS] =
     ZIO.acquireRelease(ZIO.attemptBlockingInterrupt(code))(close)
 
+  /**
+   * Convert product to a [[ZLayer]].
+   */
+  extension [A <: Product: Tag](product: A) def asLayer: ULayer[A] = ZLayer.succeed(product)
+
 }
