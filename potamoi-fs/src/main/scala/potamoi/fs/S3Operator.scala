@@ -33,7 +33,7 @@ trait S3Operator:
 
 object S3Operator:
 
-  val live: ZLayer[S3Conf, Nothing, S3Operator] = ZLayer(ZIO.service[S3Conf].map(S3OperatorLive(_)))
+  lazy val live: ZLayer[S3Conf, Nothing, S3Operator] = ZLayer(ZIO.service[S3Conf].map(S3OperatorLive(_)))
 
   def remove(s3Path: String): ZIO[S3Operator, S3Err, Unit]                       = ZIO.serviceWithZIO[S3Operator](_.remove(s3Path))
   def exists(s3Path: String): ZIO[S3Operator, S3Err, Boolean]                    = ZIO.serviceWithZIO[S3Operator](_.exists(s3Path))
