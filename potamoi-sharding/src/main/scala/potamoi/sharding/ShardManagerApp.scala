@@ -2,18 +2,16 @@ package potamoi.sharding
 
 import com.devsisters.shardcake.*
 import com.devsisters.shardcake.interfaces.*
+import potamoi.logger.PotaLogger
+import potamoi.zios.asLayer
 import zio.*
 
-object ShardManagerApp {
+/**
+ * Shardcake manager app.
+ * todo read config from hocon and env.
+ */
+object ShardManagerApp extends ZIOAppDefault:
 
-  def run: Task[Nothing] =
-    Server.run.provide(
-      ZLayer.succeed(ManagerConfig.default),
-      ZLayer.succeed(GrpcConfig.default),
-      PodsHealth.local,
-      GrpcPods.live,
-      Storage.memory,
-      ShardManager.live
-    )
+  override val bootstrap = PotaLogger.default
 
-}
+  def run = Server.run.provide(ShardManagerConf().asLayer, ShardManagers.test)
