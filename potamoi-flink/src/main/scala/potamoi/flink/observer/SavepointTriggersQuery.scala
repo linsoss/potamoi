@@ -9,7 +9,7 @@ import scala.concurrent.duration.Duration
 /**
  * Flink Savepoint trigger observer.
  */
-trait SavepointTriggerQuery {
+trait SavepointTriggersQuery {
 
   /**
    * Get current savepoint trigger status of the flink job.

@@ -4,7 +4,7 @@ import com.coralogix.zio.k8s.model.apps.v1.DeploymentSpec
 import com.coralogix.zio.k8s.model.core.v1.{PodSpec, ServiceSpec}
 import potamoi.flink.model.Fcid
 import potamoi.flink.FlinkErr
-import potamoi.flink.model.{FK8sDeploymentSnap, FK8sPodMetrics, FK8sPodSnap, FK8sServiceSnap, FlinkK8sRef, FlinkK8sRefSnap}
+import potamoi.flink.model.{FlinkK8sDeploymentSnap, FlinkK8sPodMetrics, FlinkK8sPodSnap, FlinkK8sServiceSnap, FlinkK8sRef, FlinkK8sRefSnap}
 import zio.IO
 import zio.stream.Stream
 
@@ -18,14 +18,14 @@ trait K8sRefQuery {
   def listRefs: Stream[FlinkErr, FlinkK8sRef]
   def listRefSnapshots: Stream[FlinkErr, FlinkK8sRefSnap]
 
-  def listDeploymentSnaps(fcid: Fcid): IO[FlinkErr, List[FK8sDeploymentSnap]]
-  def listServiceSnaps(fcid: Fcid): IO[FlinkErr, List[FK8sServiceSnap]]
-  def listPodSnaps(fcid: Fcid): IO[FlinkErr, List[FK8sPodSnap]]
+  def listDeploymentSnaps(fcid: Fcid): IO[FlinkErr, List[FlinkK8sDeploymentSnap]]
+  def listServiceSnaps(fcid: Fcid): IO[FlinkErr, List[FlinkK8sServiceSnap]]
+  def listPodSnaps(fcid: Fcid): IO[FlinkErr, List[FlinkK8sPodSnap]]
   def listContainerNames(fcid: Fcid, podName: String): IO[FlinkErr, List[String]]
 
-  def getDeploymentSnap(fcid: Fcid, deployName: String): IO[FlinkErr, Option[FK8sDeploymentSnap]]
-  def getServiceSnap(fcid: Fcid, svcName: String): IO[FlinkErr, Option[FK8sServiceSnap]]
-  def getPodSnap(fcid: Fcid, podName: String): IO[FlinkErr, Option[FK8sPodSnap]]
+  def getDeploymentSnap(fcid: Fcid, deployName: String): IO[FlinkErr, Option[FlinkK8sDeploymentSnap]]
+  def getServiceSnap(fcid: Fcid, svcName: String): IO[FlinkErr, Option[FlinkK8sServiceSnap]]
+  def getPodSnap(fcid: Fcid, podName: String): IO[FlinkErr, Option[FlinkK8sPodSnap]]
   def getConfigMapNames(fcid: Fcid): IO[FlinkErr, List[String]]
 
   def getDeploymentSpec(fcid: Fcid, deployName: String): IO[FlinkErr, Option[DeploymentSpec]]
@@ -34,8 +34,8 @@ trait K8sRefQuery {
   def getConfigMapData(fcid: Fcid, configMapName: String): IO[FlinkErr, Map[String, String]]
   def listConfigMapData(fcid: Fcid): IO[FlinkErr, Map[String, String]]
 
-  def getPodMetrics(fcid: Fcid, podName: String): IO[FlinkErr, Option[FK8sPodMetrics]]
-  def listPodMetrics(fcid: Fcid): IO[FlinkErr, List[FK8sPodMetrics]]
+  def getPodMetrics(fcid: Fcid, podName: String): IO[FlinkErr, Option[FlinkK8sPodMetrics]]
+  def listPodMetrics(fcid: Fcid): IO[FlinkErr, List[FlinkK8sPodMetrics]]
 
   /**
    * Only for getting flink-main-container logs, side-car container logs should be obtained

@@ -21,8 +21,6 @@ trait JobsQuery {
   def getJobState(fjid: Fjid): IO[FlinkErr, Option[JobState]]
   def listJobState(fcid: Fcid): IO[FlinkErr, Map[JobId, JobState]]
 
-  // todo select function
-
   def getCurMetrics(fjid: Fjid): IO[FlinkErr, Option[FlinkJobMetrics]]
   def listCurMetrics(fcid: Fcid): IO[FlinkErr, List[FlinkJobMetrics]]
 

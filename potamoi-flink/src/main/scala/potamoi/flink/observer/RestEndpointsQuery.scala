@@ -8,7 +8,7 @@ import zio.stream.Stream
 /**
  * Flink cluster rest endpoint snapshot query layer.
  */
-trait RestEndpointQuery {
+trait RestEndpointsQuery {
 
   /**
    * Get Flink rest endpoint via kubernetes api.
