@@ -41,7 +41,7 @@ case class FlinkRestSvcEndpoint(svcName: String, svcNs: String, port: Int, clust
 
 object FlinkRestSvcEndpoint:
 
-  def of(svcSnap: FK8sServiceSnap): Option[FlinkRestSvcEndpoint] = {
+  def of(svcSnap: FlinkK8sServiceSnap): Option[FlinkRestSvcEndpoint] = {
     if (!svcSnap.isFlinkRestSvc) None
     else
       for {

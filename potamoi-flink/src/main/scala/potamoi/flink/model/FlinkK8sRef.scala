@@ -25,11 +25,11 @@ object FlinkK8sRef:
  * Flink referent kubernetes resources snapshot.
  */
 case class FlinkK8sRefSnap(
-    clusterId: String,
-    namespace: String,
-    deployment: List[FK8sDeploymentSnap],
-    service: List[FK8sServiceSnap],
-    pod: List[FK8sPodSnap])
+                            clusterId: String,
+                            namespace: String,
+                            deployment: List[FlinkK8sDeploymentSnap],
+                            service: List[FlinkK8sServiceSnap],
+                            pod: List[FlinkK8sPodSnap])
 
 object FlinkK8sRefSnap:
   given JsonCodec[FlinkK8sRefSnap] = DeriveJsonCodec.gen[FlinkK8sRefSnap]
@@ -46,7 +46,7 @@ object FlK8sComponentName:
  * Flink k8s deployment resource info snapshot.
  * converter: [[potamoi.flink.observer.K8sEntityConverter#toDeploymentSnap]]
  */
-case class FK8sDeploymentSnap(
+case class FlinkK8sDeploymentSnap(
     clusterId: String,
     namespace: String,
     name: String,
@@ -61,14 +61,14 @@ case class FK8sDeploymentSnap(
     createTime: Long,
     ts: Long = curTs)
 
-object FK8sDeploymentSnap:
-  given JsonCodec[FK8sDeploymentSnap] = DeriveJsonCodec.gen[FK8sDeploymentSnap]
+object FlinkK8sDeploymentSnap:
+  given JsonCodec[FlinkK8sDeploymentSnap] = DeriveJsonCodec.gen[FlinkK8sDeploymentSnap]
 
 /**
  * Flink k8s service resource info snapshot.
  * converter: [[potamoi.flink.observer.K8sEntityConverter#toServiceSnap]]
  */
-case class FK8sServiceSnap(
+case class FlinkK8sServiceSnap(
     clusterId: String,
     namespace: String,
     name: String,
@@ -82,7 +82,7 @@ case class FK8sServiceSnap(
 
 case class SvcPort(name: String, protocol: String, port: Int, targetPort: Int)
 
-object FK8sServiceSnap:
+object FlinkK8sServiceSnap:
   def apply(
       clusterId: String,
       namespace: String,
@@ -90,8 +90,8 @@ object FK8sServiceSnap:
       component: String,
       clusterIP: Option[String],
       ports: Set[SvcPort],
-      createTime: Long): FK8sServiceSnap =
-    FK8sServiceSnap(
+      createTime: Long): FlinkK8sServiceSnap =
+    FlinkK8sServiceSnap(
       clusterId = clusterId,
       namespace = namespace,
       name = name,
@@ -104,13 +104,13 @@ object FK8sServiceSnap:
       ts = curTs
     )
   given JsonCodec[SvcPort]         = DeriveJsonCodec.gen[SvcPort]
-  given JsonCodec[FK8sServiceSnap] = DeriveJsonCodec.gen[FK8sServiceSnap]
+  given JsonCodec[FlinkK8sServiceSnap] = DeriveJsonCodec.gen[FlinkK8sServiceSnap]
 
 /**
  * Flink k8s pod resource info snapshot.
  * converter: [[potamoi.flink.observer.K8sEntityConverter#toPodSnap]]
  */
-case class FK8sPodSnap(
+case class FlinkK8sPodSnap(
     clusterId: String,
     namespace: String,
     name: String,
@@ -138,16 +138,16 @@ case class PodContainerSnap(
     memoryLimit: Option[K8sQuantity],
     memoryRequest: Option[K8sQuantity])
 
-object FK8sPodSnap:
+object FlinkK8sPodSnap:
   import potamoi.kubernetes.model.ContainerStates.given
   import potamoi.kubernetes.model.PodPhases.given
   given JsonCodec[PodContainerSnap] = DeriveJsonCodec.gen[PodContainerSnap]
-  given JsonCodec[FK8sPodSnap]      = DeriveJsonCodec.gen[FK8sPodSnap]
+  given JsonCodec[FlinkK8sPodSnap]      = DeriveJsonCodec.gen[FlinkK8sPodSnap]
 
 /**
  * Flink k8s pod metrics.
  */
-case class FK8sPodMetrics(clusterId: String, namespace: String, name: String, metrics: PodMetrics)
+case class FlinkK8sPodMetrics(clusterId: String, namespace: String, name: String, metrics: PodMetrics)
 
-object FK8sPodMetrics:
-  given JsonCodec[FK8sPodMetrics] = DeriveJsonCodec.gen[FK8sPodMetrics]
+object FlinkK8sPodMetrics:
+  given JsonCodec[FlinkK8sPodMetrics] = DeriveJsonCodec.gen[FlinkK8sPodMetrics]

@@ -12,6 +12,15 @@ object FlinkErr:
   case class ClusterNotFound(fcid: Fcid) extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
 
 /**
+ * Data storage operation err.
+ */
+sealed abstract class DataStorageErr(msg: String, cause: Throwable) extends FlinkErr(msg, cause)
+
+object DataStorageErr:
+  case class ReadDataErr(cause: Throwable)   extends DataStorageErr("Fail to read data from storage", cause)
+  case class UpdateDataErr(cause: Throwable) extends DataStorageErr("Fail to update data to storage", cause)
+
+/**
  * Flink rest api error
  */
 sealed abstract class FlinkRestErr(msg: String, cause: Throwable = SilentErr) extends FlinkErr(msg, cause)
