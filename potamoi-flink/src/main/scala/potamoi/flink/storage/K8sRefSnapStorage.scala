@@ -28,6 +28,7 @@ object K8sDeploymentSnapStorage {
   trait Query:
     def get(fcid: Fcid, deployName: String): IO[DataStorageErr, Option[FlinkK8sDeploymentSnap]]
     def list(fcid: Fcid): IO[DataStorageErr, List[FlinkK8sDeploymentSnap]]
+    def listName(fcid: Fcid): IO[DataStorageErr, List[String]]
 }
 
 /**
@@ -44,6 +45,7 @@ object K8sServiceSnapStorage {
   trait Query:
     def get(fcid: Fcid, svcName: String): IO[DataStorageErr, Option[FlinkK8sServiceSnap]]
     def list(fcid: Fcid): IO[DataStorageErr, List[FlinkK8sServiceSnap]]
+    def listName(fcid: Fcid): IO[DataStorageErr, List[String]]
 }
 
 /**
@@ -60,6 +62,7 @@ object K8sPodSnapStorage {
   trait Query:
     def get(fcid: Fcid, podName: String): IO[DataStorageErr, Option[FlinkK8sPodSnap]]
     def list(fcid: Fcid): IO[DataStorageErr, List[FlinkK8sPodSnap]]
+    def listName(fcid: Fcid): IO[DataStorageErr, List[String]]
 }
 
 /**
@@ -76,4 +79,5 @@ object K8sPodMetricsStorage {
   trait Query:
     def get(fcid: Fcid, podName: String): IO[DataStorageErr, Option[FlinkK8sPodMetrics]]
     def list(fcid: Fcid): IO[DataStorageErr, List[FlinkK8sPodMetrics]]
+    def listName(fcid: Fcid): IO[DataStorageErr, List[String]]
 }

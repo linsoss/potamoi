@@ -52,6 +52,7 @@ object TmDetailStorage {
   trait Modify:
     def put(tm: FlinkTmDetail): IO[DataStorageErr, Unit]
     def rm(fcid: Fcid): IO[DataStorageErr, Unit]
+    def rm(ftid: Ftid): IO[DataStorageErr, Unit]
 
   trait Query:
     def get(ftid: Ftid): IO[DataStorageErr, Option[FlinkTmDetail]]

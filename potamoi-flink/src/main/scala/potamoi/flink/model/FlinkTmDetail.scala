@@ -7,7 +7,9 @@ import zio.json.{DeriveJsonCodec, JsonCodec}
  * Flink task manager details.
  */
 case class FlinkTmDetail(
-    id: String,
+    clusterId: String,
+    namespace: String,
+    tmId: String,
     path: String,
     dataPort: Int,
     slotsNumber: Int,
@@ -16,7 +18,8 @@ case class FlinkTmDetail(
     freeResource: TmResource,
     hardware: TmHardware,
     memoryConfiguration: TmMemoryConfig,
-    ts: Long = curTs)
+    ts: Long = curTs):
+  lazy val ftid: Ftid = Ftid(clusterId, namespace, tmId)
 
 case class TmResource(
     cpuCores: Float,
@@ -48,4 +51,4 @@ object FlinkTmDetail:
   given JsonCodec[TmHardware]     = DeriveJsonCodec.gen[TmHardware]
   given JsonCodec[TmMemoryConfig] = DeriveJsonCodec.gen[TmMemoryConfig]
   given JsonCodec[FlinkTmDetail]  = DeriveJsonCodec.gen[FlinkTmDetail]
-  given Ordering[FlinkTmDetail]   = Ordering.by(_.id)
+  given Ordering[FlinkTmDetail]   = Ordering.by(e => (e.clusterId, e.namespace, e.tmId))
