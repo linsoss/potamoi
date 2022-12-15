@@ -18,12 +18,11 @@ object ClusterSnapMemoryStorage:
       jmMetricRef        <- Ref.make(mutable.Map.empty[Fcid, FlinkJmMetrics])
       tmRef              <- Ref.make(mutable.Map.empty[Ftid, FlinkTmDetail])
       tmDetailMetricsRef <- Ref.make(mutable.Map.empty[Ftid, FlinkTmMetrics])
-    } yield new ClusterSnapStorage {
-      val overview: ClusterOverviewStorage = ClusterOverviewMemoryStorage(ovRef)
-      val jmMetrics: JmMetricsStorage      = JmMetricsMemoryStorage(jmMetricRef)
-      val tmDetail: TmDetailStorage        = TmDetailMemoryStorage(tmRef)
-      val tmMetrics: TmMetricStorage       = TmMetricMemoryStorage(tmDetailMetricsRef)
-    }
+    } yield new ClusterSnapStorage:
+      lazy val overview: ClusterOverviewStorage = ClusterOverviewMemoryStorage(ovRef)
+      lazy val jmMetrics: JmMetricsStorage      = JmMetricsMemoryStorage(jmMetricRef)
+      lazy val tmDetail: TmDetailStorage        = TmDetailMemoryStorage(tmRef)
+      lazy val tmMetrics: TmMetricStorage       = TmMetricMemoryStorage(tmDetailMetricsRef)
 
 class ClusterOverviewMemoryStorage(ref: Ref[mutable.Map[Fcid, FlinkClusterOverview]]) extends ClusterOverviewStorage:
   private val stg                                                       = MapBasedStg(ref)

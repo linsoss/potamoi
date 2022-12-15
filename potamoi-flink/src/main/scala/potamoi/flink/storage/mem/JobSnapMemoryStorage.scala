@@ -17,10 +17,9 @@ object JobSnapMemoryStorage:
     for {
       ovRef     <- Ref.make(mutable.Map.empty[Fjid, FlinkJobOverview])
       metricRef <- Ref.make(mutable.Map.empty[Fjid, FlinkJobMetrics])
-    } yield new JobSnapStorage {
-      val overview: JobOverviewStorage = JobOverviewMemoryStorage(ovRef)
-      val metrics: JobMetricsStorage   = JobMetricsMemoryStorage(metricRef)
-    }
+    } yield new JobSnapStorage:
+      lazy val overview: JobOverviewStorage = JobOverviewMemoryStorage(ovRef)
+      lazy val metrics: JobMetricsStorage   = JobMetricsMemoryStorage(metricRef)
 
 class JobOverviewMemoryStorage(ref: Ref[mutable.Map[Fjid, FlinkJobOverview]]) extends JobOverviewStorage:
   private val stg                                                        = MapBasedStg(ref)

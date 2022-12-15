@@ -8,9 +8,14 @@ import zio.stream.Stream
 /**
  * Flink job snapshot storage.
  */
-trait JobSnapStorage:
+trait JobSnapStorage extends JobSnapStorage.Query:
   def overview: JobOverviewStorage
   def metrics: JobMetricsStorage
+
+object JobSnapStorage:
+  trait Query:
+    def overview: JobOverviewStorage.Query
+    def metrics: JobMetricsStorage.Query
 
 /**
  * Storage for flink job overview.

@@ -2,7 +2,14 @@ package potamoi.flink.storage.mem
 
 import potamoi.flink.DataStorageErr
 import potamoi.flink.model.{Fcid, FlinkK8sDeploymentSnap, FlinkK8sPodMetrics, FlinkK8sPodSnap, FlinkK8sServiceSnap}
-import potamoi.flink.storage.{K8sDeploymentSnapStorage, K8sPodMetricsStorage, K8sPodSnapStorage, K8sRefSnapStorage, K8sServiceSnapStorage}
+import potamoi.flink.storage.{
+  K8sConfigmapNamesStorage,
+  K8sDeploymentSnapStorage,
+  K8sPodMetricsStorage,
+  K8sPodSnapStorage,
+  K8sRefSnapStorage,
+  K8sServiceSnapStorage
+}
 import zio.{stream, IO, Ref, UIO, ULayer, ZLayer}
 import zio.stream.{Stream, ZSink, ZStream}
 
@@ -18,12 +25,13 @@ object K8sRefSnapMemoryStorage:
       svcRef       <- Ref.make(mutable.Map.empty[(Fcid, String), FlinkK8sServiceSnap])
       podRef       <- Ref.make(mutable.Map.empty[(Fcid, String), FlinkK8sPodSnap])
       podMetricRef <- Ref.make(mutable.Map.empty[(Fcid, String), FlinkK8sPodMetrics])
-    } yield new K8sRefSnapStorage {
-      val deployment: K8sDeploymentSnapStorage = K8sDeploymentSnapMemoryStorage(deployRef)
-      val service: K8sServiceSnapStorage       = K8sServiceSnapMemoryStorage(svcRef)
-      val pod: K8sPodSnapStorage               = K8sPodSnapMemoryStorage(podRef)
-      val podMetrics: K8sPodMetricsStorage     = K8sPodMetricsMemoryStorage(podMetricRef)
-    }
+      configmapRef <- Ref.make(mutable.Set.empty[(Fcid, String)])
+    } yield new K8sRefSnapStorage:
+      lazy val deployment: K8sDeploymentSnapStorage = K8sDeploymentSnapMemoryStorage(deployRef)
+      lazy val service: K8sServiceSnapStorage       = K8sServiceSnapMemoryStorage(svcRef)
+      lazy val pod: K8sPodSnapStorage               = K8sPodSnapMemoryStorage(podRef)
+      lazy val podMetrics: K8sPodMetricsStorage     = K8sPodMetricsMemoryStorage(podMetricRef)
+      lazy val configmap: K8sConfigmapNamesStorage  = K8sConfigmapNamesMemoryStorage(configmapRef)
 
 class K8sDeploymentSnapMemoryStorage(ref: Ref[mutable.Map[(Fcid, String), FlinkK8sDeploymentSnap]]) extends K8sDeploymentSnapStorage:
   private val stg                                                                             = MapBasedStg(ref)
@@ -60,3 +68,9 @@ class K8sPodMetricsMemoryStorage(ref: Ref[mutable.Map[(Fcid, String), FlinkK8sPo
   def get(fcid: Fcid, podName: String): IO[DataStorageErr, Option[FlinkK8sPodMetrics]] = stg.get(fcid -> podName)
   def list(fcid: Fcid): IO[DataStorageErr, List[FlinkK8sPodMetrics]]                   = stg.getValues
   def listName(fcid: Fcid): IO[DataStorageErr, List[String]]                           = stg.getKeys.map(_.map(_._2))
+
+class K8sConfigmapNamesMemoryStorage(ref: Ref[mutable.Set[(Fcid, String)]]) extends K8sConfigmapNamesStorage:
+  def put(fcid: Fcid, configmapName: String): IO[DataStorageErr, Unit] = ref.update(_ += (fcid -> configmapName))
+  def rm(fcid: Fcid, configmapName: String): IO[DataStorageErr, Unit]  = ref.update(_ -= (fcid -> configmapName))
+  def rm(fcid: Fcid): IO[DataStorageErr, Unit]                         = ref.update(set => set.filter(_._1 == fcid).foldLeft(set)((ac, c) => ac -= c))
+  def listName(fcid: Fcid): IO[DataStorageErr, List[String]]           = ref.get.map(_.filter(_._1 == fcid).map(_._2).toList)
