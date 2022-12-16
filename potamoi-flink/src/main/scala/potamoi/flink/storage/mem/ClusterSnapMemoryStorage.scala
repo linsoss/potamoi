@@ -40,6 +40,7 @@ class JmMetricsMemoryStorage(ref: Ref[mutable.Map[Fcid, FlinkJmMetrics]]) extend
 class TmDetailMemoryStorage(ref: Ref[mutable.Map[Ftid, FlinkTmDetail]]) extends TmDetailStorage:
   private val stg                                                = MapBasedStg(ref)
   def put(tm: FlinkTmDetail): IO[DataStorageErr, Unit]           = stg.put(tm.ftid, tm)
+  def putAll(tm: List[FlinkTmDetail]): IO[DataStorageErr, Unit]  = stg.putAll(tm.map(tm => tm.ftid -> tm).toMap)
   def rm(ftid: Ftid): IO[DataStorageErr, Unit]                   = stg.delete(ftid)
   def rm(fcid: Fcid): IO[DataStorageErr, Unit]                   = stg.deleteByKey(_.fcid == fcid)
   def get(ftid: Ftid): IO[DataStorageErr, Option[FlinkTmDetail]] = stg.get(ftid)
@@ -55,3 +56,4 @@ class TmMetricMemoryStorage(ref: Ref[mutable.Map[Ftid, FlinkTmMetrics]]) extends
   def rm(fcid: Fcid): IO[DataStorageErr, Unit]                    = stg.deleteByKey(_.fcid == fcid)
   def get(ftid: Ftid): IO[DataStorageErr, Option[FlinkTmMetrics]] = stg.get(ftid)
   def list(fcid: Fcid): IO[DataStorageErr, List[FlinkTmMetrics]]  = stg.getByKey(_.fcid == fcid)
+  def listTmId(fcid: Fcid): IO[DataStorageErr, List[Ftid]]        = stg.getKeys.map(_.filter(_.fcid == fcid))

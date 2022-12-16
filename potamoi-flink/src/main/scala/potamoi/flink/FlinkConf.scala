@@ -30,6 +30,7 @@ object FlinkConf:
  * Flink cluster tracking config.
  */
 case class FlinkTrackConf(
+    @name("poll-parallelism") pollParallelism: Int = 16,
     @name("job-overview-poll-interval") jobOvPolling: Duration = 500.millis,
     @name("cluster-overview-poll-interval") clusterOvPolling: Duration = 500.millis,
     @name("tm-detail-poll-interval") tmdDetailPolling: Duration = 2.seconds,

@@ -58,6 +58,7 @@ trait TmDetailStorage extends TmDetailStorage.Modify with TmDetailStorage.Query
 object TmDetailStorage {
   trait Modify:
     def put(tm: FlinkTmDetail): IO[DataStorageErr, Unit]
+    def putAll(tm: List[FlinkTmDetail]): IO[DataStorageErr, Unit]
     def rm(fcid: Fcid): IO[DataStorageErr, Unit]
     def rm(ftid: Ftid): IO[DataStorageErr, Unit]
 
@@ -83,4 +84,5 @@ object TmMetricStorage {
   trait Query:
     def get(ftid: Ftid): IO[DataStorageErr, Option[FlinkTmMetrics]]
     def list(fcid: Fcid): IO[DataStorageErr, List[FlinkTmMetrics]]
+    def listTmId(fcid: Fcid): IO[DataStorageErr, List[Ftid]]
 }

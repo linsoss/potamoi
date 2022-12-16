@@ -25,6 +25,7 @@ trait JobOverviewStorage extends JobOverviewStorage.Modify with JobOverviewStora
 object JobOverviewStorage {
   trait Modify:
     def put(ov: FlinkJobOverview): IO[DataStorageErr, Unit]
+    def putAll(ovs: List[FlinkJobOverview]): IO[DataStorageErr, Unit]
     def rm(fjid: Fjid): IO[DataStorageErr, Unit]
     def rm(fcid: Fcid): IO[DataStorageErr, Unit]
 
@@ -54,4 +55,5 @@ object JobMetricsStorage {
   trait Query:
     def get(fjid: Fjid): IO[DataStorageErr, Option[FlinkJobMetrics]]
     def list(fcid: Fcid): IO[DataStorageErr, List[FlinkJobMetrics]]
+    def listJobId(fcid: Fcid): IO[DataStorageErr, List[Fjid]]
 }

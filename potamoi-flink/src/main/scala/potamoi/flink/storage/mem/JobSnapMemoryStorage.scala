@@ -24,6 +24,7 @@ object JobSnapMemoryStorage:
 class JobOverviewMemoryStorage(ref: Ref[mutable.Map[Fjid, FlinkJobOverview]]) extends JobOverviewStorage:
   private val stg                                                        = MapBasedStg(ref)
   def put(ov: FlinkJobOverview): IO[DataStorageErr, Unit]                = stg.put(ov.fjid, ov)
+  def putAll(ovs: List[FlinkJobOverview]): IO[DataStorageErr, Unit]      = stg.putAll(ovs.map(ov => ov.fjid -> ov).toMap)
   def rm(fjid: Fjid): IO[DataStorageErr, Unit]                           = stg.delete(fjid)
   def rm(fcid: Fcid): IO[DataStorageErr, Unit]                           = stg.deleteByKey(_.fcid == fcid)
   def get(fjid: Fjid): IO[DataStorageErr, Option[FlinkJobOverview]]      = stg.get(fjid)
@@ -41,3 +42,4 @@ case class JobMetricsMemoryStorage(ref: Ref[mutable.Map[Fjid, FlinkJobMetrics]])
   def rm(fcid: Fcid): IO[DataStorageErr, Unit]                     = stg.deleteByKey(_.fcid == fcid)
   def get(fjid: Fjid): IO[DataStorageErr, Option[FlinkJobMetrics]] = stg.get(fjid)
   def list(fcid: Fcid): IO[DataStorageErr, List[FlinkJobMetrics]]  = stg.getByKey(_.fcid == fcid)
+  def listJobId(fcid: Fcid): IO[DataStorageErr, List[Fjid]]        = stg.getKeys.map(_.filter(_.fcid == fcid))

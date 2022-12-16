@@ -22,6 +22,7 @@ package object mem:
     def streamValues: Stream[Nothing, Value] = ZStream.fromIterableZIO(ref.get.map(_.values))
 
     def put(key: Key, value: Value): UIO[Unit] = ref.get.map(_ += (key -> value))
+    def putAll(kv: Map[Key, Value]): UIO[Unit] = ref.get.map(_ ++= kv)
     def delete(key: Key): UIO[Unit]            = ref.get.map(_ -= key)
 
     def deleteByKey(f: Key => Boolean): UIO[Unit] = ref.update { map =>
