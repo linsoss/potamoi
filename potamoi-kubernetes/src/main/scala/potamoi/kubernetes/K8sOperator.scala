@@ -55,7 +55,8 @@ trait K8sOperator {
 
 object K8sOperator {
 
-  lazy val live: ZLayer[K8sConf, Throwable, K8sOperatorLive] = (ZLayer.service[K8sConf] >>> K8sClient.live).project(K8sOperatorLive(_))
+  lazy val live: ZLayer[K8sClient, Throwable, K8sOperatorLive] = ZLayer.service[K8sClient].project(K8sOperatorLive(_))
+  lazy val clive: ZLayer[K8sConf, Throwable, K8sOperatorLive]  = ZLayer.service[K8sConf] >>> K8sClient.live >>> live
 
   def client: ZIO[K8sOperator, Nothing, K8sClient] =
     ZIO.serviceWithZIO[K8sOperator](_.client)

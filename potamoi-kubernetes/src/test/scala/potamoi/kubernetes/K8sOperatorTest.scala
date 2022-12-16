@@ -5,7 +5,7 @@ import potamoi.zios.*
 
 object K8sOperatorTest:
 
-  val layer = K8sConf.default >>> K8sOperator.live
+  val layer = K8sConf.default >>> K8sOperator.clive
 
   @main def testGetPodMetrics = zioRun {
     K8sOperator
