@@ -21,7 +21,7 @@ import scala.collection.mutable
 import scala.util.hashing.MurmurHash3
 
 /**
- * Flink cluster tracker.
+ * Flink cluster snapshot tracker.
  */
 object FlinkClusterTracker {
   sealed trait Cmd
