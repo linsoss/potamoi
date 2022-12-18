@@ -21,7 +21,7 @@ object ZIOExtension {
     Unsafe.unsafe { implicit u =>
       Runtime.default.unsafe.runToFuture(zio.mapError {
         case e: Throwable => e
-        case e            => FutureException[E](e)
+        case e            => FutureErr[E](e)
       })
     }
 
@@ -60,5 +60,6 @@ object ZIOExtension {
    * Convert product to a [[ZLayer]].
    */
   extension [A <: Product: Tag](product: A) def asLayer: ULayer[A] = ZLayer.succeed(product)
-
 }
+
+final case class FutureErr[T](reason: T) extends Err(toPrettyString(reason))

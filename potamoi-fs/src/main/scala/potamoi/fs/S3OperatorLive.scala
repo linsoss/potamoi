@@ -17,7 +17,7 @@ class S3OperatorLive(s3Conf: S3Conf) extends S3Operator:
     .credentials(s3Conf.accessKey, s3Conf.secretKey)
     .build()
 
-  override def download(s3Path: String, targetPath: String): IO[IOErr | DownloadObjErr, File] =
+  override def download(s3Path: String, targetPath: String): IO[IOErr | DownloadObjOperationErr, File] =
     for {
       objectName <- extractObjectName(s3Path)
       _ <- lfs
@@ -36,11 +36,11 @@ class S3OperatorLive(s3Conf: S3Conf) extends S3Operator:
           )
           new File(targetPath)
         }
-        .mapError(DownloadObjErr(s3Path, objectName, s3Conf, _))
+        .mapError(DownloadObjOperationErr(s3Path, objectName, s3Conf, _))
       file <- ZIO.succeed(File(targetPath))
     } yield file
 
-  override def upload(filePath: String, s3Path: String, contentType: String): IO[FileNotFound | UploadObjErr, Unit] =
+  override def upload(filePath: String, s3Path: String, contentType: String): IO[FileNotFound | UploadObjOperationErr, Unit] =
     for {
       _ <- ZIO
         .succeed(File(filePath).contra(f => f.exists() && f.isFile))
@@ -57,10 +57,10 @@ class S3OperatorLive(s3Conf: S3Conf) extends S3Operator:
               .contentType(contentType)
               .build())
         }
-        .mapError(UploadObjErr(s3Path, objectName, s3Conf, _))
+        .mapError(UploadObjOperationErr(s3Path, objectName, s3Conf, _))
     } yield ()
 
-  override def remove(s3Path: String): IO[RemoveObjErr, Unit] =
+  override def remove(s3Path: String): IO[RemoveObjOperationErr, Unit] =
     extractObjectName(s3Path).flatMap { objectName =>
       ZIO
         .attemptBlockingInterrupt {
@@ -72,10 +72,10 @@ class S3OperatorLive(s3Conf: S3Conf) extends S3Operator:
               .build()
           )
         }
-        .mapError(RemoveObjErr(s3Path, objectName, s3Conf, _))
+        .mapError(RemoveObjOperationErr(s3Path, objectName, s3Conf, _))
     }
 
-  override def exists(s3Path: String): IO[GetObjErr, Boolean] =
+  override def exists(s3Path: String): IO[GetObjOperationErr, Boolean] =
     extractObjectName(s3Path).flatMap { objectName =>
       ZIO
         .attemptBlockingInterrupt {
@@ -89,7 +89,7 @@ class S3OperatorLive(s3Conf: S3Conf) extends S3Operator:
         }
         .as(true)
         .catchSome { case e: ErrorResponseException if e.errorResponse().code() == "NoSuchKey" => succeed(false) }
-        .mapError(GetObjErr(s3Path, objectName, s3Conf, _))
+        .mapError(GetObjOperationErr(s3Path, objectName, s3Conf, _))
     }
 
   private def extractObjectName(s3Path: String): UIO[String] = ZIO.succeed {

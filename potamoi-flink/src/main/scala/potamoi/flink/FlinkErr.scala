@@ -1,12 +1,12 @@
 package potamoi.flink
 
-import potamoi.common.SilentErr
+import potamoi.common.Err
 import potamoi.flink.model.Fcid
 
 /**
  * Flink error.
  */
-sealed abstract class FlinkErr(msg: String, cause: Throwable = SilentErr) extends Throwable
+sealed abstract class FlinkErr(msg: String, cause: Throwable = null) extends Err(msg, cause)
 
 object FlinkErr:
   case class ClusterNotFound(fcid: Fcid) extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
@@ -23,11 +23,22 @@ object DataStorageErr:
 /**
  * Flink rest api error
  */
-sealed abstract class FlinkRestErr(msg: String, cause: Throwable = SilentErr) extends FlinkErr(msg, cause)
+sealed abstract class FlinkRestErr(msg: String, cause: Throwable = null) extends FlinkErr(msg, cause)
 
 object FlinkRestErr:
-  case class RequestApiErr(method: String, uri: String, cause: Throwable) extends FlinkRestErr(s"Fail to request flink rest api: $method $uri", cause)
-  case class JarNotFound(jarId: String)                                   extends FlinkRestErr(s"Flink jar not found: $jarId")
-  case class JobNotFound(jobId: String)                                   extends FlinkRestErr(s"Flink job not found: $jobId")
-  case class TriggerNotFound(triggerId: String)                           extends FlinkRestErr(s"Flink trigger not found: $triggerId")
-  case class TaskmanagerNotFound(tmId: String)                            extends FlinkRestErr(s"Flink task manager not found: $tmId")
+  case class JarNotFound(jarId: String)         extends FlinkRestErr(s"Flink jar not found: jarId=$jarId")
+  case class JobNotFound(jobId: String)         extends FlinkRestErr(s"Flink job not found: jarId=$jobId")
+  case class TriggerNotFound(triggerId: String) extends FlinkRestErr(s"Flink trigger not found: triggerId=$triggerId")
+  case class TaskmanagerNotFound(tmId: String)  extends FlinkRestErr(s"Flink task manager not found: tmId=$tmId")
+  case class RequestApiErr(method: String, uri: String, cause: Throwable)
+      extends FlinkRestErr(s"Fail to request flink rest api: method=$method, uri=$uri", cause)
+
+/**
+ * Flink ref k8s entity conversion error.
+ */
+sealed abstract class K8sEntityConvertErr(msg: String) extends FlinkErr(msg)
+
+object K8sEntityConvertErr:
+  case object IllegalK8sServiceEntity    extends K8sEntityConvertErr("Fail to convert kubernetes service entity")
+  case object IllegalK8sDeploymentEntity extends K8sEntityConvertErr("Fail to convert kubernetes deployment entity")
+  case object IllegalK8sPodEntity        extends K8sEntityConvertErr("Fail to convert kubernetes pod entity")

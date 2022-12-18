@@ -4,7 +4,7 @@ import com.coralogix.zio.k8s.client.config.httpclient.k8sDefault
 import com.coralogix.zio.k8s.client.kubernetes.Kubernetes
 import com.coralogix.zio.k8s.client.{CodingFailure, DeserializationFailure, K8sFailure, RequestFailure}
 import io.circe.Errors
-import potamoi.common.SilentErr
+import potamoi.common.Err
 import potamoi.syntax.*
 import zio.ZIOAppDefault
 
@@ -13,11 +13,11 @@ import scala.util.control.NoStackTrace
 /**
  * Kubernetes operation error.
  */
-sealed abstract class K8sErr(msg: String, cause: Throwable = SilentErr) extends Exception(msg, cause)
+sealed abstract class K8sErr(msg: String, cause: Throwable = null) extends Err(msg, cause)
 
 object K8sErr:
-  case class DirectRequestK8sApiErr(cause: Throwable)                   extends K8sErr("Request k8s api failure", cause)
   case class RequestK8sApiErr(k8sFailure: K8sFailure, cause: Throwable) extends K8sErr(s"Request k8s api failure: ${k8sFailure.toPrettyStr}", cause)
+  case class DirectRequestK8sApiErr(cause: Throwable)                   extends K8sErr("Request k8s api failure", cause)
   case class DeploymentNotFound(name: String, namespace: String)        extends NotFound("Deployment", name, namespace)
   case class ServiceNotFound(name: String, namespace: String)           extends NotFound("Service", name, namespace)
   case class PodNotFound(name: String, namespace: String)               extends NotFound("Pod", name, namespace)
@@ -32,6 +32,6 @@ object K8sErr:
         case CodingFailure(_, failure)         => failure
         case RequestFailure(_, reason)         => reason
         case DeserializationFailure(_, errors) => Errors(errors)
-        case _                                 => SilentErr
-      RequestK8sApiErr(failure, cause)
+        case _                                 => null
+      new RequestK8sApiErr(failure, cause)
     }
