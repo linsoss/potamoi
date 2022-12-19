@@ -1,7 +1,7 @@
 package potamoi.flink.observer
 
 import potamoi.flink.model.Fcid
-import potamoi.flink.FlinkErr
+import potamoi.flink.{DataStorageErr, FlinkErr}
 import zio.{IO, Task}
 import zio.stream.Stream
 
@@ -29,10 +29,5 @@ trait TrackManager {
    * Listing tracked cluster id.
    */
   def listTrackedClusters: Stream[FlinkErr, Fcid]
-
-  /**
-   * Scan for potential flink clusters on the specified kubernetes namespace.
-   */
-  def scanK8sNamespace(namespace: String): Stream[FlinkErr, Fcid]
 
 }

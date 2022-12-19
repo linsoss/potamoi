@@ -1,4 +1,4 @@
-package potamoi.flink.tracker
+package potamoi.flink.observer.tracker
 
 import com.coralogix.zio.k8s.model.apps.v1.{Deployment, DeploymentCondition}
 import com.coralogix.zio.k8s.model.core.v1.{Container, ContainerStatus, Pod, PodCondition, Service, ServicePort}

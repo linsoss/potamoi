@@ -1,4 +1,4 @@
-package potamoi.flink.tracker
+package potamoi.flink.observer.tracker
 
 import com.coralogix.zio.k8s.client.model.{label, Added, Deleted, K8sNamespace, Modified, Reseted}
 import com.coralogix.zio.k8s.client.K8sFailure
@@ -6,15 +6,15 @@ import com.devsisters.shardcake.*
 import potamoi.common.Syntax.toPrettyString
 import potamoi.flink.FlinkConf
 import potamoi.flink.model.{Fcid, FlinkK8sPodMetrics, FlinkK8sServiceSnap, FlinkRestSvcEndpoint}
+import potamoi.flink.observer.tracker.K8sEntityConverter.*
 import potamoi.flink.storage.FlinkSnapshotStorage
-import potamoi.flink.tracker.K8sEntityConverter.*
 import potamoi.kubernetes.{K8sClient, K8sOperator}
 import potamoi.syntax.valueToSome
 import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import zio.*
 import zio.stream.ZStream
-import zio.ZIO.{logError, logInfo}
 import zio.Schedule.{recurWhile, spaced}
+import zio.ZIO.{logError, logInfo}
 import zio.ZIOAspect.annotated
 
 import scala.collection.mutable

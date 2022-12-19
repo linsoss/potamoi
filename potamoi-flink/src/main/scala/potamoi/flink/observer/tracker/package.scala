@@ -1,11 +1,11 @@
-package potamoi.flink
+package potamoi.flink.observer
 
 import potamoi.common.Syntax.toPrettyString
 import potamoi.flink.model.Fcid
 import potamoi.syntax.contra
+import zio.{Duration, IO, Ref, Schedule, UIO}
 import zio.ZIO.logError
 import zio.direct.*
-import zio.{Duration, IO, Ref, Schedule, UIO}
 
 package object tracker:
 

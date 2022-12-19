@@ -1,19 +1,19 @@
-package potamoi.flink.tracker
+package potamoi.flink.observer.tracker
 
 import com.devsisters.shardcake.*
-import potamoi.flink.model.{Fcid, Fjid, FlinkExecModes, FlinkJmMetrics, FlinkJobMetrics, FlinkRestSvcEndpoint, FlinkTmDetail, FlinkTmMetrics, Ftid}
-import potamoi.flink.observer.RestEndpointsQuery
 import potamoi.flink.{flinkRest, FlinkConf, FlinkRestEndpointType}
+import potamoi.flink.model.*
 import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExecModeKey}
 import potamoi.flink.storage.FlinkSnapshotStorage
 import potamoi.flink.FlinkErr.ClusterNotFound
+import potamoi.flink.observer.FlinkRestEndpointRetriever
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
-import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import potamoi.syntax.toPrettyStr
+import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import zio.*
 import zio.stream.ZStream
-import zio.ZIO.logInfo
 import zio.Schedule.{recurWhile, spaced}
+import zio.ZIO.logInfo
 import zio.ZIOAspect.annotated
 
 import scala.collection.mutable

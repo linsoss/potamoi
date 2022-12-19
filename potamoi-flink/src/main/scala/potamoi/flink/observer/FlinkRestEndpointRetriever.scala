@@ -1,4 +1,4 @@
-package potamoi.flink.tracker
+package potamoi.flink.observer
 
 import com.coralogix.zio.k8s.client.NotFound
 import potamoi.flink.FlinkErr

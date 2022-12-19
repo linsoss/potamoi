@@ -23,23 +23,6 @@ trait FlinkSnapshotStorage:
   def job: JobSnapStorage
   def k8sRef: K8sRefSnapStorage
 
-  lazy val narrowQuery: FlinkSnapshotQuery = new FlinkSnapshotQuery:
-    lazy val trackedList  = self.trackedList
-    lazy val restEndpoint = self.restEndpoint
-    lazy val cluster      = self.cluster
-    lazy val job          = self.job
-    lazy val k8sRef       = self.k8sRef
-
-/**
- * Flink snapshot information query.
- */
-trait FlinkSnapshotQuery:
-  def trackedList: TrackedFcidStorage.Query
-  def restEndpoint: RestEndpointStorage.Query
-  def cluster: ClusterSnapStorage.Query
-  def job: JobSnapStorage.Query
-  def k8sRef: K8sRefSnapStorage.Query
-
 object FlinkSnapshotStorage:
   lazy val test = memory
 
@@ -58,7 +41,3 @@ object FlinkSnapshotStorage:
       lazy val job          = jobs
       lazy val k8sRef       = k8sRefs
   }
-
-object FlinkSnapshotQuery:
-  lazy val live: ZLayer[FlinkSnapshotStorage, Nothing, FlinkSnapshotQuery] =
-    ZLayer.service[FlinkSnapshotStorage].project(_.narrowQuery)

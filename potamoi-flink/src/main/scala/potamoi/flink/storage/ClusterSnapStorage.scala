@@ -8,18 +8,11 @@ import zio.stream.Stream
 /**
  * Flink cluster snapshot storage.
  */
-trait ClusterSnapStorage extends ClusterSnapStorage.Query:
+trait ClusterSnapStorage:
   def overview: ClusterOverviewStorage
   def tmDetail: TmDetailStorage
   def jmMetrics: JmMetricsStorage
   def tmMetrics: TmMetricStorage
-
-object ClusterSnapStorage:
-  trait Query:
-    def overview: ClusterOverviewStorage.Query
-    def tmDetail: TmDetailStorage.Query
-    def jmMetrics: JmMetricsStorage.Query
-    def tmMetrics: TmMetricStorage.Query
 
 /**
  * Storage for flink overview, see: [[FlinkClusterOverview]]
