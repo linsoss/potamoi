@@ -5,6 +5,7 @@ import com.coralogix.zio.k8s.model.core.v1.{PodSpec, ServiceSpec}
 import potamoi.flink.model.{Fcid, Fjid, FlinkRestSvcEndpoint, FlinkSptTriggerStatus}
 import potamoi.flink.FlinkErr
 import potamoi.flink.observer.query.{FlinkClusterQuery, FlinkJobQuery, FlinkK8sRefQuery, FlinkRestEndpointQuery}
+import potamoi.flink.observer.tracker.TrackManager
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import zio.IO
 import zio.stream.Stream

@@ -1,7 +1,7 @@
-package potamoi.flink.observer
+package potamoi.flink.observer.tracker
 
-import potamoi.flink.model.Fcid
 import potamoi.flink.{DataStorageErr, FlinkErr}
+import potamoi.flink.model.Fcid
 import zio.{IO, Task}
 import zio.stream.Stream
 
