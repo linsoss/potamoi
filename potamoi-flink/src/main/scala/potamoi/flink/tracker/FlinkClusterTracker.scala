@@ -1,6 +1,6 @@
 package potamoi.flink.tracker
 
-import com.devsisters.shardcake.{EntityType, Replier, Sharding}
+import com.devsisters.shardcake.*
 import potamoi.flink.model.{Fcid, Fjid, FlinkExecModes, FlinkJmMetrics, FlinkJobMetrics, FlinkRestSvcEndpoint, FlinkTmDetail, FlinkTmMetrics, Ftid}
 import potamoi.flink.observer.RestEndpointsQuery
 import potamoi.flink.{flinkRest, FlinkConf, FlinkRestEndpointType}
@@ -10,10 +10,9 @@ import potamoi.flink.FlinkErr.ClusterNotFound
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import potamoi.syntax.toPrettyStr
-import zio.{durationInt, Dequeue, Fiber, IO, RIO, Ref, UIO, URIO, ZIO, ZIOAspect}
+import zio.*
 import zio.stream.ZStream
 import zio.ZIO.logInfo
-import zio.interop.Schedule
 import zio.Schedule.{recurWhile, spaced}
 import zio.ZIOAspect.annotated
 
@@ -93,14 +92,15 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       _              <- logInfo(s"Found flink rest endpoint: ${endpoint.toPrettyStr}")
       _              <- snapStg.restEndpoint.put(fcid, endpoint)
       clusterOvFiber <- pollClusterOverview(fcid).forkDaemon
-      tmDetailFiber  <- pollTmDetail(fcid).forkDaemon
-      jmMetricFiber  <- pollJmMetrics(fcid).forkDaemon
-      tmMetricFiber  <- pollTmMetrics(fcid).forkDaemon
-      jobOvFiber     <- pollJobOverview(fcid).forkDaemon
-      jobMetricFiber <- pollJobMetrics(fcid).forkDaemon
+      tmDetailFiber  <- pollTmDetail(fcid).fork
+      jmMetricFiber  <- pollJmMetrics(fcid).fork
+      tmMetricFiber  <- pollTmMetrics(fcid).fork
+      jobOvFiber     <- pollJobOverview(fcid).fork
+      jobMetricFiber <- pollJobMetrics(fcid).fork
       _              <- trackTaskFibers.update(_ ++= Set(clusterOvFiber, tmDetailFiber, jmMetricFiber, tmMetricFiber, jobOvFiber, jobMetricFiber))
     } yield ()
 
+  // noinspection DuplicatedCode
   private def clearTrackTaskFibers(pollFibers: Ref[mutable.Set[TrackTaskFiber]]) =
     for {
       fibers <- pollFibers.get
