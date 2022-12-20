@@ -107,5 +107,6 @@ class TrackManagerLive(
     stg.list.mapZIOParUnordered(parallelism)(getTrackersStatus)
 
   private def askStatus(io: Task[Boolean]) =
-    io.map(if _ then TrackerState.Running else TrackerState.Idle).catchAll(_ => ZIO.succeed(TrackerState.Unknown))
+    io.map(if _ then TrackerState.Running else TrackerState.Idle)
+      .catchAll(e => ZIO.logError(e.getMessage) *> ZIO.succeed(TrackerState.Unknown))
 }

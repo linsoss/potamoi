@@ -12,12 +12,12 @@ package object tracker:
   /**
    * Marshall Fcid as shardcake entity-id.
    */
-  def marshallFcid(fcid: Fcid) = s"${fcid.clusterId}@${fcid.namespace}"
+  def marshallFcid(fcid: Fcid): String = s"${fcid.clusterId}@${fcid.namespace}"
 
   /**
    * Unmarshall Fcid from shardcake entity-id.
    */
-  def unmarshallFcid(str: String) = str.split('@').contra(arr => arr(1) -> arr(2))
+  def unmarshallFcid(str: String): Fcid = str.split('@').contra(arr => arr(0) -> arr(1))
 
   /**
    * Cyclic trigger polling effect and recording of the first non-repeating error.

@@ -19,7 +19,7 @@ import potamoi.flink.observer.tracker.{TrackManager, TrackerManager}
 import potamoi.flink.storage.FlinkSnapshotStorage
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.kubernetes.K8sOperator
-import zio.{IO, URIO, ZIO}
+import zio.{IO, URIO, ZIO, ZLayer}
 import zio.stream.Stream
 
 import scala.concurrent.duration.Duration
@@ -37,7 +37,7 @@ trait FlinkObserver {
 
 object FlinkObserver {
 
-  val live: URIO[Sharding with FlinkSnapshotStorage with K8sOperator with FlinkConf, FlinkObserver] =
+  val live: ZLayer[Sharding with FlinkSnapshotStorage with K8sOperator with FlinkConf, Nothing, FlinkObserver] = ZLayer {
     for {
       flinkConf   <- ZIO.service[FlinkConf]
       k8sOperator <- ZIO.service[K8sOperator]
@@ -55,4 +55,5 @@ object FlinkObserver {
       lazy val cluster      = clusterQuery
       lazy val job          = jobQuery
       lazy val k8s          = k8sRefQuery
+  }
 }

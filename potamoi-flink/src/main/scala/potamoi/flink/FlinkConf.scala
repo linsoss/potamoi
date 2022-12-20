@@ -5,6 +5,7 @@ import potamoi.common.Codec.scalaDurationJsonCodec
 import potamoi.fs.PathTool
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
+import com.softwaremill.quicklens.modify
 
 import scala.concurrent.duration.{Duration, DurationInt}
 
@@ -25,6 +26,19 @@ object FlinkConf:
   given JsonCodec[Duration]       = scalaDurationJsonCodec
   given JsonCodec[FlinkTrackConf] = DeriveJsonCodec.gen[FlinkTrackConf]
   given JsonCodec[FlinkConf]      = DeriveJsonCodec.gen[FlinkConf]
+
+  val default = FlinkConf()
+  val test = FlinkConf()
+    .modify(_.tracking.tmdDetailPolling)
+    .setTo(500.millis)
+    .modify(_.tracking.jmMetricsPolling)
+    .setTo(500.millis)
+    .modify(_.tracking.tmMetricsPolling)
+    .setTo(500.millis)
+    .modify(_.tracking.jobMetricsPolling)
+    .setTo(500.millis)
+    .modify(_.tracking.k8sPodMetricsPolling)
+    .setTo(500.millis)
 
 /**
  * Flink cluster tracking config.

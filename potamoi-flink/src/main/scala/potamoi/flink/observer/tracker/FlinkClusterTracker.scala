@@ -12,7 +12,7 @@ import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced}
-import zio.ZIO.logInfo
+import zio.ZIO.{logErrorCause, logInfo}
 import zio.ZIOAspect.annotated
 
 import scala.collection.mutable
@@ -45,8 +45,8 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       isStarted      <- Ref.make(false)
       pollFiberRef   <- Ref.make(mutable.Set.empty[TrackTaskFiber])
       launchFiberRef <- Ref.make[Option[LaunchFiber]](None)
-      fcid = unmarshallFcid(entityId)
-      effect <- messages.take.flatMap(handleMessage(fcid, _, isStarted, launchFiberRef, pollFiberRef)).forever
+      fcid           <- ZIO.attempt(unmarshallFcid(entityId)).tapErrorCause(cause => ZIO.logErrorCause(s"Fail to unmarshall Fcid: entityId", cause))
+      effect         <- messages.take.flatMap(handleMessage(fcid, _, isStarted, launchFiberRef, pollFiberRef)).forever
     } yield effect
 
   private def handleMessage(
@@ -103,7 +103,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
   private def clearTrackTaskFibers(pollFibers: Ref[mutable.Set[TrackTaskFiber]]) =
     for {
       fibers <- pollFibers.get
-      _      <- fibers.map(_.interrupt).reduce(_ *> _)
+      _      <- ZIO.foreachDiscard(fibers)(_.interrupt)
       _      <- pollFibers.set(mutable.Set.empty)
     } yield ()
 
@@ -153,7 +153,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       curTmIds     = tmDetails.map(_.tmId).toSet
       removedTmIds = preTmIds diff curTmIds
 
-      _ <- removedTmIds.map(Ftid(fcid, _)).map(snapStg.cluster.tmDetail.rm(_)).reduce(_ *> _)
+      _ <- ZIO.foreachDiscard(removedTmIds.map(Ftid(fcid, _)))(snapStg.cluster.tmDetail.rm)
       _ <- tmIds.set(curTmIds)
       _ <- snapStg.cluster.tmDetail
         .putAll(tmDetails)
@@ -194,7 +194,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       preTmIds <- tmIds.get
 
       removedTmIds = preTmIds diff curTmIds
-      _ <- removedTmIds.map(Ftid(fcid, _)).map(snapStg.cluster.tmMetrics.rm(_)).reduce(_ *> _)
+      _ <- ZIO.foreachDiscard(removedTmIds.map(Ftid(fcid, _)))(snapStg.cluster.tmMetrics.rm)
       _ <- tmIds.set(curTmIds)
 
       _ <- ZStream
@@ -232,7 +232,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       curJobIds     = jobOvs.map(_.jid)
       deletedJobIds = preJobIds diff curJobIds
 
-      _ <- deletedJobIds.map(Fjid(fcid, _)).map(snapStg.job.overview.rm(_)).reduce(_ *> _)
+      _ <- ZIO.foreachDiscard(deletedJobIds.map(Fjid(fcid, _)))(snapStg.job.overview.rm)
       _ <- jobIds.set(curJobIds)
       _ <- snapStg.job.overview
         .putAll(jobOvs.map(_.toFlinkJobOverview(fcid)).toList)
@@ -262,7 +262,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       preJobIds <- jobIds.get
 
       removedJobIds = preJobIds diff curJobIds
-      _ <- removedJobIds.map(Fjid(fcid, _)).map(snapStg.job.metrics.rm(_)).reduce(_ *> _)
+      _ <- ZIO.foreachDiscard(removedJobIds.map(Fjid(fcid, _)))(snapStg.job.metrics.rm)
       _ <- jobIds.set(curJobIds)
 
       _ <- ZStream

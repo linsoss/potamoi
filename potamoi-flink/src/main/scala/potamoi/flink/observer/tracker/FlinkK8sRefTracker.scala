@@ -14,7 +14,7 @@ import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced}
-import zio.ZIO.{logError, logInfo}
+import zio.ZIO.{logError, logInfo, logWarning}
 import zio.ZIOAspect.annotated
 
 import scala.collection.mutable
@@ -45,7 +45,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
     for {
       isStarted         <- Ref.make(false)
       trackTaskFiberRef <- Ref.make(mutable.Set.empty[TrackTaskFiber])
-      fcid = unmarshallFcid(entityId)
+      fcid   <- ZIO.attempt(unmarshallFcid(entityId)).tapErrorCause(cause => ZIO.logErrorCause(s"Fail to unmarshall Fcid: entityId", cause))
       effect <- messages.take.flatMap(handleMessage(fcid, _, isStarted, trackTaskFiberRef)).forever
     } yield effect
 
@@ -83,7 +83,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
   private def clearTrackTaskFibers(pollFibers: Ref[mutable.Set[TrackTaskFiber]]) =
     for {
       fibers <- pollFibers.get
-      _      <- fibers.map(_.interrupt).reduce(_ *> _)
+      _      <- ZIO.foreachDiscard(fibers)(_.interrupt)
       _      <- pollFibers.set(mutable.Set.empty)
     } yield ()
 
