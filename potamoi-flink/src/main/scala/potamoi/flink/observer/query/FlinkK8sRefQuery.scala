@@ -39,6 +39,17 @@ trait FlinkK8sRefQuery {
    * Scan for potential flink clusters on the specified kubernetes namespace.
    */
   def scanK8sNamespace(namespace: String): Stream[FlinkErr, Fcid]
+
+  /**
+   * Only for getting flink-main-container logs, side-car container logs should be obtained
+   * through the [[K8sOperator.getPodLog()]].
+   */
+  def viewLog(
+      fcid: Fcid,
+      podName: String,
+      follow: Boolean = false,
+      tailLines: Option[Int] = None,
+      sinceSec: Option[Int] = None): ZStream[Any, FlinkErr, String]
 }
 
 trait FlinkK8sDeploymentQuery(stg: K8sDeploymentSnapStorage) extends K8sDeploymentSnapStorage.Query {
@@ -136,4 +147,19 @@ case class FlinkK8sRefQueryLive(storage: K8sRefSnapStorage, k8sOperator: K8sOper
     FlinkK8sRefSnap(fcid.clusterId, fcid.namespace, deploys, services, pods)
   }
 
+  override def viewLog(
+      fcid: Fcid,
+      podName: String,
+      follow: Boolean,
+      tailLines: Option[Int],
+      sinceSec: Option[Int]): ZStream[Any, FlinkErr, String] =
+    k8sOperator
+      .getPodLog(
+        podName = podName,
+        namespace = fcid.namespace,
+        containerName = Some("flink-main-container"),
+        follow = follow,
+        tailLines = tailLines,
+        sinceSec = sinceSec)
+      .mapError(FlinkErr.K8sFail.apply)
 }

@@ -14,6 +14,7 @@ import potamoi.syntax.*
 import potamoi.errs.{headMessage, recurse}
 import zio.Schedule.spaced
 import potamoi.flink.{watch, watchPretty, watchPrettyTag}
+import potamoi.flink.model.FlK8sComponentName.jobmanager
 import zio.Console.printLine
 
 object FlinkObserverTest {
@@ -162,4 +163,15 @@ object TestFlinkK8sRefQuery:
 
   @main def testScanK8sNamespace = testing { obr =>
     obr.k8s.scanK8sNamespace("fdev").runForeach(fcid => printLine(fcid.toPrettyStr))
+  }
+
+  @main def testViewLog = testing { obr =>
+    obr.manager.track(fcid1) *>
+    obr.k8s.pod
+      .list(fcid1)
+      .repeatUntil { pods => pods.exists(e => e.component == jobmanager) }
+      .map(pods => pods.find(e => e.component == jobmanager).get.name)
+      .flatMap { podName =>
+        obr.k8s.viewLog(fcid1, podName, follow = true).map(println).runDrain
+      }
   }
