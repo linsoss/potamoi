@@ -38,6 +38,7 @@ case class ShardManagerConf(
 object ShardManagerConf:
   import potamoi.common.Codec.scalaDurationJsonCodec
   given JsonCodec[ShardManagerConf] = DeriveJsonCodec.gen[ShardManagerConf]
+  val test                          = ShardManagerConf()
 
 /**
  * Shardcake sharding client configuration.
@@ -76,3 +77,4 @@ case class ShardingConf(
 object ShardingConf:
   import potamoi.common.Codec.scalaDurationJsonCodec
   given JsonCodec[ShardingConf] = DeriveJsonCodec.gen[ShardingConf]
+  val test                      = ShardingConf()
