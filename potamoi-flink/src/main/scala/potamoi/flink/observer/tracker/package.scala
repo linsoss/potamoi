@@ -35,3 +35,5 @@ package object tracker:
         .schedule(Schedule.spaced(spaced))
         .forever
     } yield loopEffect
+
+  case object Ack

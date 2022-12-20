@@ -24,8 +24,9 @@ import scala.collection.mutable
  */
 object FlinkK8sRefTracker {
   sealed trait Cmd
-  case object Start                               extends Cmd
-  case object Stop                                extends Cmd
+  case class Start(replier: Replier[Ack.type])    extends Cmd
+  case class Stop(replier: Replier[Ack.type])     extends Cmd
+  case object Terminate                           extends Cmd
   case class IsStarted(replier: Replier[Boolean]) extends Cmd
 
   object Entity extends EntityType[Cmd]("flinkK8sRefTracker")
@@ -55,7 +56,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
       isStarted: Ref[Boolean],
       trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]): RIO[Sharding with Scope, Unit] = {
     message match {
-      case Start =>
+      case Start(replier) =>
         isStarted.get.flatMap {
           case true => ZIO.unit
           case false =>
@@ -69,12 +70,18 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
               pollPodMetricsFiber <- pollPodMetrics(fcid).forkScoped
               _ <- trackTaskFiberRef.update(_ ++= Set(watchDeployFiber, watchSvcFiber, watchPodFiber, watchConfigmapFiber, pollPodMetricsFiber))
               _ <- isStarted.set(true)
+              _ <- replier.reply(Ack)
             } yield ()
         }
-      case Stop =>
-        logInfo(s"Flink k8s refs stopped: ${fcid.show}") *>
-        clearTrackTaskFibers(trackTaskFiberRef) *>
-        isStarted.set(false)
+      case Stop(replier) =>
+        logInfo(s"Flink k8s refs tracker stopped: ${fcid.show}") *>
+        stop(isStarted, trackTaskFiberRef) *>
+        replier.reply(Ack)
+
+      case Terminate =>
+        logInfo(s"Flink k8s refs tracker terminated: ${fcid.show}") *>
+        stop(isStarted, trackTaskFiberRef)
+
       case IsStarted(replier) => isStarted.get.flatMap(replier.reply)
     }
   } @@ ZIOAspect.annotated(fcid.toAnno*)
@@ -86,6 +93,11 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
       _      <- ZIO.foreachDiscard(fibers)(_.interrupt)
       _      <- pollFibers.set(mutable.Set.empty)
     } yield ()
+
+  private def stop(isStarted: Ref[Boolean], trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]) = {
+    clearTrackTaskFibers(trackTaskFiberRef) *>
+    isStarted.set(false)
+  }
 
   private def appSelector(fcid: Fcid) = label("app") === fcid.clusterId && label("type") === "flink-native-kubernetes"
 

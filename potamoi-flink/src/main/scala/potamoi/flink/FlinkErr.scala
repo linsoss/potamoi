@@ -12,9 +12,10 @@ import scala.concurrent.duration.Duration
 sealed abstract class FlinkErr(msg: String, cause: Throwable = null) extends Err(msg, cause)
 
 object FlinkErr:
-  case class ClusterNotFound(fcid: Fcid)     extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
-  case class WatchTimeout(timeout: Duration) extends FlinkErr(s"Watch timeout with ${timeout.toString}")
-  case class K8sFail(err: K8sErr)            extends FlinkErr(err.getMessage, err.getCause)
+  case class ClusterNotFound(fcid: Fcid)                       extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
+  case class WatchTimeout(timeout: Duration)                   extends FlinkErr(s"Watch timeout with ${timeout.toString}")
+  case class K8sFail(err: K8sErr)                              extends FlinkErr(err.getMessage, err.getCause)
+  case class ConnectShardErr(entity: String, cause: Throwable) extends FlinkErr(s"Connect shard entity fail: $entity", cause)
 
 /**
  * Flink snapshot data storage operation err.

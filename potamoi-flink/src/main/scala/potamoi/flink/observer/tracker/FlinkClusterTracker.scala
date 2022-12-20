@@ -23,8 +23,9 @@ import scala.util.hashing.MurmurHash3
  */
 object FlinkClusterTracker {
   sealed trait Cmd
-  case object Start                               extends Cmd
-  case object Stop                                extends Cmd
+  case class Start(replier: Replier[Ack.type])    extends Cmd
+  case class Stop(replier: Replier[Ack.type])     extends Cmd
+  case object Terminate                           extends Cmd
   case class IsStarted(replier: Replier[Boolean]) extends Cmd
 
   object Entity extends EntityType[Cmd]("flinkClusterTracker")
@@ -56,7 +57,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       launchFiberRef: Ref[Option[LaunchFiber]],
       trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]): RIO[Sharding with Scope, Unit] = {
     message match {
-      case Start =>
+      case Start(replier) =>
         isStarted.get.flatMap {
           case true => ZIO.unit
           case false =>
@@ -66,12 +67,16 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
               launchFiber <- launchTrackers(fcid, trackTaskFiberRef).forkScoped
               _           <- launchFiberRef.update(_ => Some(launchFiber))
               _           <- isStarted.set(true)
+              _           <- replier.reply(Ack)
             } yield ()
         }
-      case Stop =>
-        logInfo(s"Flink cluster tracker stopped: ${fcid.show}") *>
-        clearTrackTaskFibers(trackTaskFiberRef) *>
-        isStarted.set(false)
+      case Stop(replier) =>
+        logInfo(s"Flink cluster tracker stopped: ${fcid.show}")
+        stop(launchFiberRef, trackTaskFiberRef, isStarted) *> replier.reply(Ack)
+        
+      case Terminate =>
+        logInfo(s"Flink cluster tracker terminated: ${fcid.show}") *>
+        stop(launchFiberRef, trackTaskFiberRef, isStarted)
       case IsStarted(replier) => isStarted.get.flatMap(replier.reply)
     }
   } @@ ZIOAspect.annotated(fcid.toAnno*)
@@ -105,6 +110,12 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       _      <- ZIO.foreachDiscard(fibers)(_.interrupt)
       _      <- pollFibers.set(mutable.Set.empty)
     } yield ()
+
+  private def stop(launchFiberRef: Ref[Option[LaunchFiber]], trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]], isStarted: Ref[Boolean]) = {
+    launchFiberRef.get.flatMap(_.map(_.interrupt).getOrElse(ZIO.unit)) *>
+    clearTrackTaskFibers(trackTaskFiberRef) *>
+    isStarted.set(false)
+  }
 
   /**
    * Poll flink cluster overview api.
