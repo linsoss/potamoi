@@ -2,6 +2,9 @@ package potamoi.flink
 
 import potamoi.common.Err
 import potamoi.flink.model.Fcid
+import potamoi.kubernetes.K8sErr
+
+import scala.concurrent.duration.Duration
 
 /**
  * Flink error.
@@ -9,10 +12,12 @@ import potamoi.flink.model.Fcid
 sealed abstract class FlinkErr(msg: String, cause: Throwable = null) extends Err(msg, cause)
 
 object FlinkErr:
-  case class ClusterNotFound(fcid: Fcid) extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
+  case class ClusterNotFound(fcid: Fcid)     extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
+  case class WatchTimeout(timeout: Duration) extends FlinkErr(s"Watch timeout with ${timeout.toString}")
+  case class K8sFail(err: K8sErr)            extends FlinkErr(err.getMessage, err.getCause)
 
 /**
- * Data storage operation err.
+ * Flink snapshot data storage operation err.
  */
 sealed abstract class DataStorageErr(msg: String, cause: Throwable) extends FlinkErr(msg, cause)
 
