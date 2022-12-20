@@ -11,6 +11,7 @@ import potamoi.flink.FlinkRestRequest.{
   JobStatusRsp,
   RunJobReq,
   StopJobSptReq,
+  TmDetailInfo,
   TriggerSptReq
 }
 import potamoi.fs.paths
@@ -134,7 +135,7 @@ trait FlinkRestRequest(restUrl: String) {
    * Get task manager detail.
    * see: https://nightlies.apache.org/flink/flink-docs-master/docs/ops/rest_api/#taskmanagers-taskmanagerid
    */
-  def getTaskManagerDetail(tmId: String): IO[FlinkRestErr, FlinkTmDetail]
+  def getTaskManagerDetail(tmId: String): IO[FlinkRestErr, TmDetailInfo]
 
   /**
    * Get task manager metrics.
@@ -333,11 +334,11 @@ class FlinkRestRequestLive(restUrl: String) extends FlinkRestRequest(restUrl) {
         .attemptBody(ujson.read(_)("taskmanagers").arr.map(_("id").str).toVector)
     } mapError (RequestApiErr("get", s"$restUrl/taskmanagers", _))
 
-  def getTaskManagerDetail(tmId: String): IO[TaskmanagerNotFound | RequestApiErr, FlinkTmDetail] =
+  def getTaskManagerDetail(tmId: String): IO[TaskmanagerNotFound | RequestApiErr, TmDetailInfo] =
     usingSttp { backend =>
       request
         .get(uri"$restUrl/taskmanagers/$tmId")
-        .response(asJson[FlinkTmDetail])
+        .response(asJson[TmDetailInfo])
         .send(backend)
         .flattenBodyT
     } mapError {
@@ -376,6 +377,7 @@ object FlinkRestRequest {
 
   import potamoi.flink.model.SavepointFormatTypes.given
   import potamoi.flink.model.JobStates.given
+  import potamoi.flink.model.FlinkTmDetail.given
 
   given JsonCodec[RunJobReq]           = DeriveJsonCodec.gen[RunJobReq]
   given JsonCodec[StopJobSptReq]       = DeriveJsonCodec.gen[StopJobSptReq]
@@ -386,6 +388,7 @@ object FlinkRestRequest {
   given JsonCodec[JobOverviewInfo]     = DeriveJsonCodec.gen[JobOverviewInfo]
   given JsonCodec[JobOverviewRsp]      = DeriveJsonCodec.gen[JobOverviewRsp]
   given JsonCodec[ClusterOverviewInfo] = DeriveJsonCodec.gen[ClusterOverviewInfo]
+  given JsonCodec[TmDetailInfo]        = DeriveJsonCodec.gen[TmDetailInfo]
 
   /**
    * see: [[FlinkRestRequest.runJar]]
@@ -495,4 +498,30 @@ object FlinkRestRequest {
         ),
         ts = curTs
       )
+
+  case class TmDetailInfo(
+      id: String,
+      path: String,
+      dataPort: Int,
+      slotsNumber: Int,
+      freeSlots: Int,
+      totalResource: TmResource,
+      freeResource: TmResource,
+      hardware: TmHardware,
+      memoryConfiguration: TmMemoryConfig):
+
+    def toTmDetail(fcid: Fcid): FlinkTmDetail = FlinkTmDetail(
+      clusterId = fcid.clusterId,
+      namespace = fcid.namespace,
+      tmId = id,
+      path = path,
+      dataPort = dataPort,
+      slotsNumber = slotsNumber,
+      freeSlots = freeSlots,
+      totalResource = totalResource,
+      freeResource = freeResource,
+      hardware = hardware,
+      memoryConfiguration = memoryConfiguration,
+      ts = curTs
+    )
 }

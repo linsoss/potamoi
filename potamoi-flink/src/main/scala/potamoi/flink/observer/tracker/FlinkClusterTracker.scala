@@ -40,7 +40,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
   /**
    * Sharding entity behavior.
    */
-  def behavior(entityId: String, messages: Dequeue[Cmd]): RIO[Sharding, Nothing] =
+  def behavior(entityId: String, messages: Dequeue[Cmd]): RIO[Sharding with Scope, Nothing] =
     for {
       isStarted      <- Ref.make(false)
       pollFiberRef   <- Ref.make(mutable.Set.empty[TrackTaskFiber])
@@ -54,7 +54,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       message: Cmd,
       isStarted: Ref[Boolean],
       launchFiberRef: Ref[Option[LaunchFiber]],
-      trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]): RIO[Sharding, Unit] = {
+      trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]): RIO[Sharding with Scope, Unit] = {
     message match {
       case Start =>
         isStarted.get.flatMap {
@@ -63,7 +63,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
             for {
               _           <- logInfo(s"Flink cluster tracker started: ${fcid.show}")
               _           <- clearTrackTaskFibers(trackTaskFiberRef)
-              launchFiber <- launchTrackers(fcid, trackTaskFiberRef).forkDaemon
+              launchFiber <- launchTrackers(fcid, trackTaskFiberRef).forkScoped
               _           <- launchFiberRef.update(_ => Some(launchFiber))
               _           <- isStarted.set(true)
             } yield ()
@@ -80,9 +80,8 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
    * Start the track task and all api-polling-based tasks will be blocking until
    * a flink rest k8s endpoint is founded for availability.
    */
-  private def launchTrackers(fcid: Fcid, trackTaskFibers: Ref[mutable.Set[TrackTaskFiber]]): IO[Throwable, Unit] =
+  private def launchTrackers(fcid: Fcid, trackTaskFibers: Ref[mutable.Set[TrackTaskFiber]]): RIO[Scope, Unit] =
     for {
-      _ <- logInfo(s"Retrieving flink rest endpoint...")
       endpoint <- eptRetriever
         .retrieve(fcid)
         .catchAll(_ => ZIO.succeed(None)) // ignore all error
@@ -90,12 +89,12 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
         .map(_._1.get)
       _              <- logInfo(s"Found flink rest endpoint: ${endpoint.show}")
       _              <- snapStg.restEndpoint.put(fcid, endpoint)
-      clusterOvFiber <- pollClusterOverview(fcid).forkDaemon
-      tmDetailFiber  <- pollTmDetail(fcid).fork
-      jmMetricFiber  <- pollJmMetrics(fcid).fork
-      tmMetricFiber  <- pollTmMetrics(fcid).fork
-      jobOvFiber     <- pollJobOverview(fcid).fork
-      jobMetricFiber <- pollJobMetrics(fcid).fork
+      clusterOvFiber <- pollClusterOverview(fcid).forkScoped
+      tmDetailFiber  <- pollTmDetail(fcid).forkScoped
+      jmMetricFiber  <- pollJmMetrics(fcid).forkScoped
+      tmMetricFiber  <- pollTmMetrics(fcid).forkScoped
+      jobOvFiber     <- pollJobOverview(fcid).forkScoped
+      jobMetricFiber <- pollJobMetrics(fcid).forkScoped
       _              <- trackTaskFibers.update(_ ++= Set(clusterOvFiber, tmDetailFiber, jmMetricFiber, tmMetricFiber, jobOvFiber, jobMetricFiber))
     } yield ()
 
@@ -144,7 +143,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       restUrl <- snapStg.restEndpoint.get(fcid).someOrFail(ClusterNotFound(fcid))
       tmDetails <- ZStream
         .fromIterableZIO(flinkRest(restUrl.chooseUrl).listTaskManagerIds)
-        .mapZIOParUnordered(flinkConf.tracking.pollParallelism)(flinkRest(restUrl.chooseUrl).getTaskManagerDetail)
+        .mapZIOParUnordered(flinkConf.tracking.pollParallelism)(flinkRest(restUrl.chooseUrl).getTaskManagerDetail(_).map(_.toTmDetail(fcid)))
         .runFold(List.empty[FlinkTmDetail])(_ :+ _)
 
       preMur   <- tmMur.get

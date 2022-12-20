@@ -41,7 +41,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
   /**
    * Sharding entity behavior.
    */
-  def behavior(entityId: String, messages: Dequeue[Cmd]): RIO[Sharding, Nothing] =
+  def behavior(entityId: String, messages: Dequeue[Cmd]): RIO[Sharding with Scope, Nothing] =
     for {
       isStarted         <- Ref.make(false)
       trackTaskFiberRef <- Ref.make(mutable.Set.empty[TrackTaskFiber])
@@ -53,7 +53,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
       fcid: Fcid,
       message: Cmd,
       isStarted: Ref[Boolean],
-      trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]): RIO[Sharding, Unit] = {
+      trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]): RIO[Sharding with Scope, Unit] = {
     message match {
       case Start =>
         isStarted.get.flatMap {
@@ -62,11 +62,11 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
             for {
               _                   <- logInfo(s"Flink k8s refs tracker started: ${fcid.show}")
               _                   <- clearTrackTaskFibers(trackTaskFiberRef)
-              watchDeployFiber    <- watchDeployments(fcid).fork
-              watchSvcFiber       <- watchServices(fcid).fork
-              watchPodFiber       <- watchPods(fcid).fork
-              watchConfigmapFiber <- watchConfigmapNames(fcid).fork
-              pollPodMetricsFiber <- pollPodMetrics(fcid).fork
+              watchDeployFiber    <- watchDeployments(fcid).forkScoped
+              watchSvcFiber       <- watchServices(fcid).forkScoped
+              watchPodFiber       <- watchPods(fcid).forkScoped
+              watchConfigmapFiber <- watchConfigmapNames(fcid).forkScoped
+              pollPodMetricsFiber <- pollPodMetrics(fcid).forkScoped
               _ <- trackTaskFiberRef.update(_ ++= Set(watchDeployFiber, watchSvcFiber, watchPodFiber, watchConfigmapFiber, pollPodMetricsFiber))
               _ <- isStarted.set(true)
             } yield ()

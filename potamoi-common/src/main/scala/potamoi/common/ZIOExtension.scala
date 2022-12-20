@@ -2,6 +2,7 @@ package potamoi.common
 
 import zio.{Exit, *}
 import potamoi.syntax.toPrettyString
+import potamoi.errs.recurse
 
 /**
  * ZIO syntax extension.
@@ -33,7 +34,10 @@ object ZIOExtension {
   extension [R, E, A](zio: ZIO[R, E, A]) {
     inline def debugPretty: ZIO[R, E, A] = zio
       .tap(value => ZIO.succeed(println(toPrettyString(value))))
-      .tapErrorCause(error => ZIO.succeed(println(s"<FAIL> $error")))
+      .tapErrorCause {
+        case cause: Cause[Throwable] => ZIO.succeed(println(s"<FAIL> ${cause.recurse.prettyPrint}"))
+        case cause                   => ZIO.succeed(println(s"<FAIL> ${cause.prettyPrint}"))
+      }
   }
 
   extension [E, A](zio: ZIO[Scope, E, A]) {
