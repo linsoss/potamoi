@@ -88,7 +88,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
         .catchAll(_ => ZIO.succeed(None)) // ignore all error
         .repeat(recurWhile[Option[FlinkRestSvcEndpoint]](_.isEmpty) && spaced(1.seconds))
         .map(_._1.get)
-      _              <- logInfo(s"Found flink rest endpoint: ${endpoint.toPrettyStr}")
+      _              <- logInfo(s"Found flink rest endpoint: ${endpoint.show}")
       _              <- snapStg.restEndpoint.put(fcid, endpoint)
       clusterOvFiber <- pollClusterOverview(fcid).forkDaemon
       tmDetailFiber  <- pollTmDetail(fcid).fork

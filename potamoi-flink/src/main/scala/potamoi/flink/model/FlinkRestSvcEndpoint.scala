@@ -37,6 +37,7 @@ case class FlinkRestSvcEndpoint(svcName: String, svcNs: String, port: Int, clust
     case SvcDns    => dns
     case ClusterIp => clusterIp
 
+  def show: String = s"svcName=$svcName, svcNs=$svcNs, port=$port, clusterIP=$clusterIp"
 }
 
 object FlinkRestSvcEndpoint:
