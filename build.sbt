@@ -120,11 +120,11 @@ lazy val potaFs = (project in file("potamoi-fs"))
     )
   )
 
-lazy val potaSharding = (project in file("potamoi-sharding"))
+lazy val potaCluster = (project in file("potamoi-cluster"))
   .dependsOn(potaLogger, potaCommon, potaKubernetes)
   .settings(commonSettings)
   .settings(
-    name := "potamoi-sharding",
+    name := "potamoi-cluster",
     libraryDependencies ++= Seq(
       "com.devsisters" %% "shardcake-manager"            % shardcakeVer,
       "com.devsisters" %% "shardcake-entities"           % shardcakeVer,
@@ -136,7 +136,7 @@ lazy val potaSharding = (project in file("potamoi-sharding"))
   )
 
 lazy val potaFlink = (project in file("potamoi-flink"))
-  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs, potaSharding, potaFlinkShare)
+  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs, potaCluster, potaFlinkShare)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink",
