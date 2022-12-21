@@ -65,14 +65,14 @@ object TrackerManager {
       k8sRefTracker  = FlinkK8sRefTracker(flinkConf, snapStorage, k8sOperator)
       clusterTrlEnvelop <- Sharding.messenger(ClusterTrk.Entity)
       k8sRefTrkEnvelope <- Sharding.messenger(K8sRefTrk.Entity)
-    } yield TrackManagerLive(snapStorage.trackedList, clusterTracker, k8sRefTracker, clusterTrlEnvelop, k8sRefTrkEnvelope)
+    } yield TrackManagerLive(snapStorage, clusterTracker, k8sRefTracker, clusterTrlEnvelop, k8sRefTrkEnvelope)
 }
 
 /**
  * Default implementation.
  */
 class TrackManagerLive(
-    stg: TrackedFcidStorage,
+    snapStorage: FlinkSnapshotStorage,
     clusterTracker: FlinkClusterTracker,
     k8sRefTracker: FlinkK8sRefTracker,
     clusterTrkEnvelope: Messenger[ClusterTrk.Cmd],
@@ -84,9 +84,8 @@ class TrackManagerLive(
     Sharding.registerEntity(K8sRefTrk.Entity, k8sRefTracker.behavior, _ => Some(K8sRefTrk.Terminate))
   }
 
-  // Err: DataStorageErr | ConnectShardErr
   override def track(fcid: Fcid): IO[DataStorageErr | ConnectShardErr | FlinkErr, Unit] = {
-    stg.put(fcid) *>
+    snapStorage.trackedList.put(fcid) *>
     clusterTrkEnvelope
       .send(marshallFcid(fcid))(ClusterTrk.Start.apply)
       .mapError(ConnectShardErr(ClusterTrk.Entity.name, _))
@@ -97,9 +96,8 @@ class TrackManagerLive(
       .unit
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
-  // Err: DataStorageErr | ConnectShardErr
   override def untrack(fcid: Fcid): IO[DataStorageErr | ConnectShardErr | FlinkErr, Unit] = {
-    stg.rm(fcid) *>
+    snapStorage.trackedList.rm(fcid) *>
     clusterTrkEnvelope
       .send(marshallFcid(fcid))(ClusterTrk.Stop.apply)
       .mapError(ConnectShardErr(ClusterTrk.Entity.name, _))
@@ -107,11 +105,13 @@ class TrackManagerLive(
     k8sRefTrkEnvelope
       .send(marshallFcid(fcid))(K8sRefTrk.Stop.apply)
       .mapError(ConnectShardErr(K8sRefTrk.Entity.name, _))
-      .unit
+      .unit *>
+    // remove all snapshot data belongs to Fcid
+    snapStorage.rmSnapData(fcid)
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
-  override def isBeTracked(fcid: Fcid): IO[DataStorageErr, Boolean] = stg.exists(fcid)
-  override def listTrackedClusters: Stream[DataStorageErr, Fcid]    = stg.list
+  override def isBeTracked(fcid: Fcid): IO[DataStorageErr, Boolean] = snapStorage.trackedList.exists(fcid)
+  override def listTrackedClusters: Stream[DataStorageErr, Fcid]    = snapStorage.trackedList.list
 
   override def getTrackersStatus(fcid: Fcid): IO[Nothing, TrackersStatus] = {
     askStatus(clusterTrkEnvelope.send(marshallFcid(fcid))(ClusterTrk.IsStarted.apply)) <&>
@@ -119,7 +119,7 @@ class TrackManagerLive(
   } map { case (clusterTrk, k8sRefTrk) => TrackersStatus(fcid, clusterTrk, k8sRefTrk) }
 
   override def listTrackersStatus(parallelism: Int): Stream[DataStorageErr, TrackersStatus] =
-    stg.list.mapZIOParUnordered(parallelism)(getTrackersStatus)
+    snapStorage.trackedList.list.mapZIOParUnordered(parallelism)(getTrackersStatus)
 
   private def askStatus(io: Task[Boolean]) =
     io.map(if _ then TrackerState.Running else TrackerState.Idle)

@@ -12,6 +12,11 @@ trait JobSnapStorage:
   def overview: JobOverviewStorage
   def metrics: JobMetricsStorage
 
+  def rmSnapData(fcid: Fcid): IO[DataStorageErr, Unit] = {
+    overview.rm(fcid) <&>
+    metrics.rm(fcid)
+  }
+
 /**
  * Storage for flink job overview.
  */

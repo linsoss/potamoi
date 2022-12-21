@@ -17,6 +17,16 @@ trait FlinkSnapshotStorage:
   def job: JobSnapStorage
   def k8sRef: K8sRefSnapStorage
 
+  /**
+   * Remove all current snapshot data belongs to Fcid.
+   */
+  def rmSnapData(fcid: Fcid): IO[DataStorageErr, Unit] = {
+    restEndpoint.rm(fcid) <&>
+    cluster.rmSnapData(fcid) <&>
+    job.rmSnapData(fcid) <&>
+    k8sRef.rmSnapData(fcid)
+  }
+
 object FlinkSnapshotStorage:
   lazy val test = memory
 

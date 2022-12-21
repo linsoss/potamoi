@@ -14,6 +14,13 @@ trait ClusterSnapStorage:
   def jmMetrics: JmMetricsStorage
   def tmMetrics: TmMetricStorage
 
+  def rmSnapData(fcid: Fcid): IO[DataStorageErr, Unit] = {
+    overview.rm(fcid) <&>
+    tmDetail.rm(fcid) <&>
+    jmMetrics.rm(fcid) <&>
+    tmMetrics.rm(fcid)
+  }
+
 /**
  * Storage for flink overview, see: [[FlinkClusterOverview]]
  */

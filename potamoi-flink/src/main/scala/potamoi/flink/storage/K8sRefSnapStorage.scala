@@ -15,6 +15,14 @@ trait K8sRefSnapStorage:
   def podMetrics: K8sPodMetricsStorage
   def configmap: K8sConfigmapNamesStorage
 
+  def rmSnapData(fcid: Fcid): IO[DataStorageErr, Unit] = {
+    deployment.rm(fcid) <&>
+    service.rm(fcid) <&>
+    pod.rm(fcid) <&>
+    podMetrics.rm(fcid) <&>
+    configmap.rm(fcid)
+  }
+
 /**
  * Storage for flink k8s deployment snapshot.
  */

@@ -15,7 +15,8 @@ case class FlinkVersion(ver: String, scalaVer: ScalaVersion = Scala212):
 
 object FlinkVersion:
   import potamoi.common.ScalaVersions.given
-  given JsonCodec[FlinkVersion] = DeriveJsonCodec.gen[FlinkVersion]
+  given JsonCodec[FlinkVersion]                          = DeriveJsonCodec.gen[FlinkVersion]
+  given Conversion[(String, ScalaVersion), FlinkVersion] = params => FlinkVersion(params._1, params._2)
 
   def extractMajorVer(flinkVer: String): String = flinkVer.split('.').contra { part =>
     if (part.length < 2) flinkVer
