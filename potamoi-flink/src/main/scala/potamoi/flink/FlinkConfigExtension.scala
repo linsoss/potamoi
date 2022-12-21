@@ -86,9 +86,7 @@ object FlinkConfigExtension:
   val protectedFlinkConfigKeys = Vector(
     "hive.s3.aws-secret-key",
     "fs.s3a.secret.key",
-    "s3.secret-key",
-    InjectedExecModeKey,
-    InjectedDeploySourceConf._1
+    "s3.secret-key"
   )
 
   lazy val InjectedDeploySourceConf = "deploy.source" -> "potamoi"
