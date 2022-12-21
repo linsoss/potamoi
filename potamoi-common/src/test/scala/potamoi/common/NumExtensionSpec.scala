@@ -1,8 +1,8 @@
 package potamoi.common
 
+import potamoi.common.NumExtension.*
 import zio.test.{suite, ZIOSpecDefault}
 import zio.test.Assertion.*
-import potamoi.common.NumExtension.*
 
 class NumExtensionSpec extends munit.FunSuite:
   

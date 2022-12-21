@@ -1,7 +1,7 @@
 package potamoi.flink.model
 
 import potamoi.curTs
-import potamoi.kubernetes.model.{ContainerState, ContainerStateDetail, K8sQuantity, PodMetrics, PodPhase, WorkloadCondition}
+import potamoi.kubernetes.model.*
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 type K8sResourceName = String

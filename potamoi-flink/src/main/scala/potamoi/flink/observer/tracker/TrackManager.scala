@@ -1,9 +1,9 @@
 package potamoi.flink.observer.tracker
 
+import com.devsisters.shardcake.{Messenger, Sharding}
 import potamoi.flink.{DataStorageErr, FlinkConf, FlinkErr, FlinkRestEndpointRetriever}
 import potamoi.flink.model.Fcid
 import potamoi.flink.storage.{FlinkSnapshotStorage, TrackedFcidStorage}
-import com.devsisters.shardcake.{Messenger, Sharding}
 import potamoi.flink.FlinkErr.ConnectShardErr
 import potamoi.kubernetes.K8sOperator
 import potamoi.sharding.ShardRegister

@@ -1,14 +1,8 @@
 package potamoi.flink.storage
 
-import potamoi.flink.model.{Fcid, Fjid, FlinkClusterOverview, FlinkJobOverview, FlinkTmDetail, Ftid}
 import potamoi.flink.DataStorageErr
-import potamoi.flink.storage.mem.{
-  ClusterSnapMemoryStorage,
-  JobSnapMemoryStorage,
-  K8sRefSnapMemoryStorage,
-  RestEndpointMemoryStorage,
-  TrackedFcidMemoryStorage
-}
+import potamoi.flink.model.*
+import potamoi.flink.storage.mem.*
 import zio.{IO, ZLayer}
 import zio.stream.Stream
 

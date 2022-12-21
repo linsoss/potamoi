@@ -1,9 +1,9 @@
 package potamoi.flink.storage
 
 import potamoi.flink.model.Fcid
+import zio.{Scope, ZIO, ZLayer}
 import zio.test.*
 import zio.test.Assertion.*
-import zio.{Scope, ZIO, ZLayer}
 
 object FlinkSnapshotStorageSpec extends ZIOSpecDefault:
 

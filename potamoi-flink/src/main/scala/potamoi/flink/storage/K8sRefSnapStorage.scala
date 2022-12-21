@@ -1,16 +1,7 @@
 package potamoi.flink.storage
 
 import potamoi.flink.{DataStorageErr, JobId}
-import potamoi.flink.model.{
-  Fcid,
-  FlinkK8sDeploymentSnap,
-  FlinkK8sPodMetrics,
-  FlinkK8sPodSnap,
-  FlinkK8sRef,
-  FlinkK8sRefSnap,
-  FlinkK8sServiceSnap,
-  K8sResourceName
-}
+import potamoi.flink.model.*
 import zio.{IO, ZIO}
 import zio.stream.Stream
 

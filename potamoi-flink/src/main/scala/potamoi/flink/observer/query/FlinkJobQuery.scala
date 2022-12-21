@@ -1,9 +1,9 @@
 package potamoi.flink.observer.query
 
 import potamoi.common.Err
+import potamoi.flink.*
 import potamoi.flink.model.{Fjid, FlinkSptTriggerStatus}
 import potamoi.flink.storage.{JobMetricsStorage, JobOverviewStorage, JobSnapStorage}
-import potamoi.flink.{flinkRest, DataStorageErr, FlinkConf, FlinkErr, FlinkRestEndpointType, FlinkRestErr}
 import potamoi.flink.FlinkErr.{ClusterNotFound, WatchTimeout}
 import potamoi.flink.FlinkRestErr.{RequestApiErr, TriggerNotFound}
 import potamoi.kubernetes.K8sErr

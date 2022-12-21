@@ -44,4 +44,3 @@ object PathTool:
       else s"s3p://${segs(1)}"
     }
   }
-

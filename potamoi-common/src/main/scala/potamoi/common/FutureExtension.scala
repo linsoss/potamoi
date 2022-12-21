@@ -2,8 +2,8 @@ package potamoi.common
 
 import zio.{IO, ZIO}
 
-import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
 import scala.util.Try
 
 /**

@@ -25,4 +25,3 @@ class FlinkRawConfigsSpec extends munit.FunSuite:
       )
     }
   }
-

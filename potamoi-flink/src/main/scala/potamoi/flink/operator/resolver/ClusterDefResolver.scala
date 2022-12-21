@@ -1,5 +1,7 @@
 package potamoi.flink.operator.resolver
 
+import cats.Eval
+import org.apache.flink.configuration.Configuration
 import potamoi.common.CollectionExtension.filterNotBlank
 import potamoi.flink.FlinkConf
 import potamoi.flink.FlinkConfigExtension.{ConfigurationPF, given}
@@ -11,11 +13,7 @@ import potamoi.flink.operator.resolver.ClusterDefResolver.notAllowCustomRawConfK
 import potamoi.fs.S3Conf
 import potamoi.fs.paths.*
 import potamoi.syntax.safeTrim
-
 import zio.{IO, ZIO}
-
-import cats.Eval
-import org.apache.flink.configuration.Configuration
 
 /**
  * Flink cluster definition resolver for [[FlinkClusterDef]].

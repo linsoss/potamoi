@@ -1,9 +1,9 @@
 package potamoi.flink
 
-import potamoi.zios.*
-import potamoi.syntax.*
-import zio.ZIO
 import potamoi.errs.recurse
+import potamoi.syntax.*
+import potamoi.zios.*
+import zio.ZIO
 
 object FlinkRestRequestTest:
 

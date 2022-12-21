@@ -1,10 +1,10 @@
 package potamoi.sharding
 
-import zio.test.ZIOSpecDefault
-import zio.{Dequeue, RIO, Random, Ref, Scope, Task, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer}
 import com.devsisters.shardcake.*
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.zios.asLayer
+import zio.{Dequeue, Random, Ref, RIO, Scope, Task, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer}
+import zio.test.ZIOSpecDefault
 
 import scala.util.{Failure, Success, Try}
 

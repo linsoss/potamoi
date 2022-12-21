@@ -2,8 +2,7 @@ package potamoi.common
 
 import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
 
-import scala.concurrent.duration.Duration
-import concurrent.duration.durationToPair
+import scala.concurrent.duration.{durationToPair, Duration}
 
 object Codec:
 

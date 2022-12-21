@@ -1,9 +1,8 @@
 package potamoi.flink.storage.mem
 
-import potamoi.flink.model.{Fcid, Fjid, FlinkJobMetrics, FlinkJobOverview, JobState}
-import potamoi.flink.storage.{JobMetricsStorage, JobOverviewStorage, JobSnapStorage}
 import potamoi.flink.{DataStorageErr, JobId}
-import zio.Ref
+import potamoi.flink.model.*
+import potamoi.flink.storage.{JobMetricsStorage, JobOverviewStorage, JobSnapStorage}
 import zio.{stream, IO, Ref, UIO, ULayer, ZLayer}
 import zio.stream.{Stream, ZSink, ZStream}
 

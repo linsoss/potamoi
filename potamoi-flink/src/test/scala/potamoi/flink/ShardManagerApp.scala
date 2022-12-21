@@ -3,8 +3,8 @@ package potamoi.flink
 import com.devsisters.shardcake.Server
 import potamoi.logger.PotaLogger
 import potamoi.sharding.{ShardManagerConf, ShardManagers}
-import zio.ZIOAppDefault
 import potamoi.zios.*
+import zio.ZIOAppDefault
 
 object ShardManagerApp extends ZIOAppDefault:
   override val bootstrap = PotaLogger.default

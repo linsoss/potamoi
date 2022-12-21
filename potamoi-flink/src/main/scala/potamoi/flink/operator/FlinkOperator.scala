@@ -4,7 +4,6 @@ import potamoi.flink.FlinkConf
 import potamoi.flink.observer.FlinkObserver
 import potamoi.fs.{S3Conf, S3Operator}
 import potamoi.kubernetes.K8sOperator
-
 import zio.{ZIO, ZLayer}
 
 /**

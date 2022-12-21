@@ -1,10 +1,10 @@
 package potamoi.common
 
-import scala.concurrent.Future
 import potamoi.common.FutureExtension.*
 import zio.*
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class FutureExtensionSpec extends munit.FunSuite:
 

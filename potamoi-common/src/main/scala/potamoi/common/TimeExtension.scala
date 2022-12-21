@@ -1,9 +1,9 @@
 package potamoi.common
 
-import zio.{Duration => ZioDuration}
-import java.time.{Duration => JavaDuration}
-import scala.concurrent.duration.{Duration => ScalaDuration, FiniteDuration, NANOSECONDS}
-import scala.concurrent.duration.{FiniteDuration, NANOSECONDS}
+import zio.Duration as ZioDuration
+
+import java.time.Duration as JavaDuration
+import scala.concurrent.duration.{FiniteDuration, NANOSECONDS, Duration as ScalaDuration}
 
 /**
  * Time, Duration extension.

@@ -1,7 +1,7 @@
 package potamoi.flink.storage
 
-import potamoi.flink.model.Fcid
 import potamoi.flink.DataStorageErr
+import potamoi.flink.model.Fcid
 import zio.IO
 import zio.stream.Stream
 
@@ -19,4 +19,3 @@ object TrackedFcidStorage {
     def list: Stream[DataStorageErr, Fcid]
     def exists(fcid: Fcid): IO[DataStorageErr, Boolean]
 }
-  

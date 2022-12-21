@@ -1,12 +1,11 @@
 package potamoi.sharding
 
 import com.devsisters.shardcake.{Config, GrpcConfig, ManagerConfig}
-
-import scala.concurrent.duration.Duration
-import concurrent.duration.DurationInt
 import potamoi.times.given
 import sttp.client3.UriContext
 import zio.json.{DeriveJsonCodec, JsonCodec}
+
+import scala.concurrent.duration.{Duration, DurationInt}
 
 /**
  * Shardcake manager configuration.

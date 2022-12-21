@@ -1,8 +1,8 @@
 package potamoi.logger
 
-import zio.logging.LogFormat.*
-import zio.logging.{console, consoleJson, LogColor, LogFilter, LogFormat}
 import zio.{LogLevel, RLayer, Trace, ULayer, URLayer, ZIO, ZLayer}
+import zio.logging.*
+import zio.logging.LogFormat.*
 
 import java.time.format.DateTimeFormatter
 

@@ -2,8 +2,7 @@ package potamoi.common
 
 import zio.{Cause, Chunk, StackTrace, Trace, UIO, ZIO}
 
-import java.io.PrintWriter
-import java.io.StringWriter
+import java.io.{PrintWriter, StringWriter}
 import scala.annotation.tailrec
 import scala.util.control.NoStackTrace
 

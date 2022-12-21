@@ -1,9 +1,9 @@
 package potamoi.flink.model
 
 import potamoi.fs.{S3AccessStyle, S3Conf}
+import potamoi.nums.*
 import potamoi.syntax.contra
 import zio.json.{jsonField, DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
-import potamoi.nums.*
 
 /**
  * Type-safe flink major configuration entries.
@@ -18,10 +18,10 @@ sealed trait FlinkRawConfig {
 
 object FlinkRawConfig {
 
-  import StateBackendTypes.given
   import CheckpointStorageTypes.given
   import RestExportTypes.given
   import SavepointRestoreModes.given
+  import StateBackendTypes.given
 
   given JsonCodec[CpuConfig]              = DeriveJsonCodec.gen[CpuConfig]
   given JsonCodec[MemConfig]              = DeriveJsonCodec.gen[MemConfig]
@@ -56,7 +56,7 @@ object FlinkRawConfig {
       }
 }
 
-import FlinkRawConfig.dry
+import potamoi.flink.model.FlinkRawConfig.dry
 
 /**
  * Flink k8s cpu configuration.

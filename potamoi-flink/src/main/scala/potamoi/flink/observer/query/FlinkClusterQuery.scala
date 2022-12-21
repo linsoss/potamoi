@@ -1,7 +1,7 @@
 package potamoi.flink.observer.query
 
 import potamoi.flink.model.{Fjid, FlinkSptTriggerStatus}
-import potamoi.flink.storage.{ClusterOverviewStorage, ClusterSnapStorage, FlinkSnapshotStorage, JmMetricsStorage, TmDetailStorage, TmMetricStorage}
+import potamoi.flink.storage.*
 import potamoi.flink.FlinkErr
 import zio.IO
 

@@ -3,7 +3,6 @@ package potamoi.common
 import sttp.client3.{Response, ResponseException, SttpBackend}
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import sttp.model.StatusCode
-import zio.ZIO
 import zio.*
 
 import scala.annotation.targetName

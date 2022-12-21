@@ -1,9 +1,8 @@
 package potamoi.flink.operator.resolver
 
 import potamoi.flink.ResolveClusterDefErr.ResolveLogConfigErr
+import potamoi.fs.{lfs, LfsErr}
 import potamoi.fs.LfsErr.IOErr
-import potamoi.fs.{LfsErr, lfs}
-
 import zio.*
 import zio.ZIO.{logInfo, succeed}
 

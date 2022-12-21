@@ -2,8 +2,8 @@ package potamoi.fs
 
 import potamoi.fs.OsTool.{randomDir, randomFile, rmFile}
 import potamoi.zios.*
-import zio.test.ZIOSpecDefault
 import zio.ZIO
+import zio.test.ZIOSpecDefault
 
 import java.io.{File, FileWriter}
 import scala.io.Source

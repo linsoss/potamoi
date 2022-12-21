@@ -7,19 +7,18 @@ import potamoi.flink.FlinkErr.{ClusterNotFound, SubmitFlinkClusterFail}
 import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.FlinkRestRequest.{RunJobReq, StopJobSptReq, TriggerSptReq}
 import potamoi.flink.ResolveJobDefErr.{DownloadJobJarFail, NotSupportJobJarPath}
+import potamoi.flink.model.*
 import potamoi.flink.model.FlinkExecMode.*
-import potamoi.flink.model.{Fcid, Fjid, FlinkJobSavepointDef, FlinkSessClusterDef, FlinkSessJobDef}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.resolver.{ClusterDefResolver, LogConfigResolver, PodTemplateResolver}
+import potamoi.fs.{lfs, S3Conf, S3Operator}
 import potamoi.fs.PathTool.{getFileName, isS3Path}
-import potamoi.fs.{S3Conf, S3Operator, lfs}
 import potamoi.kubernetes.K8sOperator
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.usingAttempt
-
+import zio.{IO, ZIO}
 import zio.ZIO.{attempt, attemptBlockingInterrupt, logInfo, scoped, succeed}
 import zio.ZIOAspect.annotated
-import zio.{IO, ZIO}
 
 /**
  * Flink session mode cluster operator.

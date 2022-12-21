@@ -1,14 +1,13 @@
 package potamoi.flink.observer.query
 
-import com.coralogix.zio.k8s.client.model.K8sNamespace
-import com.coralogix.zio.k8s.model.apps.v1.DeploymentSpec
 import com.coralogix.zio.k8s.client.model.{label, K8sNamespace}
+import com.coralogix.zio.k8s.model.apps.v1.DeploymentSpec
 import com.coralogix.zio.k8s.model.core.v1.{PodSpec, ServiceSpec}
 import potamoi.common.Err
 import potamoi.flink.{DataStorageErr, FlinkErr}
-import potamoi.flink.model.{Fcid, FlinkK8sDeploymentSnap, FlinkK8sPodSnap, FlinkK8sRef, FlinkK8sRefSnap, FlinkK8sServiceSnap}
+import potamoi.flink.model.*
 import potamoi.flink.storage.*
-import potamoi.kubernetes.K8sErr.{ConfigMapNotFound, DeploymentNotFound, PodNotFound, RequestK8sApiErr, ServiceNotFound}
+import potamoi.kubernetes.K8sErr.*
 import potamoi.kubernetes.K8sOperator
 import potamoi.syntax.valueToSome
 import zio.{IO, ZIO, ZIOAppDefault}

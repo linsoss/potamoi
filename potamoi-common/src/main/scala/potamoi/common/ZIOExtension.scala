@@ -1,8 +1,8 @@
 package potamoi.common
 
-import zio.{Exit, *}
-import potamoi.syntax.toPrettyString
 import potamoi.errs.recurse
+import potamoi.syntax.toPrettyString
+import zio.{Exit, *}
 
 /**
  * ZIO syntax extension.

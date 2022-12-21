@@ -1,5 +1,9 @@
 package potamoi.flink.operator
 
+import com.coralogix.zio.k8s.client.NotFound
+import com.coralogix.zio.k8s.model.pkg.apis.meta.v1.DeleteOptions
+import org.apache.flink.client.deployment.{ClusterClientFactory, DefaultClusterClientServiceLoader}
+import org.apache.flink.configuration.Configuration
 import potamoi.flink.*
 import potamoi.flink.FlinkConfigExtension.given_Conversion_Configuration_ConfigurationPF
 import potamoi.flink.FlinkErr.{ClusterNotFound, ConnectShardErr, K8sFail}
@@ -9,17 +13,10 @@ import potamoi.flink.model.*
 import potamoi.flink.observer.FlinkObserver
 import potamoi.fs.S3Conf
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
-import potamoi.kubernetes.K8sOperator
-import potamoi.kubernetes.given
-
+import potamoi.kubernetes.{K8sOperator, given}
+import zio.{IO, Task, UIO, ZIO, ZIOAspect}
 import zio.ZIO.{logInfo, succeed}
 import zio.ZIOAspect.annotated
-import zio.{IO, Task, UIO, ZIO, ZIOAspect}
-
-import com.coralogix.zio.k8s.client.NotFound
-import com.coralogix.zio.k8s.model.pkg.apis.meta.v1.DeleteOptions
-import org.apache.flink.client.deployment.{ClusterClientFactory, DefaultClusterClientServiceLoader}
-import org.apache.flink.configuration.Configuration
 
 /**
  * Unified flink cluster operator.

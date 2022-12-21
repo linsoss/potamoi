@@ -1,9 +1,9 @@
 package potamoi.fs
 
 import potamoi.common.Syntax.contra
+import potamoi.fs.S3AccessStyle.*
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
-import S3AccessStyle.*
 
 /**
  * S3 storage configuration.

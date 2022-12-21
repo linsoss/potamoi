@@ -3,8 +3,8 @@ package potamoi.flink
 import org.apache.flink.configuration.Configuration
 import potamoi.flink.model.FlinkRawConfig
 
-import scala.jdk.CollectionConverters.*
 import scala.collection.immutable.{Iterable, TreeMap}
+import scala.jdk.CollectionConverters.*
 
 /**
  * Extension for Flink [[Configuration]]

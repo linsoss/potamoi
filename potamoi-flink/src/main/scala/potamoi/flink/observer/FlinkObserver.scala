@@ -3,19 +3,10 @@ package potamoi.flink.observer
 import com.coralogix.zio.k8s.model.apps.v1.DeploymentSpec
 import com.coralogix.zio.k8s.model.core.v1.{PodSpec, ServiceSpec}
 import com.devsisters.shardcake.Sharding
-import potamoi.flink.model.{Fcid, Fjid, FlinkRestSvcEndpoint, FlinkSptTriggerStatus}
 import potamoi.flink.{FlinkConf, FlinkErr, FlinkRestEndpointRetrieverLive}
-import potamoi.flink.observer.query.{
-  FlinkClusterQuery,
-  FlinkClusterQueryLive,
-  FlinkJobQuery,
-  FlinkJobQueryLive,
-  FlinkK8sRefQuery,
-  FlinkK8sRefQueryLive,
-  FlinkRestEndpointQuery,
-  FlinkRestEndpointQueryLive
-}
-import potamoi.flink.observer.tracker.{TrackManager, TrackerManager}
+import potamoi.flink.model.{Fcid, Fjid, FlinkRestSvcEndpoint, FlinkSptTriggerStatus}
+import potamoi.flink.observer.query.*
+import potamoi.flink.observer.tracker.{TrackerManager, TrackManager}
 import potamoi.flink.storage.FlinkSnapshotStorage
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.kubernetes.K8sOperator

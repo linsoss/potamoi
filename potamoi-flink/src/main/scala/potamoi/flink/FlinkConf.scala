@@ -1,13 +1,12 @@
 package potamoi.flink
 
+import com.softwaremill.quicklens.modify
 import potamoi.common.Codec
 import potamoi.common.Codec.scalaDurationJsonCodec
 import potamoi.fs.PathTool
-
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 
-import com.softwaremill.quicklens.modify
 import scala.concurrent.duration.{Duration, DurationInt}
 
 /**

@@ -1,27 +1,16 @@
 package potamoi.flink
 
 import potamoi.curTs
+import potamoi.flink.FlinkRestErr.*
+import potamoi.flink.FlinkRestRequest.*
 import potamoi.flink.model.*
-import potamoi.flink.FlinkRestErr.{JarNotFound, JobNotFound, RequestApiErr, TaskmanagerNotFound, TriggerNotFound}
-import potamoi.flink.FlinkRestRequest.{
-  ClusterOverviewInfo,
-  JobOverviewInfo,
-  JobOverviewRsp,
-  JobStatusInfo,
-  JobStatusRsp,
-  RunJobReq,
-  StopJobSptReq,
-  TmDetailInfo,
-  TriggerSptReq
-}
 import potamoi.fs.paths
 import potamoi.sttps.*
 import potamoi.syntax.*
-import sttp.client3.basicRequest
-import zio.json.{jsonField, DeriveJsonCodec, JsonCodec}
-import zio.{IO, Task, ZIO}
 import sttp.client3.*
 import sttp.client3.ziojson.*
+import zio.{IO, Task, ZIO}
+import zio.json.{jsonField, DeriveJsonCodec, JsonCodec}
 
 import java.io.File
 
@@ -154,8 +143,8 @@ trait FlinkRestRequest(restUrl: String) {
  * Implementation using sttp client.
  */
 class FlinkRestRequestLive(restUrl: String) extends FlinkRestRequest(restUrl) {
-  import FlinkRestRequest.*
   import FlinkRestErr.*
+  import FlinkRestRequest.*
 
   private val request = basicRequest
 
@@ -375,9 +364,9 @@ object FlinkRestRequest {
 
   def apply(restUrl: String): FlinkRestRequest = FlinkRestRequestLive(restUrl)
 
-  import potamoi.flink.model.SavepointFormatTypes.given
-  import potamoi.flink.model.JobStates.given
   import potamoi.flink.model.FlinkTmDetail.given
+  import potamoi.flink.model.JobStates.given
+  import potamoi.flink.model.SavepointFormatTypes.given
 
   given JsonCodec[RunJobReq]           = DeriveJsonCodec.gen[RunJobReq]
   given JsonCodec[StopJobSptReq]       = DeriveJsonCodec.gen[StopJobSptReq]

@@ -1,8 +1,8 @@
 package potamoi.kubernetes
 
+import com.coralogix.zio.k8s.client.{CodingFailure, DeserializationFailure, K8sFailure, RequestFailure}
 import com.coralogix.zio.k8s.client.config.httpclient.k8sDefault
 import com.coralogix.zio.k8s.client.kubernetes.Kubernetes
-import com.coralogix.zio.k8s.client.{CodingFailure, DeserializationFailure, K8sFailure, RequestFailure}
 import io.circe.Errors
 import potamoi.common.Err
 import potamoi.syntax.*

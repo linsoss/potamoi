@@ -1,15 +1,8 @@
 package potamoi.flink.storage.mem
 
 import potamoi.flink.DataStorageErr
-import potamoi.flink.model.{Fcid, FlinkK8sDeploymentSnap, FlinkK8sPodMetrics, FlinkK8sPodSnap, FlinkK8sServiceSnap}
-import potamoi.flink.storage.{
-  K8sConfigmapNamesStorage,
-  K8sDeploymentSnapStorage,
-  K8sPodMetricsStorage,
-  K8sPodSnapStorage,
-  K8sRefSnapStorage,
-  K8sServiceSnapStorage
-}
+import potamoi.flink.model.*
+import potamoi.flink.storage.*
 import zio.{stream, IO, Ref, UIO, ULayer, ZLayer}
 import zio.stream.{Stream, ZSink, ZStream}
 

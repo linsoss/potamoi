@@ -1,7 +1,7 @@
 package potamoi.flink.storage.mem
 
-import potamoi.flink.storage.{RestEndpointStorage, TrackedFcidStorage}
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
+import potamoi.flink.storage.{RestEndpointStorage, TrackedFcidStorage}
 import potamoi.flink.DataStorageErr
 import zio.{IO, Ref, UIO}
 import zio.stream.{Stream, ZStream}

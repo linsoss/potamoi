@@ -1,20 +1,18 @@
 package potamoi.flink.operator.resolver
 
-import potamoi.flink.FlinkConf
-import potamoi.flink.ResolveClusterDefErr.ResolvePodTemplateErr
-import potamoi.flink.model.{FlinkAppClusterDef, FlinkClusterDef}
-import potamoi.fs.PathTool.{isS3Path, purePath}
-import potamoi.fs.{S3Conf, lfs}
-
-import zio.ZIO.logInfo
-import zio.prelude.data.Optional.{Absent, Present}
-import zio.{IO, ZIO}
-
 import com.coralogix.zio.k8s.model.core.v1.*
 import com.coralogix.zio.k8s.model.pkg.apis.meta.v1.ObjectMeta
 import io.circe.syntax.*
 import io.circe.yaml.parser.parse as parseYaml
 import io.circe.yaml.syntax.*
+import potamoi.flink.FlinkConf
+import potamoi.flink.ResolveClusterDefErr.ResolvePodTemplateErr
+import potamoi.flink.model.{FlinkAppClusterDef, FlinkClusterDef}
+import potamoi.fs.{lfs, S3Conf}
+import potamoi.fs.PathTool.{isS3Path, purePath}
+import zio.{IO, ZIO}
+import zio.ZIO.logInfo
+import zio.prelude.data.Optional.{Absent, Present}
 
 /**
  * Flink K8s PodTemplate resolver.

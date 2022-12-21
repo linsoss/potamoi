@@ -1,8 +1,8 @@
 package potamoi.logger
 
 import org.slf4j.LoggerFactory
-import zio.Console.printLine
 import zio.{ZIO, ZIOAppDefault, ZIOAspect}
+import zio.Console.printLine
 import zio.ZIO.logInfo
 import zio.stream.ZStream
 

@@ -1,5 +1,6 @@
 package potamoi.flink.operator
 
+import org.apache.flink.client.deployment.application.ApplicationConfiguration
 import potamoi.errs.{headMessage, recurse}
 import potamoi.flink.*
 import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExecModeKey, given}
@@ -10,17 +11,14 @@ import potamoi.flink.model.*
 import potamoi.flink.model.FlinkExecMode.*
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.resolver.{ClusterDefResolver, LogConfigResolver, PodTemplateResolver}
-import potamoi.fs.PathTool.{getFileName, isS3Path}
 import potamoi.fs.{S3Conf, S3Operator}
+import potamoi.fs.PathTool.{getFileName, isS3Path}
 import potamoi.kubernetes.K8sOperator
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.usingAttempt
-
+import zio.{IO, ZIO}
 import zio.ZIO.{attempt, attemptBlockingInterrupt, logInfo, scoped, succeed}
 import zio.ZIOAspect.annotated
-import zio.{IO, ZIO}
-
-import org.apache.flink.client.deployment.application.ApplicationConfiguration
 
 /**
  * Flink application mode cluster operator.
