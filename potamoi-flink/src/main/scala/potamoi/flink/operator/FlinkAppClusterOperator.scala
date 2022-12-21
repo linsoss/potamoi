@@ -78,7 +78,7 @@ case class FlinkAppClusterOperatorLive(
           .append("kubernetes.pod-template-file.jobmanager", podTemplateFilePath)
           .append("kubernetes.pod-template-file.taskmanager", podTemplateFilePath)
           .append("$internal.deployment.config-dir", logConfFilePath)
-          .append(InjectedExecModeKey, K8sApplication.toString)
+          .append(InjectedExecModeKey, K8sApplication)
           .append(InjectedDeploySourceConf._1, InjectedDeploySourceConf._2)
       }
       _ <- logInfo(s"Start to deploy flink application cluster:\n${rawConfig.toMap(true).toPrettyStr}".stripMargin)
@@ -96,7 +96,10 @@ case class FlinkAppClusterOperatorLive(
       _ <- observer.manager.track(clusterDef.fcid).retryN(3).ignore
       _ <- logInfo(s"Deploy flink application cluster successfully.")
     } yield ()
-  }.tapErrorCause(cause => ZIO.logErrorCause(s"Fail to deploy flink application cluster due to: ${cause.headMessage}", cause.recurse))
+  }.tapErrorCause(cause =>
+    ZIO
+      .logErrorCause(s"Fail to deploy flink application cluster due to: ${cause.headMessage}", cause.recurse)
+      .when(flinkConf.logFailedDeployReason))
   @@ annotated (clusterDef.fcid.toAnno: _*)
 
   /**

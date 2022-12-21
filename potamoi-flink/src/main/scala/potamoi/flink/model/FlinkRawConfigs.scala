@@ -136,8 +136,8 @@ case class StateBackendConfig(
     checkpointNumRetained: Int = 1)
     extends FlinkRawConfig:
   def mapping = Map(
-    "state.backend"                  -> backendType.toString,
-    "state.checkpoint-storage"       -> checkpointStorage.toString,
+    "state.backend"                  -> backendType.value,
+    "state.checkpoint-storage"       -> checkpointStorage.value,
     "state.checkpoints.dir"          -> checkpointDir,
     "state.savepoints.dir"           -> savepointDir,
     "state.backend.incremental"      -> incremental,
@@ -239,7 +239,7 @@ case class SavepointRestoreConfig(
     restoreMode: SavepointRestoreMode = SavepointRestoreMode.Claim)
     extends FlinkRawConfig:
   def mapping = Map(
-    "execution.savepoint-restore-mode"           -> restoreMode.toString,
+    "execution.savepoint-restore-mode"           -> restoreMode.value,
     "execution.savepoint.path"                   -> savepointPath,
     "execution.savepoint.ignore-unclaimed-state" -> allowNonRestoredState
   ).dry

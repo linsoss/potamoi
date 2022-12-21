@@ -67,7 +67,7 @@ class FlinkSessClusterOperatorLive(
           .append("kubernetes.pod-template-file.jobmanager", podTemplateFilePath)
           .append("kubernetes.pod-template-file.taskmanager", podTemplateFilePath)
           .append("$internal.deployment.config-dir", logConfFilePath)
-          .append(InjectedExecModeKey, K8sSession.toString)
+          .append(InjectedExecModeKey, K8sSession)
           .append(InjectedDeploySourceConf._1, InjectedDeploySourceConf._2)
       }
       _ <- logInfo(s"Start to deploy flink session cluster:\n${rawConfig.toMap(true).toPrettyStr}")
@@ -84,7 +84,10 @@ class FlinkSessClusterOperatorLive(
       _ <- observer.manager.track(clusterDef.fcid).retryN(3).ignore
       _ <- logInfo(s"Deploy flink session cluster successfully.")
     } yield ()
-  }.tapErrorCause(cause => ZIO.logErrorCause(s"Fail to deploy flink session cluster due to: ${cause.headMessage}", cause.recurse))
+  }.tapErrorCause(cause =>
+    ZIO
+      .logErrorCause(s"Fail to deploy flink session cluster due to: ${cause.headMessage}", cause.recurse)
+      .when(flinkConf.logFailedDeployReason))
   @@ annotated (clusterDef.fcid.toAnno: _*)
 
   /**
@@ -116,7 +119,10 @@ class FlinkSessClusterOperatorLive(
       _ <- lfs.rm(jobJarPath).ignore
       _ <- logInfo(s"Submit job to flink session cluster successfully, jobId: $jobId")
     } yield jobId
-  }.tapErrorCause(cause => ZIO.logErrorCause(s"Fail to submit flink job to session cluster due to: ${cause.headMessage}", cause.recurse))
+  }.tapErrorCause(cause =>
+    ZIO
+      .logErrorCause(s"Fail to submit flink job to session cluster due to: ${cause.headMessage}", cause.recurse)
+      .when(flinkConf.logFailedDeployReason))
   @@ annotated (Fcid(jobDef.clusterId, jobDef.namespace).toAnno: _*)
 
 }

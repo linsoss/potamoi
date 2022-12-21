@@ -3,10 +3,11 @@ package potamoi.flink
 import potamoi.common.Codec
 import potamoi.common.Codec.scalaDurationJsonCodec
 import potamoi.fs.PathTool
+
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
-import com.softwaremill.quicklens.modify
 
+import com.softwaremill.quicklens.modify
 import scala.concurrent.duration.{Duration, DurationInt}
 
 /**
@@ -17,6 +18,7 @@ case class FlinkConf(
     @name("mc-image") minioClientImage: String = "minio/mc:RELEASE.2022-10-12T18-12-50Z",
     @name("local-tmpdir") localTmpDir: String = "tmp/flink",
     @name("rest-endpoint-internal") restEndpointTypeInternal: FlinkRestEndpointType = FlinkRestEndpointType.ClusterIp,
+    @name("log-failed-deploy") logFailedDeployReason: Boolean = false,
     @name("tracking") tracking: FlinkTrackConf = FlinkTrackConf()):
 
   def resolve(localStgDir: String): FlinkConf = copy(localTmpDir = s"${localStgDir}/${PathTool.rmSlashPrefix(localTmpDir)}")

@@ -1,21 +1,22 @@
 package potamoi.flink.observer
 
-import com.devsisters.shardcake.Sharding
 import potamoi.common.Syntax.toPrettyString
-import potamoi.flink.FlinkConf
+import potamoi.errs.{headMessage, recurse}
+import potamoi.flink.model.FlK8sComponentName.jobmanager
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.{FlinkConf, FlinkConfTest, K8sConfTest, watch, watchPretty, watchPrettyTag}
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.PotaLogger
 import potamoi.sharding.{ShardingConf, Shardings}
-import zio.{durationInt, IO, ZIO}
-import potamoi.zios.*
 import potamoi.syntax.*
-import potamoi.errs.{headMessage, recurse}
-import zio.Schedule.spaced
-import potamoi.flink.{watch, watchPretty, watchPrettyTag}
-import potamoi.flink.model.FlK8sComponentName.jobmanager
+import potamoi.zios.*
+
 import zio.Console.printLine
+import zio.Schedule.spaced
+import zio.{IO, ZIO, durationInt}
+
+import com.devsisters.shardcake.Sharding
 
 object FlinkObserverTest {
 
@@ -30,8 +31,8 @@ object FlinkObserverTest {
     ZIO
       .scoped(program)
       .provide(
-        FlinkConf.test.resolve("var/potamoi").asLayer,
-        K8sConf.default.asLayer,
+        FlinkConfTest.asLayer,
+        K8sConfTest.asLayer,
         K8sOperator.live,
         FlinkSnapshotStorage.test,
         ShardingConf.test.asLayer,
@@ -48,8 +49,8 @@ object FlinkObserverTest {
   val fcid3: Fcid = "session-01" -> "fdev"
 }
 
-import FlinkObserverTest.*
 import FlinkObserver.*
+import FlinkObserverTest.*
 
 // ------------------------------- test start -------------------------------------
 
