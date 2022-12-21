@@ -21,7 +21,7 @@ package object flink:
   val K8sConfTest = K8sConf.default
 
   val S3ConfTest = S3Conf(
-    endpoint = "http://hs.assad.site:30255",
+    endpoint = "http://10.144.74.197:30255",
     bucket = "flink-dev",
     accessKey = "minio",
     secretKey = "minio123",
