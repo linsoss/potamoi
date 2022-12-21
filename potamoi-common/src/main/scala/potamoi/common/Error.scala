@@ -2,10 +2,10 @@ package potamoi.common
 
 import zio.{Cause, Chunk, StackTrace, Trace, UIO, ZIO}
 
-import scala.util.control.NoStackTrace
-import java.io.StringWriter
 import java.io.PrintWriter
+import java.io.StringWriter
 import scala.annotation.tailrec
+import scala.util.control.NoStackTrace
 
 /**
  * Throwable parent of potamoi effect that always do not fill
@@ -45,22 +45,28 @@ object ErrorExtension:
    * Recursive rendering all of sub [[Throwable]] cause into current [[Cause]].
    */
   def recurseCause(cause: Cause[Throwable]): Cause[Throwable] = {
-    @tailrec def recurseRender(cause: Cause[Throwable], cur: Option[Throwable]): Cause[Throwable] = cur match {
+    @tailrec def recurseRender(cause: Cause[Throwable], preStackChunk: Chunk[Trace], curError: Option[Throwable]): Cause[Throwable] = curError match {
+      case None => cause
+      case Some(curErr) =>
+        val curStackChunk = Chunk.fromArray(curErr.getStackTrace).map(Trace.fromJava).reverse
+        val effectedChunk = curStackChunk
+          .zipAll(preStackChunk)
+          .dropWhile {
+            case (Some(curTrace), Some(preTrace)) => Trace.equalIgnoreLocation(curTrace, preTrace)
+            case _                                => false
+          }
+          .filter(_._1.isDefined)
+          .map(_._1.get)
+          .reverse
+        val newCause = cause ++ Cause.fail(curErr, StackTrace(cause.trace.fiberId, effectedChunk))
+        recurseRender(newCause, curStackChunk, Option(curErr.getCause))
+    }
+
+    cause.failures.headOption match {
       case None => cause
       case Some(err) =>
-        val headTrace = cause.trace.stackTrace.head
-        val traceChunk = {
-          val stackTraceArr = err.getStackTrace
-          val slice = Chunk
-            .fromArray(stackTraceArr)
-            .map(Trace.fromJava)
-            .takeWhile(!traceEqualsLocation(_, headTrace))
-          if slice.size == stackTraceArr.length then slice else slice :+ Trace.fromJava(stackTraceArr(slice.size))
-        }
-        val newCause = cause ++ Cause.fail(err, StackTrace(cause.trace.fiberId, traceChunk))
-        recurseRender(newCause, Option(err.getCause))
+        recurseRender(cause, Chunk.fromArray(err.getStackTrace).map(Trace.fromJava).reverse, Option(err.getCause))
     }
-    recurseRender(cause, cause.failures.headOption.flatMap(e => Option(e.getCause)))
   }
 
   private def traceEqualsLocation(left: Trace, right: Trace): Boolean = (left, right) match
