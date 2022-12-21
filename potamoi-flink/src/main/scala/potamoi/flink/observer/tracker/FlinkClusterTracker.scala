@@ -73,7 +73,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       case Stop(replier) =>
         logInfo(s"Flink cluster tracker stopped: ${fcid.show}")
         stop(launchFiberRef, trackTaskFiberRef, isStarted) *> replier.reply(Ack)
-        
+
       case Terminate =>
         logInfo(s"Flink cluster tracker terminated: ${fcid.show}") *>
         stop(launchFiberRef, trackTaskFiberRef, isStarted)
@@ -83,17 +83,27 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
 
   /**
    * Start the track task and all api-polling-based tasks will be blocking until
-   * a flink rest k8s endpoint is founded for availability.
+   * a flink rest k8s endpoint is found for availability.
    */
   private def launchTrackers(fcid: Fcid, trackTaskFibers: Ref[mutable.Set[TrackTaskFiber]]): RIO[Scope, Unit] =
     for {
+      // blocking until the rest service is available in kubernetes.
+      _ <- logInfo("Retrieving flink rest endpoint...")
       endpoint <- eptRetriever
         .retrieve(fcid)
-        .catchAll(_ => ZIO.succeed(None)) // ignore all error
+        .catchAll(_ => ZIO.succeed(None))
         .repeat(recurWhile[Option[FlinkRestSvcEndpoint]](_.isEmpty) && spaced(1.seconds))
         .map(_._1.get)
-      _              <- logInfo(s"Found flink rest endpoint: ${endpoint.show}")
-      _              <- snapStg.restEndpoint.put(fcid, endpoint)
+      _ <- logInfo(s"Found flink rest endpoint: ${endpoint.show}")
+      _ <- snapStg.restEndpoint.put(fcid, endpoint)
+
+      // blocking until the rest api can be connected.
+      _ <- logInfo(s"Checking availability of flink rest endpoint: ${endpoint.show} ...")
+      _ <- flinkRest(endpoint.chooseUrl).isAvailable
+        .repeat(recurWhile[Boolean](!_) && spaced(500.millis))
+        .unit
+      _ <- logInfo("Flink rest endpoint is available, let's start all cluster tracking fibers.")
+
       clusterOvFiber <- pollClusterOverview(fcid).forkScoped
       tmDetailFiber  <- pollTmDetail(fcid).forkScoped
       jmMetricFiber  <- pollJmMetrics(fcid).forkScoped

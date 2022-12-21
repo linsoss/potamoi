@@ -9,7 +9,7 @@ import potamoi.sttps.*
 import potamoi.syntax.*
 import sttp.client3.*
 import sttp.client3.ziojson.*
-import zio.{IO, Task, ZIO}
+import zio.{IO, Task, UIO, ZIO}
 import zio.json.{jsonField, DeriveJsonCodec, JsonCodec}
 
 import java.io.File
@@ -25,6 +25,11 @@ val flinkRest = FlinkRestRequest
  * Reference to https://nightlies.apache.org/flink/flink-docs-master/docs/ops/rest_api/
  */
 trait FlinkRestRequest(restUrl: String) {
+
+  /**
+   * Check the availability of rest api.
+   */
+  def isAvailable: UIO[Boolean]
 
   /**
    * Uploads jar file.
@@ -147,6 +152,15 @@ class FlinkRestRequestLive(restUrl: String) extends FlinkRestRequest(restUrl) {
   import FlinkRestRequest.*
 
   private val request = basicRequest
+
+  def isAvailable: UIO[Boolean] =
+    usingSttp { backend =>
+      request
+        .get(uri"$restUrl/config")
+        .send(backend)
+        .flattenBody
+        .as(true)
+    }.catchAll(_ => ZIO.succeed(false))
 
   def uploadJar(filePath: String): IO[RequestApiErr, JarId] =
     usingSttp { backend =>

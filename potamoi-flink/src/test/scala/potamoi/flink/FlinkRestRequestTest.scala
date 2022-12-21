@@ -19,3 +19,5 @@ object FlinkRestRequestTest:
 
   @main def testGetDmDetail =
     flinkRest(url).getTaskManagerDetail("session-01-taskmanager-1-45").tapErrorCause(e => ZIO.logErrorCause(e.recurse)).debugPretty.run
+
+  @main def testIsAvailable = flinkRest(url).isAvailable.debugPretty.run

@@ -17,7 +17,7 @@ import potamoi.kubernetes.K8sOperator
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.usingAttempt
 import zio.{IO, ZIO}
-import zio.ZIO.{attempt, attemptBlockingInterrupt, logInfo, scoped, succeed}
+import zio.ZIO.{attempt, attemptBlockingInterrupt, logErrorCause, logInfo, scoped, succeed}
 import zio.ZIOAspect.annotated
 
 /**
@@ -52,6 +52,7 @@ class FlinkSessClusterOperatorLive(
   /**
    * Deploy Flink session cluster.
    */
+  //noinspection DuplicatedCode
   override def deployCluster(clusterDef: FlinkSessClusterDef): IO[ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
     for {
       clusterDef <- ClusterDefResolver.session.revise(clusterDef)
@@ -80,7 +81,11 @@ class FlinkSessClusterOperatorLive(
         } yield ()
       }.mapError(SubmitFlinkClusterFail(clusterDef.fcid, K8sSession, _))
       // tracking cluster
-      _ <- observer.manager.track(clusterDef.fcid).retryN(3).ignore
+      _ <- observer.manager
+        .track(clusterDef.fcid)
+        .retryN(3)
+        .tapErrorCause(cause => logErrorCause(s"Failed to submit flink cluster trace request, need to trace manually later.", cause.recurse))
+        .ignore
       _ <- logInfo(s"Deploy flink session cluster successfully.")
     } yield ()
   }.tapErrorCause(cause =>
