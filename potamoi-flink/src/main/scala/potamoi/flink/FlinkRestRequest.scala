@@ -335,7 +335,8 @@ class FlinkRestRequestLive(restUrl: String) extends FlinkRestRequest(restUrl) {
         .send(backend)
         .flattenBody
         .attemptBody(ujson.read(_)("taskmanagers").arr.map(_("id").str).toVector)
-    } mapError (RequestApiErr("get", s"$restUrl/taskmanagers", _))
+    }.catchSome { case NotFound => ZIO.succeed(Vector.empty) }
+      .mapError(RequestApiErr("get", s"$restUrl/taskmanagers", _))
 
   def getTaskManagerDetail(tmId: String): IO[TaskmanagerNotFound | RequestApiErr, TmDetailInfo] =
     usingSttp { backend =>

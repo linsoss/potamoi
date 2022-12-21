@@ -9,11 +9,12 @@ import potamoi.flink.model.{Fcid, FlinkK8sPodMetrics, FlinkK8sServiceSnap, Flink
 import potamoi.flink.observer.tracker.K8sEntityConverter.*
 import potamoi.flink.storage.FlinkSnapshotStorage
 import potamoi.kubernetes.{K8sClient, K8sOperator}
+import potamoi.kubernetes.K8sErr.PodNotFound
 import potamoi.syntax.valueToSome
 import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import zio.*
 import zio.stream.ZStream
-import zio.Schedule.{recurWhile, spaced}
+import zio.Schedule.{recurWhile, spaced, succeed}
 import zio.ZIO.{logError, logInfo, logWarning}
 import zio.ZIOAspect.annotated
 
@@ -193,9 +194,13 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
 
     def pollingMetricsApi(podNames: Ref[mutable.HashSet[String]]) = ZStream
       .fromIterableZIO(podNames.get)
-      .mapZIOParUnordered(5)(name => k8sOperator.getPodMetrics(name, fcid.namespace).map(name -> _))
-      .map { case (name, metrics) => FlinkK8sPodMetrics(fcid.clusterId, fcid.namespace, name, metrics.copy()) }
-      .runForeach(snapStg.k8sRef.podMetrics.put)
+      .mapZIOParUnordered(5) { name =>
+        k8sOperator
+          .getPodMetrics(name, fcid.namespace)
+          .map(metrics => Some(FlinkK8sPodMetrics(fcid.clusterId, fcid.namespace, name, metrics.copy())))
+          .catchSome { case PodNotFound(_, _) => ZIO.succeed(None) }
+      }
+      .runForeach(m => snapStg.k8sRef.podMetrics.put(m.get).when(m.isDefined))
 
     for {
       podNames <- Ref.make(mutable.HashSet.empty[String])

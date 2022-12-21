@@ -22,7 +22,7 @@ package object tracker:
   /**
    * Cyclic trigger polling effect and recording of the first non-repeating error.
    */
-  def loopTrigger[E, A](spaced: Duration, effect: IO[E, A]): UIO[Unit] =
+  inline def loopTrigger[E, A](spaced: Duration, effect: IO[E, A]): UIO[Unit] =
     for {
       preErr <- Ref.make[Option[E]](None)
       loopEffect <- effect
