@@ -203,7 +203,7 @@ case class S3AccessConf(
   /**
    * Mapping to flink-s3-hadoop configuration.
    */
-  def rawMappingS3a = Map(
+  def mappingS3a = Map(
     "fs.s3a.endpoint"               -> endpoint,
     "fs.s3a.access.key"             -> accessKey,
     "fs.s3a.secret.key"             -> secretKey,

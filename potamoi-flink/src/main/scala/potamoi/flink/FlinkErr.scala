@@ -1,7 +1,7 @@
 package potamoi.flink
 
 import potamoi.common.Err
-import potamoi.flink.model.Fcid
+import potamoi.flink.model.{Fcid, FlinkExecMode, FlinkSessJobDef}
 import potamoi.kubernetes.K8sErr
 
 import scala.concurrent.duration.Duration
@@ -12,10 +12,35 @@ import scala.concurrent.duration.Duration
 sealed abstract class FlinkErr(msg: String, cause: Throwable = null) extends Err(msg, cause)
 
 object FlinkErr:
+  case class K8sFail(err: K8sErr)                              extends FlinkErr(err.getMessage, err.getCause)
   case class ClusterNotFound(fcid: Fcid)                       extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
   case class WatchTimeout(timeout: Duration)                   extends FlinkErr(s"Watch timeout with ${timeout.toString}")
-  case class K8sFail(err: K8sErr)                              extends FlinkErr(err.getMessage, err.getCause)
   case class ConnectShardErr(entity: String, cause: Throwable) extends FlinkErr(s"Connect shard entity fail: $entity", cause)
+
+  case class EmptyJobOnCluster(fcid: Fcid) extends FlinkErr(s"There are no any jobs on the flink cluster: ${fcid.show}")
+  case class SubmitFlinkClusterFail(fcid: Fcid, execMode: FlinkExecMode, cause: Throwable)
+      extends FlinkErr(s"Fail to submit flink cluster to kubernetes: ${fcid.show}. execMode=${execMode.value}", cause)
+
+/**
+ * Resolve flink cluster definition error.
+ */
+sealed abstract class ResolveClusterDefErr(msg: String, cause: Throwable) extends FlinkErr(msg, cause)
+
+object ResolveClusterDefErr:
+  case class ReviseClusterDefErr(cause: Throwable)                  extends ResolveClusterDefErr(s"Fail to revise flink cluster definition", cause)
+  case class ConvertToRawConfigErr(cause: Throwable)                extends ResolveClusterDefErr(s"Fail to convert to flink raw configuration", cause)
+  case class ResolveLogConfigErr(message: String, cause: Throwable) extends ResolveClusterDefErr(message, cause)
+  case class ResolvePodTemplateErr(message: String, cause: Throwable) extends ResolveClusterDefErr(message, cause)
+
+/**
+ * Resolve flink job definition error.
+ */
+sealed abstract class ResolveJobDefErr(msg: String, cause: Throwable = null) extends FlinkErr(msg, cause)
+
+object ResolveJobDefErr:
+  case class NotSupportJobJarPath(path: String) extends ResolveJobDefErr(s"Unsupported flink jar path: $path")
+  case class DownloadJobJarFail(remotePath: String, cause: Throwable)
+      extends ResolveJobDefErr(s"Fail to download flink jar from remote: $remotePath", cause)
 
 /**
  * Flink snapshot data storage operation err.
