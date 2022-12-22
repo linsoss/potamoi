@@ -24,3 +24,5 @@ object FlinkPipeOprStates:
     JsonEncoder[String].contramap(_.value),
     JsonDecoder[String].map(s => FlinkPipeOprState.values.find(_.value == s).getOrElse(FlinkPipeOprState.Unknown))
   )
+  def ofRaw(rawValue: String): FlinkPipeOprState =
+    FlinkPipeOprState.values.find(_.value == rawValue).getOrElse(FlinkPipeOprState.Unknown)

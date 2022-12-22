@@ -245,7 +245,7 @@ class FlinkRestRequestLive(restUrl: String) extends FlinkRestRequest(restUrl) {
         .flattenBody
         .attemptBody { body =>
           val rspJson      = ujson.read(body)
-          val status       = rspJson("status")("id").str.contra(FlinkPipeOprState.valueOf)
+          val status       = rspJson("status")("id").str.contra(FlinkPipeOprStates.ofRaw)
           val failureCause = rspJson("operation").objOpt.map(_("failure-cause")("stack-trace").str)
           FlinkSptTriggerStatus(status, failureCause)
         }
