@@ -45,6 +45,7 @@ object FlinkConf:
  * Flink cluster tracking config.
  */
 case class FlinkTrackConf(
+    @name("log-failed-reason") logTrackersFailedInfo: Boolean = false,
     @name("poll-parallelism") pollParallelism: Int = 16,
     @name("job-overview-poll-interval") jobOvPolling: Duration = 500.millis,
     @name("cluster-overview-poll-interval") clusterOvPolling: Duration = 500.millis,

@@ -137,7 +137,7 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
       .attempt {
         Configuration()
           // inject inner raw configs
-          .append("execution.target", clusterDef.mode.value)  // fixme bug fixable
+          .append("execution.target", clusterDef.mode.value)
           .append("kubernetes.cluster-id", clusterDef.clusterId)
           .append("kubernetes.namespace", clusterDef.namespace)
           .append("kubernetes.container.image", clusterDef.image)
@@ -230,7 +230,9 @@ object AppClusterDefResolver extends ClusterDefResolver[FlinkAppClusterDef] {
         val reviseJarPath = if isS3Path(clusterDef.jobJar) then s"local:///opt/flink/lib/${clusterDef.jobJar.split('/').last}" else clusterDef.jobJar
         rawConf
           .append("pipeline.jars", reviseJarPath)
-          .append("pipeline.name", clusterDef.jobName)
           .append(clusterDef.restore)
+        clusterDef.jobName match
+          case Some(name) => rawConf.append("pipeline.name", name)
+          case None       => rawConf
     )
 }

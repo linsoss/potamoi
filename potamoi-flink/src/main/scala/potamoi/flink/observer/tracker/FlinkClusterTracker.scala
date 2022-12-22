@@ -34,7 +34,8 @@ object FlinkClusterTracker {
 class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, eptRetriever: FlinkRestEndpointRetriever) {
   import FlinkClusterTracker.*
 
-  private given FlinkRestEndpointType = flinkConf.restEndpointTypeInternal
+  private given FlinkRestEndpointType  = flinkConf.restEndpointTypeInternal
+  private given logFailReason: Boolean = flinkConf.tracking.logTrackersFailedInfo
   private type TrackTaskFiber = Fiber.Runtime[Nothing, Unit]
   private type LaunchFiber    = Fiber.Runtime[Throwable, Unit]
 

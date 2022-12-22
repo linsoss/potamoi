@@ -205,7 +205,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
     for {
       podNames <- Ref.make(mutable.HashSet.empty[String])
       _        <- watchPodNames(podNames).fork
-      pollProc <- loopTrigger(flinkConf.tracking.k8sPodMetricsPolling, pollingMetricsApi(podNames))
+      pollProc <- loopTrigger(flinkConf.tracking.k8sPodMetricsPolling, pollingMetricsApi(podNames))(using flinkConf.tracking.logTrackersFailedInfo)
     } yield pollProc
   }
 

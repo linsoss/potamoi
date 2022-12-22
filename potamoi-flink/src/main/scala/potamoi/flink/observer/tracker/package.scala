@@ -4,7 +4,7 @@ import potamoi.common.Syntax.toPrettyString
 import potamoi.flink.model.Fcid
 import potamoi.syntax.contra
 import zio.{Duration, IO, Ref, Schedule, UIO}
-import zio.ZIO.logError
+import zio.ZIO.{logDebug, logError}
 import zio.direct.*
 
 package object tracker:
@@ -22,13 +22,16 @@ package object tracker:
   /**
    * Cyclic trigger polling effect and recording of the first non-repeating error.
    */
-  inline def loopTrigger[E, A](spaced: Duration, effect: IO[E, A]): UIO[Unit] =
+  inline def loopTrigger[E, A](spaced: Duration, effect: IO[E, A])(using logFailReason: Boolean): UIO[Unit] =
     for {
       preErr <- Ref.make[Option[E]](None)
       loopEffect <- effect
         .tapError { err =>
           preErr.get.flatMap { pre =>
-            (logError(toPrettyString(err)) *> preErr.set(Some(err))).when(!pre.contains(err))
+            {
+              toPrettyString(err).contra(if logFailReason then logError(_) else logDebug(_)) *>
+              preErr.set(Some(err))
+            }.when(!pre.contains(err))
           }
         }
         .ignore
