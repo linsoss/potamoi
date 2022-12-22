@@ -86,16 +86,15 @@ case class FlinkAppClusterOperatorLive(
     existRemoteCluster(fcid).flatMap {
       case false => ZIO.unit
       case true =>
-        clearCluster(fcid)
-//        observer.restEndpoint.getEnsure(fcid).flatMap {
-//          case None => clearCluster(fcid)
-//          case Some(ept) =>
-//            flinkRest(ept.chooseUrl).listJobsStatusInfo.map(_.headOption).catchAll(_ => ZIO.succeed(None)).flatMap {
-//              case None => clearCluster(fcid)
-//              case Some(JobStatusInfo(jobId, state)) =>
-//                if !JobStates.isActive(state) then clearCluster(fcid) else ZIO.fail(JobIsActive(Fjid(fcid, jobId), state))
-//            }
-//        }
+        observer.restEndpoint.getEnsure(fcid).flatMap {
+          case None => clearCluster(fcid)
+          case Some(ept) =>
+            flinkRest(ept.chooseUrl).listJobsStatusInfo.map(_.headOption).catchAll(_ => ZIO.succeed(None)).flatMap {
+              case None => clearCluster(fcid)
+              case Some(JobStatusInfo(jobId, state)) =>
+                if !JobStates.isActive(state) then clearCluster(fcid) else ZIO.fail(JobIsActive(Fjid(fcid, jobId), state))
+            }
+        }
     }
 
   private inline def clearCluster(fcid: Fcid) = {
