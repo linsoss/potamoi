@@ -3,6 +3,7 @@ package potamoi.common
 import potamoi.errs.recurse
 import potamoi.syntax.toPrettyString
 import zio.{Exit, *}
+import zio.stream.ZStream
 
 import scala.reflect.ClassTag
 
@@ -31,6 +32,21 @@ object ZIOExtension {
   extension [E, A](zio: IO[E, A]) {
     inline def run: Exit[E, A]                  = zioRun(zio)
     inline def runToFuture: CancelableFuture[A] = zioRunToFuture(zio)
+
+    inline def distPollStream(spaced: Duration): ZStream[Any, E, A] =
+      for {
+        ref <- ZStream.fromZIO(Ref.make[Option[A]](None))
+        stream <- ZStream
+          .fromZIO(zio)
+          .repeat(Schedule.spaced(spaced))
+          .filterZIO { a =>
+            for {
+              pre <- ref.get
+              pass = !pre.contains(a)
+              _ <- ref.set(Some(a))
+            } yield pass
+          }
+      } yield stream
   }
 
   extension [R, E, A](zio: ZIO[R, E, A]) {
