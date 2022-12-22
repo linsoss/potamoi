@@ -12,7 +12,7 @@ import potamoi.flink.model.FlinkPlugins.S3aPlugins
 import potamoi.flink.operator.resolver.ClusterDefResolver.notAllowCustomRawConfKeys
 import potamoi.fs.S3Conf
 import potamoi.fs.paths.*
-import potamoi.syntax.safeTrim
+import potamoi.syntax.{contra, safeTrim}
 import zio.{IO, ZIO}
 
 /**
@@ -154,8 +154,10 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
           .append(clusterDef.jmHa)
           // s3 raw configs if necessary
           .pipe { conf =>
-            val buildInS3Conf = if isS3Required(clusterDef) then S3AccessConf(s3Conf).mappingS3p else Vector.empty
-            val jobS3Conf     = clusterDef.s3.map(_.mappingS3a).getOrElse(Vector.empty)
+            // using s3p raw config and standard s3 raw config to resolve savepoint/checkpoint trigger issues.
+            val buildInS3Conf = if isS3Required(clusterDef) then S3AccessConf(s3Conf).contra(f => f.mappingS3p ++ f.mappingS3) else Vector.empty
+            // using s3a config for custom job.
+            val jobS3Conf = clusterDef.s3.map(_.mappingS3a).getOrElse(Vector.empty)
             (buildInS3Conf ++ jobS3Conf).foldLeft(conf)((ac, c) => ac.append(c._1, c._2))
           }
           // built-in plugins raw configs

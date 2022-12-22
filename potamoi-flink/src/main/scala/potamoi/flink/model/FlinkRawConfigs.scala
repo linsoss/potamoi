@@ -190,6 +190,17 @@ case class S3AccessConf(
     sslEnabled: Option[Boolean] = None) {
 
   /**
+   * Mapping to standard flink-s3 configuration.
+   */
+  def mappingS3 = Map(
+    "s3.endpoint" -> endpoint,
+    "s3.access-key" -> accessKey,
+    "s3.secret-key" -> secretKey,
+    "s3.path.style.access" -> pathStyleAccess,
+    "s3.ssl.enabled" -> sslEnabled,
+  ).dry
+  
+  /**
    * Mapping to flink-s3-presto configuration.
    */
   def mappingS3p = Map(
@@ -197,9 +208,10 @@ case class S3AccessConf(
     "hive.s3.aws-access-key"    -> accessKey,
     "hive.s3.aws-secret-key"    -> secretKey,
     "hive.s3.path-style-access" -> pathStyleAccess,
-    "hive.s3.ssl.enabled"       -> sslEnabled
+    "hive.s3.ssl.enabled"       -> sslEnabled,
+    
   ).dry
-
+  
   /**
    * Mapping to flink-s3-hadoop configuration.
    */

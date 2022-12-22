@@ -5,7 +5,7 @@ import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 /**
  * Flink savepoint trigger status.
  */
-case class FlinkSptTriggerStatus(state: FlinkPipeOprState, failureCause: Option[String]) {
+case class FlinkSptTriggerStatus(state: FlinkPipeOprState, failureCause: Option[String], location: Option[String]) {
   lazy val isCompleted = state == FlinkPipeOprState.Completed
   lazy val isFailed    = failureCause.isDefined
 }

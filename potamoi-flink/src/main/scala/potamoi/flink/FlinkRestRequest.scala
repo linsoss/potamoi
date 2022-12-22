@@ -244,10 +244,16 @@ class FlinkRestRequestLive(restUrl: String) extends FlinkRestRequest(restUrl) {
         .send(backend)
         .flattenBody
         .attemptBody { body =>
-          val rspJson      = ujson.read(body)
-          val status       = rspJson("status")("id").str.contra(FlinkPipeOprStates.ofRaw)
-          val failureCause = rspJson("operation").objOpt.map(_("failure-cause")("stack-trace").str)
-          FlinkSptTriggerStatus(status, failureCause)
+          val rspJson = ujson.read(body)
+          val status  = rspJson("status")("id").str.contra(FlinkPipeOprStates.ofRaw)
+          val (location, failureCause) = rspJson("operation").objOpt match
+            case None => None -> None
+            case Some(operation) =>
+              println(operation)
+              val loc     = operation.get("location").flatMap(_.strOpt)
+              val failure = operation.get("failure-cause").flatMap(_.objOpt.flatMap(_.get("stack-trace").strOpt))
+              loc -> failure
+          FlinkSptTriggerStatus(status, failureCause, location)
         }
     } mapError {
       case NotFound => TriggerNotFound(triggerId)

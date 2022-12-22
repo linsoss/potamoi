@@ -6,7 +6,7 @@ import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
  * Flink job savepoint conf.
  */
 case class FlinkJobSavepointDef(
-    drain: Boolean = true,
+    drain: Boolean = false,
     savepointPath: Option[String] = None,
     formatType: Option[SavepointFormatType] = None,
     triggerId: Option[String] = None)
