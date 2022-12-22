@@ -62,7 +62,7 @@ case class FlinkAppClusterOperatorLive(
   /**
    * Deploy Flink session cluster.
    */
-  //noinspection DuplicatedCode
+  // noinspection DuplicatedCode
   override def deployCluster(clusterDef: FlinkAppClusterDef): IO[ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
     for {
       clusterDef <- ClusterDefResolver.application.revise(clusterDef)
@@ -77,6 +77,8 @@ case class FlinkAppClusterOperatorLive(
           .append("kubernetes.pod-template-file.jobmanager", podTemplateFilePath)
           .append("kubernetes.pod-template-file.taskmanager", podTemplateFilePath)
           .append("$internal.deployment.config-dir", logConfFilePath)
+          .append("execution.shutdown-on-application-finish", false) // prevents the jobmanager from being destroyed
+          .append("execution.shutdown-on-attached-exit", false)
           .append(InjectedExecModeKey, K8sApplication)
           .append(InjectedDeploySourceConf._1, InjectedDeploySourceConf._2)
       }
