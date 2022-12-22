@@ -404,6 +404,7 @@ object FlinkRestRequest {
    * see: [[FlinkRestRequest.runJar]]
    */
   case class RunJobReq(
+      jobId: Option[String],
       @jsonField("entry-class") entryClass: Option[String],
       programArgs: Option[String],
       parallelism: Option[Int],
@@ -413,6 +414,7 @@ object FlinkRestRequest {
 
   object RunJobReq:
     def apply(jobDef: FlinkSessJobDef): RunJobReq = RunJobReq(
+      jobId = jobDef.jobId,
       entryClass = jobDef.appMain,
       programArgs = if (jobDef.appArgs.isEmpty) None else Some(jobDef.appArgs.mkString(" ")),
       parallelism = jobDef.parallelism,

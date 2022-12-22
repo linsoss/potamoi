@@ -1,7 +1,7 @@
 package potamoi.flink
 
 import potamoi.common.Err
-import potamoi.flink.model.{Fcid, FlinkExecMode, FlinkSessJobDef}
+import potamoi.flink.model.{Fcid, Fjid, FlinkExecMode, FlinkSessJobDef, JobState}
 import potamoi.kubernetes.K8sErr
 
 import scala.concurrent.duration.Duration
@@ -17,9 +17,12 @@ object FlinkErr:
   case class WatchTimeout(timeout: Duration)                   extends FlinkErr(s"Watch timeout with ${timeout.toString}")
   case class ConnectShardErr(entity: String, cause: Throwable) extends FlinkErr(s"Connect shard entity fail: $entity", cause)
 
-  case class EmptyJobOnCluster(fcid: Fcid) extends FlinkErr(s"There are no any jobs on the flink cluster: ${fcid.show}")
+  case class ClusterAlreadyExist(fcid: Fcid) extends FlinkErr(s"Flink cluster[${fcid.show}] already exists on kubernetes.")
+  case class EmptyJobOnCluster(fcid: Fcid)   extends FlinkErr(s"There are no any jobs on the flink cluster: ${fcid.show}")
   case class SubmitFlinkClusterFail(fcid: Fcid, execMode: FlinkExecMode, cause: Throwable)
       extends FlinkErr(s"Fail to submit flink cluster to kubernetes: ${fcid.show}. execMode=${execMode.value}", cause)
+  case class JobIsActive(fjid: Fjid, status: JobState)
+      extends FlinkErr(s"Reject to submit application job, due to job[${fjid.jobId}] is [$status] on cluster[${fjid.fcid.show}]")
 
 /**
  * Resolve flink cluster definition error.

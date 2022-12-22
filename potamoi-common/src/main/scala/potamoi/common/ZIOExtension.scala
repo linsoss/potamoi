@@ -4,6 +4,8 @@ import potamoi.errs.recurse
 import potamoi.syntax.toPrettyString
 import zio.{Exit, *}
 
+import scala.reflect.ClassTag
+
 /**
  * ZIO syntax extension.
  */
@@ -38,32 +40,31 @@ object ZIOExtension {
         case cause: Cause[Throwable] => ZIO.succeed(println(s"<FAIL> ${cause.recurse.prettyPrint}"))
         case cause                   => ZIO.succeed(println(s"<FAIL> ${cause.prettyPrint}"))
       }
-  }
 
-  extension [E, A](zio: ZIO[Scope, E, A]) {
-    def endScoped(): IO[E, A] = ZIO.scoped(zio)
+    inline def repeatWhileWithSpaced(f: A => Boolean, spaced: Duration): ZIO[R, E, A] =
+      zio.repeat(Schedule.recurWhile[A](f) && Schedule.spaced(spaced)).map(_._1)
   }
 
   /**
    * Close resource zio.
    */
-  def close(resource: AutoCloseable): UIO[Unit] = ZIO.succeed(resource.close())
+  inline def close(resource: AutoCloseable): UIO[Unit] = ZIO.succeed(resource.close())
 
   /**
    * [[scala.util.Using]] style syntax for ZIO.
    */
-  def usingAttempt[RS <: AutoCloseable](code: => RS): ZIO[Scope, Throwable, RS] = ZIO.acquireRelease(ZIO.attempt(code))(close)
+  inline def usingAttempt[RS <: AutoCloseable](code: => RS): ZIO[Scope, Throwable, RS] = ZIO.acquireRelease(ZIO.attempt(code))(close(_))
 
   /**
    * [[scala.util.Using]] style syntax for ZIO.
    */
-  def usingAttemptBlocking[RS <: AutoCloseable](code: => RS): ZIO[Scope, Throwable, RS] =
-    ZIO.acquireRelease(ZIO.attemptBlockingInterrupt(code))(close)
+  inline def usingAttemptBlocking[RS <: AutoCloseable](code: => RS): ZIO[Scope, Throwable, RS] =
+    ZIO.acquireRelease(ZIO.attemptBlockingInterrupt(code))(close(_))
 
   /**
    * Convert product to a [[ZLayer]].
    */
-  extension [A <: Product: Tag](product: A) def asLayer: ULayer[A] = ZLayer.succeed(product)
+  extension [A <: Product: Tag](product: A) inline def asLayer: ULayer[A] = ZLayer.succeed(product)
 }
 
 final case class FutureErr[T](reason: T) extends Err(toPrettyString(reason))

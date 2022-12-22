@@ -3,7 +3,7 @@ package potamoi.flink.operator
 import potamoi.errs.{headMessage, recurse}
 import potamoi.flink.*
 import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExecModeKey, given}
-import potamoi.flink.FlinkErr.{ClusterNotFound, SubmitFlinkClusterFail}
+import potamoi.flink.FlinkErr.{ClusterAlreadyExist, ClusterNotFound, SubmitFlinkClusterFail}
 import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.FlinkRestRequest.{RunJobReq, StopJobSptReq, TriggerSptReq}
 import potamoi.flink.ResolveJobDefErr.{DownloadJobJarFail, NotSupportJobJarPath}
@@ -52,8 +52,20 @@ class FlinkSessClusterOperatorLive(
   /**
    * Deploy Flink session cluster.
    */
-  //noinspection DuplicatedCode
-  override def deployCluster(clusterDef: FlinkSessClusterDef): IO[ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
+  override def deployCluster(
+      clusterDef: FlinkSessClusterDef): IO[ClusterAlreadyExist | ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
+    for {
+      _ <- existRemoteCluster(clusterDef.fcid).flatMap(ZIO.fail(ClusterAlreadyExist(clusterDef.fcid)).when(_))
+      _ <- internalDeployCluster(clusterDef)
+    } yield ()
+  }.tapErrorCause(cause =>
+    ZIO
+      .logErrorCause(s"Fail to deploy flink session cluster due to: ${cause.headMessage}", cause.recurse)
+      .when(flinkConf.logFailedDeployReason))
+  @@ annotated (clusterDef.fcid.toAnno: _*)
+
+  // noinspection DuplicatedCode
+  private def internalDeployCluster(clusterDef: FlinkSessClusterDef): IO[ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] =
     for {
       clusterDef <- ClusterDefResolver.session.revise(clusterDef)
       // resolve flink pod template and log config
@@ -88,11 +100,6 @@ class FlinkSessClusterOperatorLive(
         .ignore
       _ <- logInfo(s"Deploy flink session cluster successfully.")
     } yield ()
-  }.tapErrorCause(cause =>
-    ZIO
-      .logErrorCause(s"Fail to deploy flink session cluster due to: ${cause.headMessage}", cause.recurse)
-      .when(flinkConf.logFailedDeployReason))
-  @@ annotated (clusterDef.fcid.toAnno: _*)
 
   /**
    * Submit job to Flink session cluster.

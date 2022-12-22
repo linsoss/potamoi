@@ -16,7 +16,7 @@ case class FlinkJobOverview(
     endTs: Long,
     tasks: TaskStats,
     ts: Long):
-  
+
   lazy val fjid: Fjid  = Fjid(clusterId, namespace, jobId)
   def durationTs: Long = curTs - startTs
 
@@ -48,7 +48,10 @@ enum JobState:
     RECONCILING, UNKNOWN
 
 object JobStates:
+  import JobState.*
   given JsonCodec[JobState] = JsonCodec(
     JsonEncoder[String].contramap(_.toString),
     JsonDecoder[String].map(s => JobState.values.find(_.toString == s).getOrElse(JobState.UNKNOWN))
   )
+  lazy val InactiveStates         = Set(FAILED, CANCELED, FINISHED)
+  def isActive(state: JobState)   = !InactiveStates.contains(state)

@@ -9,6 +9,7 @@ case class FlinkSessJobDef(
     clusterId: String,
     namespace: String,
     jobJar: String,
+    jobId: Option[String] = None,
     appMain: Option[String] = None,
     appArgs: List[String] = List.empty,
     parallelism: Option[Int] = None,
