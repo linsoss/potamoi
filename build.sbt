@@ -4,13 +4,14 @@ lazy val scala212 = "2.12.17"
 lazy val javaVer  = "17"
 
 lazy val zioVer        = "2.0.2"
-lazy val zioLoggingVer = "2.1.5"
+lazy val zioLoggingVer = "2.1.6"
 lazy val zioConfig     = "3.0.2"
 lazy val zioJsonVer    = "0.4.2"
 lazy val zioHttpVer    = "0.0.3"
 lazy val zioK8sVer     = "2.0.1"
 lazy val zioDirectVer  = "1.0.0-RC1"
 lazy val zioSchemaVer  = "0.4.0"
+lazy val zioCacheVer   = "0.2.1"
 lazy val shardcakeVer  = "2.0.5"
 
 lazy val catsVer      = "2.9.0"
@@ -23,7 +24,7 @@ lazy val osLibVer     = "0.8.1"
 lazy val slf4jVer    = "1.7.36"
 lazy val munitVer    = "1.0.0-M7"
 lazy val hoconVer    = "1.4.2"
-lazy val jodaTimeVer = "2.12.1"
+lazy val jodaTimeVer = "2.12.2"
 lazy val minioVer    = "8.4.6"
 lazy val quillVer    = "4.6.0"
 lazy val postgresVer = "42.5.1"
@@ -86,6 +87,7 @@ lazy val potaCommon = (project in file("potamoi-common"))
     libraryDependencies ++= Seq(
       "dev.zio"                       %% "zio-http"       % zioHttpVer exclude ("dev.zio", "zio_3") exclude ("dev.zio", "zio-streams_3"),
       "dev.zio"                       %% "zio-direct"     % zioDirectVer exclude ("com.lihaoyi", "geny_2.13"),
+      "dev.zio"                       %% "zio-cache"      % zioCacheVer,
       "com.lihaoyi"                   %% "upickle"        % upickleVer,
       "com.lihaoyi"                   %% "pprint"         % pprintVer,
       "com.softwaremill.quicklens"    %% "quicklens"      % quicklensVer,
