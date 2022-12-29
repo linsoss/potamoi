@@ -47,6 +47,7 @@ object FlinkConf:
 case class FlinkTrackConf(
     @name("log-failed-reason") logTrackersFailedInfo: Boolean = false,
     @name("poll-parallelism") pollParallelism: Int = 16,
+    @name("endpoint-cache-sync-interval") eptCacheSyncInterval: Duration = 30.seconds,
     @name("job-overview-poll-interval") jobOvPolling: Duration = 500.millis,
     @name("cluster-overview-poll-interval") clusterOvPolling: Duration = 500.millis,
     @name("tm-detail-poll-interval") tmdDetailPolling: Duration = 2.seconds,
