@@ -18,15 +18,17 @@ case class FlinkConf(
     @name("local-tmpdir") localTmpDir: String = "tmp/flink",
     @name("rest-endpoint-internal") restEndpointTypeInternal: FlinkRestEndpointType = FlinkRestEndpointType.ClusterIp,
     @name("log-failed-deploy") logFailedDeployReason: Boolean = false,
-    @name("tracking") tracking: FlinkTrackConf = FlinkTrackConf()):
+    @name("tracking") tracking: FlinkTrackConf = FlinkTrackConf(),
+    @name("proxy") reverseProxy: FlinkReverseProxyConf = FlinkReverseProxyConf()):
 
   def resolve(localStgDir: String): FlinkConf = copy(localTmpDir = s"${localStgDir}/${PathTool.rmSlashPrefix(localTmpDir)}")
 
 object FlinkConf:
   import FlinkRestEndpointTypes.given
-  given JsonCodec[Duration]       = scalaDurationJsonCodec
-  given JsonCodec[FlinkTrackConf] = DeriveJsonCodec.gen[FlinkTrackConf]
-  given JsonCodec[FlinkConf]      = DeriveJsonCodec.gen[FlinkConf]
+  given JsonCodec[Duration]              = scalaDurationJsonCodec
+  given JsonCodec[FlinkTrackConf]        = DeriveJsonCodec.gen[FlinkTrackConf]
+  given JsonCodec[FlinkReverseProxyConf] = DeriveJsonCodec.gen[FlinkReverseProxyConf]
+  given JsonCodec[FlinkConf]             = DeriveJsonCodec.gen[FlinkConf]
 
   val default = FlinkConf()
   val test = FlinkConf()
@@ -56,6 +58,13 @@ case class FlinkTrackConf(
     @name("job-metrics-poll-interval") jobMetricsPolling: Duration = 2.seconds,
     @name("k8s-pod-metrics-poll-interval") k8sPodMetricsPolling: Duration = 4.seconds,
     @name("savepoint-trigger-poll-interval") savepointTriggerPolling: Duration = 100.millis)
+
+/**
+ * Flink ui reversed proxy config.
+ */
+case class FlinkReverseProxyConf(
+    @name("route-table-cache-size") routeTableCacheSize: Int = 1000,
+    @name("route-table-cache-ttl") routeTableCacheTtl: Duration = 45.seconds)
 
 /**
  * Flink rest api export type.
