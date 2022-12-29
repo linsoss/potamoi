@@ -16,6 +16,7 @@ import potamoi.fs.S3Operator
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.PotaLogger
 import potamoi.sharding.{ShardingConf, Shardings}
+import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.{durationInt, IO, ZIO}
@@ -50,6 +51,7 @@ object FlinkOperatorTest {
         FlinkObserver.live,
         FlinkOperator.live
       )
+      .withLocalShardManager
       .provideLayer(PotaLogger.default)
       .run
       .exitCode

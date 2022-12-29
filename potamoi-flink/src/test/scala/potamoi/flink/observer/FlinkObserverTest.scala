@@ -9,12 +9,13 @@ import potamoi.flink.model.FlK8sComponentName.jobmanager
 import potamoi.flink.storage.FlinkSnapshotStorage
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.PotaLogger
-import potamoi.sharding.{ShardingConf, Shardings}
+import potamoi.sharding.{LocalShardManager, ShardingConf, Shardings}
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.{durationInt, IO, ZIO}
 import zio.Console.printLine
 import zio.Schedule.spaced
+import potamoi.sharding.LocalShardManager.withLocalShardManager
 
 object FlinkObserverTest {
 
@@ -26,6 +27,7 @@ object FlinkObserverTest {
         effect(obr)
       }
       .tapErrorCause(cause => ZIO.logErrorCause(cause.headMessage, cause.recurse))
+
     ZIO
       .scoped(program)
       .provide(
@@ -37,6 +39,7 @@ object FlinkObserverTest {
         Shardings.test,
         FlinkObserver.live
       )
+      .withLocalShardManager
       .provideLayer(PotaLogger.default)
       .run
       .exitCode
