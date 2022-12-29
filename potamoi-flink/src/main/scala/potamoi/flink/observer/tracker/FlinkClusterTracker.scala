@@ -72,12 +72,14 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
             } yield ()
         }
       case Stop(replier) =>
-        logInfo(s"Flink cluster tracker stopped: ${fcid.show}")
-        stop(launchFiberRef, trackTaskFiberRef, isStarted) *> replier.reply(Ack)
+        logInfo(s"Flink cluster tracker stopped: ${fcid.show}") *>
+        stop(launchFiberRef, trackTaskFiberRef, isStarted) *>
+        replier.reply(Ack)
 
       case Terminate =>
         logInfo(s"Flink cluster tracker terminated: ${fcid.show}") *>
         stop(launchFiberRef, trackTaskFiberRef, isStarted)
+
       case IsStarted(replier) => isStarted.get.flatMap(replier.reply)
     }
   } @@ ZIOAspect.annotated(fcid.toAnno*)
