@@ -4,7 +4,7 @@ lazy val scala212 = "2.12.17"
 lazy val javaVer  = "17"
 
 lazy val zioVer        = "2.0.2"
-lazy val zioLoggingVer = "2.1.6"
+lazy val zioLoggingVer = "2.1.5"
 lazy val zioConfig     = "3.0.2"
 lazy val zioJsonVer    = "0.4.2"
 lazy val zioHttpVer    = "0.0.3"
@@ -152,6 +152,16 @@ lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
   .dependsOn(potaLogger)
   .settings(commonSettings)
   .settings(name := "potamoi-flink-share")
+
+//lazy val potaFlinkInterpreter = (project in file("potamoi-flink-interpreter"))
+//  .dependsOn(potaLogger, potaCommon, potaFlinkShare)
+//  .settings(commonSettings)
+//  .settings(
+//    name := "potamoi-flink-interpreter",
+//    libraryDependencies ++= Seq(
+//      "org.apache.flink" % "flink-sql-gateway" % flinkVer
+//    )
+//  )
 
 lazy val potaServer = (project in file("potamoi-server"))
   .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs)
