@@ -90,9 +90,9 @@ class S3FsBackend(minioClient: MinioClient, conf: S3FsBackendConf) extends Remot
       inputStream <- ZStream.fromZIO {
         ZIO
           .attemptBlockingInterrupt { minioClient.getObject(GetObjectArgs.builder.bucket(conf.bucket).`object`(objectName).build) }
-          .mapError(RfsErr(s"Fail to get object stream from S3: $srcPath", _))
+          .mapError(RfsErr(s"Fail to get object stream from S3: ${remotePath(srcPath)}", _))
       }
-      stream <- ZStream.fromInputStream(inputStream).mapError(e => RfsErr(s"Fail to receive object stream from S3: $srcPath", e))
+      stream <- ZStream.fromInputStream(inputStream).mapError(e => RfsErr(s"Fail to receive object stream from S3: ${remotePath(srcPath)}", e))
     } yield stream
   }
 

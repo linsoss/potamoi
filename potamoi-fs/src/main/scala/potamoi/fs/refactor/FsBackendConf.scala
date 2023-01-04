@@ -36,3 +36,13 @@ object S3AccessStyles:
     JsonEncoder[String].contramap(_.value),
     JsonDecoder[String].map(s => S3AccessStyle.values.find(_.value == s).getOrElse(S3AccessStyle.PathStyle))
   )
+
+/**
+ * Local file system backend configuration.
+ */
+case class LocalFsBackendConf(dir: String = "storage"):
+  def resolve(rootDataDir: String): LocalFsBackendConf =
+    if dir.startsWith(rootDataDir) then this else copy(dir = s"$rootDataDir/${paths.rmFirstSlash(dir)}")
+
+object LocalFsBackendConf:
+  given JsonCodec[LocalFsBackendConf] = DeriveJsonCodec.gen[LocalFsBackendConf]

@@ -1,6 +1,6 @@
 package potamoi
 
-import potamoi.fs.refactor.S3FsBackendConf
+import potamoi.fs.refactor.{LocalFsBackendConf, S3FsBackendConf}
 import potamoi.fs.refactor.S3AccessStyle.PathStyle
 
 package object fs:
@@ -12,3 +12,5 @@ package object fs:
     secretKey = "minio123",
     accessStyle = PathStyle
   )
+
+  val LocalFsBackendConfTest = LocalFsBackendConf().resolve("var/potamoi")
