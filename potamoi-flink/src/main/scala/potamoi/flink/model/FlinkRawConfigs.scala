@@ -1,6 +1,7 @@
 package potamoi.flink.model
 
-import potamoi.fs.{S3AccessStyle, S3Conf}
+import potamoi.fs.S3Conf
+import potamoi.fs.refactor.S3AccessStyle
 import potamoi.nums.*
 import potamoi.syntax.contra
 import zio.json.{jsonField, DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}

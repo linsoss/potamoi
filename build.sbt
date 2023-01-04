@@ -23,13 +23,15 @@ lazy val osLibVer     = "0.8.1"
 
 lazy val slf4jVer    = "1.7.36"
 lazy val munitVer    = "1.0.0-M7"
-lazy val hoconVer    = "1.4.2"
 lazy val jodaTimeVer = "2.12.2"
+lazy val tikaVer     = "2.6.0"
 lazy val minioVer    = "8.4.6"
 lazy val quillVer    = "4.6.0"
 lazy val postgresVer = "42.5.1"
 
-lazy val flinkVer = "1.16.0"
+lazy val flinkVer    = flink116Ver
+lazy val flink116Ver = "1.16.0"
+lazy val flink115Ver = "1.15.3"
 
 lazy val commonSettings = Seq(
   ThisBuild / organization := "com.github.potamois",
@@ -50,7 +52,6 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-config"            % zioConfig,
     "dev.zio"       %% "zio-config-magnolia"   % zioConfig,
     "dev.zio"       %% "zio-config-typesafe"   % zioConfig,
-    "com.typesafe"   % "config"                % hoconVer,
     "dev.zio"       %% "zio-json"              % zioJsonVer,
     "dev.zio"       %% "zio-schema"            % zioSchemaVer,
     "dev.zio"       %% "zio-schema-derivation" % zioSchemaVer,
@@ -96,6 +97,7 @@ lazy val potaCommon = (project in file("potamoi-common"))
       "com.softwaremill.sttp.client3" %% "zio"            % sttpVer,
       "com.softwaremill.sttp.client3" %% "slf4j-backend"  % sttpVer,
       "joda-time"                      % "joda-time"      % jodaTimeVer,
+      "org.apache.tika"                % "tika-core"      % tikaVer exclude ("org.slf4j", "slf4j-api"),
       "io.getquill"                   %% "quill-jdbc-zio" % quillVer exclude ("com.lihaoyi", "geny_2.13"),
       "org.postgresql"                 % "postgresql"     % postgresVer
     )
@@ -153,15 +155,17 @@ lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
   .settings(commonSettings)
   .settings(name := "potamoi-flink-share")
 
-//lazy val potaFlinkInterpreter = (project in file("potamoi-flink-interpreter"))
-//  .dependsOn(potaLogger, potaCommon, potaFlinkShare)
-//  .settings(commonSettings)
-//  .settings(
-//    name := "potamoi-flink-interpreter",
-//    libraryDependencies ++= Seq(
-//      "org.apache.flink" % "flink-sql-gateway" % flinkVer
-//    )
-//  )
+lazy val potaFlinkInterpreter = (project in file("potamoi-flink-interpreter"))
+  .dependsOn(potaLogger, potaCommon, potaCluster, potaFlinkShare)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-flink-interpreter",
+    libraryDependencies ++= Seq(
+      "org.apache.flink" % "flink-clients"              % flinkVer,
+      "org.apache.flink" % "flink-table-planner-loader" % flinkVer,
+      "org.apache.flink" % "flink-table-runtime"        % flinkVer
+    )
+  )
 
 lazy val potaServer = (project in file("potamoi-server"))
   .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs)

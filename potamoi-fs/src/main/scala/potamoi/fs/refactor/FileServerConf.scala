@@ -1,0 +1,17 @@
+package potamoi.fs.refactor
+
+import zio.config.magnolia.name
+import zio.http.ServerConfig
+import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.{ZIO, ZLayer}
+
+/**
+ * Potamoi remote file storage server app configuration.
+ */
+case class FileServerConf(
+    @name("host") host: String,
+    @name("port") port: Int = 3400)
+
+object FileServerConf:
+  given JsonCodec[FileServerConf] = DeriveJsonCodec.gen[FileServerConf]
+  val test                        = FileServerConf("127.0.0.1", 3400)

@@ -1,6 +1,7 @@
 package potamoi.fs
 
 import potamoi.fs.OsTool.{randomDir, randomFile, rmFile}
+import potamoi.fs.refactor.lfs
 import potamoi.zios.*
 import zio.ZIO
 import zio.test.ZIOSpecDefault

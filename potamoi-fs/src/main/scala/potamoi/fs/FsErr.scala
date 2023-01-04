@@ -10,11 +10,11 @@ sealed abstract class FsErr(msg: String, cause: Throwable = null) extends Err(ms
 /**
  * Local file system error.
  */
-sealed abstract class LfsErr(msg: String, cause: Throwable = null) extends FsErr(msg, cause)
+sealed abstract class LocalFsErr(msg: String, cause: Throwable = null) extends FsErr(msg, cause)
 
-object LfsErr:
-  case class FileNotFound(path: String)           extends LfsErr(s"File not found: path=$path")
-  case class IOErr(msg: String, cause: Throwable) extends LfsErr(msg, cause)
+object LocalFsErr:
+  case class FileNotFound(path: String)           extends LocalFsErr(s"File not found: path=$path")
+  case class IOErr(msg: String, cause: Throwable) extends LocalFsErr(msg, cause)
 
 /**
  * S3 operation failure.

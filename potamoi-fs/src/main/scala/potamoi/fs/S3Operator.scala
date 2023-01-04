@@ -2,7 +2,7 @@ package potamoi.fs
 
 import io.minio.*
 import io.minio.errors.ErrorResponseException
-import potamoi.fs.LfsErr.{FileNotFound, IOErr}
+import potamoi.fs.LocalFsErr.{FileNotFound, IOErr}
 import potamoi.fs.S3Err.{DownloadObjErr, GetObjErr, RemoveObjErr, UploadObjErr}
 import potamoi.syntax.contra
 import zio.{IO, UIO, ZIO, ZLayer}
