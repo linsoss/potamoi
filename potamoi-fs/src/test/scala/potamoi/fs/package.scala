@@ -1,11 +1,11 @@
 package potamoi
 
-import potamoi.fs.refactor.{LocalFsBackendConf, S3FsBackendConf}
+import potamoi.fs.refactor.{FileServerConf, LocalFsBackendConf, S3FsBackendConf}
 import potamoi.fs.refactor.S3AccessStyle.PathStyle
 
 package object fs:
 
-  val S3FsBackendConfTest = S3FsBackendConf(
+  val S3FsBackendConfDev = S3FsBackendConf(
     endpoint = "http://10.144.74.197:30255",
     bucket = "flink-dev",
     accessKey = "minio",
@@ -13,4 +13,6 @@ package object fs:
     accessStyle = PathStyle
   )
 
-  val LocalFsBackendConfTest = LocalFsBackendConf().resolve("var/potamoi")
+  val LocalFsBackendConfDev = LocalFsBackendConf().resolve("var/potamoi")
+
+  val FileServerConfDev = FileServerConf(host = "10.144.108.28")

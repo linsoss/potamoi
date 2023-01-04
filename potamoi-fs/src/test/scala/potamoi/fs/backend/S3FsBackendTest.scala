@@ -2,7 +2,7 @@ package potamoi.fs.backend
 
 import potamoi.fs.refactor.backend.S3FsBackend
 import potamoi.fs.refactor.{lfs, S3AccessStyle, S3FsBackendConf}
-import potamoi.fs.S3FsBackendConfTest
+import potamoi.fs.S3FsBackendConfDev
 import zio.{IO, ZIO, ZLayer}
 import potamoi.zios.*
 
@@ -10,7 +10,7 @@ import java.io.File
 
 object S3FsBackendTest:
 
-  val layer = S3FsBackendConfTest.asLayer >>> S3FsBackend.live
+  val layer = S3FsBackendConfDev.asLayer >>> S3FsBackend.live
 
   def testing[A](f: S3FsBackend => IO[Throwable, A]) = zioRun {
     ZIO.service[S3FsBackend].flatMap { b => f(b) }.provide(layer)

@@ -14,7 +14,7 @@ object FileServerAppTest extends ZIOAppDefault:
 
   val run = FileServer.run
     .provide(
-      S3FsBackendConfTest.asLayer,
+      S3FsBackendConfDev.asLayer,
       S3FsBackend.live,
       FileServerConf.test.asLayer
     )
