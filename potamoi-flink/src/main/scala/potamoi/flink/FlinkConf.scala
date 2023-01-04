@@ -4,6 +4,7 @@ import com.softwaremill.quicklens.modify
 import potamoi.common.Codec
 import potamoi.common.Codec.scalaDurationJsonCodec
 import potamoi.fs.PathTool
+import potamoi.fs.refactor.paths
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 
@@ -21,7 +22,9 @@ case class FlinkConf(
     @name("tracking") tracking: FlinkTrackConf = FlinkTrackConf(),
     @name("proxy") reverseProxy: FlinkReverseProxyConf = FlinkReverseProxyConf()):
 
-  def resolve(localStgDir: String): FlinkConf = copy(localTmpDir = s"${localStgDir}/${PathTool.rmSlashPrefix(localTmpDir)}")
+  def resolve(rootDataDir: String): FlinkConf =
+    if localTmpDir.startsWith(rootDataDir) then this
+    else copy(localTmpDir = s"$rootDataDir/${paths.rmFirstSlash(localTmpDir)}")
 
 object FlinkConf:
   import FlinkRestEndpointTypes.given
