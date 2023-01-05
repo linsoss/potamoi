@@ -1,8 +1,8 @@
 package potamoi.fs.refactor
 
 import potamoi.fs.refactor.FsErr
-import zio.{IO, UIO, ZIO}
-import zio.stream.Stream
+import zio.{IO, Scope, UIO, ZIO}
+import zio.stream.{Stream, ZStream}
 
 import java.io.File
 import java.net.{URI, URL}
@@ -40,7 +40,7 @@ trait RemoteFsOperator:
    * Download file as ZStream.
    * @param srcPath allowed without schema or with pota-fs schema.
    */
-  def downloadAsStream(srcPath: String): Stream[FsErr, Byte]
+  def downloadAsStream(srcPath: String): ZStream[Scope, FsErr, Byte]
 
   /**
    * Remove file from remote storage.

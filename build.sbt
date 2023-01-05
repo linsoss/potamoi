@@ -21,13 +21,14 @@ lazy val upickleVer   = "2.0.0"
 lazy val pprintVer    = "0.8.1"
 lazy val osLibVer     = "0.8.1"
 
-lazy val slf4jVer    = "1.7.36"
-lazy val munitVer    = "1.0.0-M7"
-lazy val jodaTimeVer = "2.12.2"
-lazy val tikaVer     = "2.6.0"
-lazy val minioVer    = "8.4.6"
-lazy val quillVer    = "4.6.0"
-lazy val postgresVer = "42.5.1"
+lazy val slf4jVer       = "1.7.36"
+lazy val munitVer       = "1.0.0-M7"
+lazy val jodaTimeVer    = "2.12.2"
+lazy val tikaVer        = "2.6.0"
+lazy val commonCodecVer = "1.15"
+lazy val minioVer       = "8.4.6"
+lazy val quillVer       = "4.6.0"
+lazy val postgresVer    = "42.5.1"
 
 lazy val flinkVer    = flink116Ver
 lazy val flink116Ver = "1.16.0"
@@ -98,6 +99,7 @@ lazy val potaCommon = (project in file("potamoi-common"))
       "com.softwaremill.sttp.client3" %% "slf4j-backend"  % sttpVer,
       "joda-time"                      % "joda-time"      % jodaTimeVer,
       "org.apache.tika"                % "tika-core"      % tikaVer exclude ("org.slf4j", "slf4j-api"),
+      "commons-codec"                  % "commons-codec"  % commonCodecVer,
       "io.getquill"                   %% "quill-jdbc-zio" % quillVer exclude ("com.lihaoyi", "geny_2.13"),
       "org.postgresql"                 % "postgresql"     % postgresVer
     )

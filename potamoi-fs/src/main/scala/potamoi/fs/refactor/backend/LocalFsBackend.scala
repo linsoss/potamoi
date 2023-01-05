@@ -2,7 +2,7 @@ package potamoi.fs.refactor.backend
 
 import potamoi.fs.refactor.{paths, FsErr, LocalFsBackendConf, RemoteFsOperator}
 import potamoi.fs.refactor.FsErr.{LfsErr, RfsErr}
-import zio.{stream, IO, UIO, ZIO, ZLayer}
+import zio.{stream, IO, Scope, UIO, ZIO, ZLayer}
 import zio.stream.ZStream
 
 import java.io.File
@@ -23,10 +23,8 @@ class LocalFsBackend(conf: LocalFsBackendConf) extends RemoteFsOperator:
   /**
    * Get the actual path to remote storage.
    */
-  override def remotePath(path: String): UIO[String] = ZIO.succeed(s"file://$localStgDir/$path")
-
-  private lazy val localStgDir                     = File(conf.dir).getAbsoluteFile
-  private def localPath(path: String): UIO[String] = ZIO.succeed(s"$localStgDir/$path")
+  override def remotePath(path: String): UIO[String] = ZIO.succeed(s"$localStgDir/$path")
+  private lazy val localStgDir                       = File(conf.dir).getAbsoluteFile
 
   /**
    * Upload file to remote storage.
@@ -34,7 +32,7 @@ class LocalFsBackend(conf: LocalFsBackendConf) extends RemoteFsOperator:
   override def upload(srcFile: File, targetPath: String): IO[FsErr, String] =
     for {
       target          <- purePath(targetPath)
-      localTargetPath <- localPath(target)
+      localTargetPath <- remotePath(target)
       _ <- ZIO
         .attemptBlocking {
           os.copy(from = os.Path(srcFile.getAbsolutePath), to = os.Path(localTargetPath), replaceExisting = true, createFolders = true)
@@ -48,7 +46,7 @@ class LocalFsBackend(conf: LocalFsBackendConf) extends RemoteFsOperator:
   override def download(srcPath: String, targetPath: String): IO[FsErr, File] =
     for {
       src          <- purePath(srcPath)
-      localSrcPath <- localPath(src)
+      localSrcPath <- remotePath(src)
       _ <- ZIO
         .attemptBlocking {
           os.copy(from = os.Path(localSrcPath), to = os.Path(File(targetPath).getAbsolutePath), replaceExisting = true, createFolders = true)
@@ -59,22 +57,21 @@ class LocalFsBackend(conf: LocalFsBackendConf) extends RemoteFsOperator:
   /**
    * Download file as ZStream.
    */
-  override def downloadAsStream(srcPath: String): stream.Stream[FsErr, Byte] =
+  override def downloadAsStream(srcPath: String): ZStream[Scope, FsErr, Byte] = {
     for {
-      localSrcPath <- ZStream.fromZIO(purePath(srcPath).flatMap(localPath))
-      inputStream <- ZStream.fromZIO {
-        ZIO
-          .attemptBlockingInterrupt(os.read.inputStream(os.Path(localSrcPath)))
-          .mapError(RfsErr(s"Fail to create input stream in local fs : $localSrcPath", _))
-      }
-      stream <- ZStream.fromInputStream(inputStream).mapError(e => RfsErr(s"Fail to receive input stream from local fs: $localSrcPath", e))
+      localSrcPath <- ZStream.fromZIO(purePath(srcPath).flatMap(remotePath))
+      inputStream <- ZStream.acquireReleaseWith {
+        ZIO.attemptBlockingInterrupt(os.read.inputStream(os.Path(localSrcPath)))
+      } { fis => ZIO.attempt(fis.close()).ignore }
+      stream <- ZStream.fromInputStream(inputStream)
     } yield stream
+  }.mapError(RfsErr(s"Fail to get input stream bytes from local fs: ${remotePath(srcPath)}", _))
 
   /**
    * Remove file from remote storage.
    */
   override def remove(path: String): IO[FsErr, Unit] = for {
-    localPath <- purePath(path).flatMap(localPath)
+    localPath <- purePath(path).flatMap(remotePath)
     _ <- ZIO
       .attemptBlocking(os.remove(os.Path(localPath), checkExists = false))
       .mapError(RfsErr(s"Fail to remove file in local fs: path=$localPath", _))
@@ -84,7 +81,7 @@ class LocalFsBackend(conf: LocalFsBackendConf) extends RemoteFsOperator:
    * Determine whether file exists on remote storage.
    */
   override def exist(path: String): IO[FsErr, Boolean] = for {
-    localPath <- purePath(path).flatMap(localPath)
+    localPath <- purePath(path).flatMap(remotePath)
     exist <- ZIO
       .attemptBlocking(os.exists(os.Path(localPath)))
       .mapError(RfsErr(s"Fail to check file in local fs: path=$localPath", _))

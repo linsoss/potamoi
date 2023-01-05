@@ -25,14 +25,13 @@ object FileServer:
       app                 = FileServer(conf, backend)
       httpServerConfLayer = ServerConfig.live.project(_.binding(conf.host, conf.port))
 
-      _ <- ZIO.logInfo(s"""Potamoi File remote server start at http://${conf.host}:${conf.port}
+      _ <- ZIO.logInfo(s"""Potamoi file remote server start at http://${conf.host}:${conf.port}
                           |API List:
-                          |  GET /heath
-                          |  GET /fs/<file-path>
-                          |""".stripMargin)
+                          |- GET /heath
+                          |- GET /fs/<file-path>""".stripMargin)
       _ <- Server
         .serve(app.routes)
-        .provideLayer(ServerConfig.live ++ httpServerConfLayer >>> Server.live)
+        .provideLayer(ServerConfig.live ++ httpServerConfLayer >>> Server.live ++ Scope.default)
     } yield ()
 
   /**
@@ -56,7 +55,6 @@ class FileServer(conf: FileServerConf, backend: RemoteFsOperator):
       val pathStr = path.toString
       Http
         .collectZIO[Request] { _ =>
-          ZIO.debug(s"File server receive download request: $pathStr") *>
           backend.exist(pathStr).map {
             case false => Http.notFound
             case true  => Http.fromStream(backend.downloadAsStream(pathStr))

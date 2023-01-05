@@ -1,10 +1,14 @@
 package potamoi.fs.refactor
 
+import org.apache.commons.codec.digest.DigestUtils
 import potamoi.fs.refactor.FsErr.LfsErr
 import potamoi.syntax.contra
 import zio.{IO, ZIO}
+import zio.ZIO.{attempt, attemptBlocking}
 
-import java.io.File
+import java.io.{File, FileInputStream}
+import java.security.MessageDigest
+import scala.util.Using
 
 /**
  * Local file system operator.
@@ -50,5 +54,17 @@ object LocalFsOperator {
       }
       .unit
       .mapError(LfsErr(s"Unable to ensure parent directory of file: ${file.getAbsolutePath}", _))
+
+  /**
+   * Generate md5 checksum of given file.
+   */
+  def md5(file: File): IO[LfsErr, String] =
+    ZIO
+      .scoped {
+        ZIO
+          .acquireRelease(attempt(FileInputStream(file)))(fis => attempt(fis.close()).ignore)
+          .flatMap(fis => attemptBlocking(DigestUtils.md5Hex(fis)))
+      }
+      .mapError(LfsErr(s"Fail to generate md5 checksum for file: ${file.getAbsolutePath}", _))
 
 }
