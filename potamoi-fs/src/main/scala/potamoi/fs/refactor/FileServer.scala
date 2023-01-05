@@ -1,8 +1,8 @@
 package potamoi.fs.refactor
 
 import potamoi.fs.refactor.FsErr.UnSupportedSchema
-import potamoi.zios.asLayer
 import potamoi.syntax.contra
+import potamoi.zios.asLayer
 import zio.*
 import zio.http.*
 import zio.http.model.{Method, Status}

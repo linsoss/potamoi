@@ -21,14 +21,8 @@ case class S3FsBackendConf(
     @name("access-key") accessKey: String,
     @name("secret-key") secretKey: String,
     @name("access-style") accessStyle: S3AccessStyle = S3AccessStyle.PathStyle,
-    @name("enable-ssl") sslEnabled: Boolean = false,
-    @name("enable-local-cache") enableLocalCache: Boolean = true,
-    @name("local-cache-dir") localCacheDir: String = "cache")
-    extends FsBackendConf:
-
-  def resolve(rootDataDir: String): S3FsBackendConf =
-    if localCacheDir.startsWith(rootDataDir) then this
-    else copy(localCacheDir = s"$rootDataDir/${paths.rmFirstSlash(localCacheDir)}")
+    @name("enable-ssl") sslEnabled: Boolean = false)
+    extends FsBackendConf
 
 /**
  * S3 path access style.

@@ -22,7 +22,7 @@ trait RemoteFsOperator:
   /**
    * Get the actual path to remote storage.
    */
-  def remotePath(path: String): UIO[String]
+  def actualPath(path: String): UIO[String]
 
   /**
    * Upload file to remote storage.

@@ -28,17 +28,7 @@ object S3FsBackend:
         .endpoint(conf.endpoint)
         .credentials(conf.accessKey, conf.secretKey)
         .build
-      localBackend = LocalFsBackend(LocalFsBackendConf(conf.localCacheDir))
-      fileMd5Cache <- Cache.make[String, Any, Err, String](
-        capacity = 100,
-        timeToLive = 114514.hours,
-        lookup = Lookup(filePath =>
-          lfs.existFile(filePath).flatMap {
-            case false => ZIO.fail(NotFound)
-            case true  => lfs.md5(File(filePath))
-          })
-      )
-    } yield S3FsBackend(minioClient, conf, localBackend, fileMd5Cache)
+    } yield S3FsBackend(minioClient, conf)
   }
 
   case object NotFound extends Err()
@@ -46,34 +36,10 @@ object S3FsBackend:
 /**
  * Default implementation.
  */
-class S3FsBackend(
-    minioClient: MinioClient,
-    conf: S3FsBackendConf,
-    localCacheBackend: LocalFsBackend,
-    fileMd5Cache: Cache[String, Err, String])
-    extends RemoteFsOperator:
+class S3FsBackend(minioClient: MinioClient, conf: S3FsBackendConf) extends RemoteFsOperator:
 
   override val name: String                          = "s3"
-  override def remotePath(path: String): UIO[String] = ZIO.succeed(s"s3://${conf.bucket}/$path")
-
-//  private def getChecksum(localFile: File, s3Object: String): UIO[(Option[String], Option[String])] = {
-//    for {
-//      localMd5 <- localCacheBackend.
-//    } yield ()
-//  }
-
-//  val objectName: String = ???
-//  val a =
-//    ZIO
-//      .attemptBlockingInterrupt {
-//        minioClient.getObjectTags(
-//          GetObjectTagsArgs.builder
-//            .bucket(conf.bucket)
-//            .`object`(objectName)
-//            .build
-//        )
-//      }
-//      .map(_.get.asScala.get("md5"))
+  override def actualPath(path: String): UIO[String] = purePath(path).flatMap(p => ZIO.succeed(s"s3://${conf.bucket}/$p"))
 
   /**
    * Upload file to remote storage.
@@ -100,7 +66,7 @@ class S3FsBackend(
           )
         }
         .mapError(
-          RfsErr(s"Fail to upload file to S3: srcFile=$srcPath, s3Path=${remotePath(objectName)}", _)
+          RfsErr(s"Fail to upload file to S3: srcFile=$srcPath, s3Path=${actualPath(objectName)}", _)
         )
     } yield paths.withPotaSchema(objectName)
 
@@ -119,7 +85,7 @@ class S3FsBackend(
         minioClient.downloadObject(DownloadObjectArgs.builder.bucket(conf.bucket).`object`(objectName).filename(targetPath).overwrite(true).build)
       }
       .mapError(
-        RfsErr(s"Fail to upload file from S3: s3Path=${remotePath(srcPath)}, targetPath=$targetPath", _)
+        RfsErr(s"Fail to upload file from S3: s3Path=${actualPath(srcPath)}, targetPath=$targetPath", _)
       )
   } yield File(targetPath)
 
@@ -136,7 +102,7 @@ class S3FsBackend(
       } { fis => ZIO.attempt(fis.close()).ignore }
       stream <- ZStream.fromInputStream(inputStream)
     } yield stream
-  }.mapError(e => RfsErr(s"Fail to get object stream from S3: ${remotePath(srcPath)}", e))
+  }.mapError(e => RfsErr(s"Fail to get object stream from S3: ${actualPath(srcPath)}", e))
 
   /**
    * Remove file from remote storage.
@@ -146,7 +112,7 @@ class S3FsBackend(
       objectName <- purePath(path)
       _ <- ZIO
         .attemptBlockingInterrupt { minioClient.removeObject(RemoveObjectArgs.builder.bucket(conf.bucket).`object`(objectName).build) }
-        .mapError(RfsErr(s"Fail to remove object on s3: s3Path=${remotePath(path)}", _))
+        .mapError(RfsErr(s"Fail to remove object on s3: s3Path=${actualPath(path)}", _))
     } yield ()
 
   /**
@@ -159,5 +125,5 @@ class S3FsBackend(
         .attemptBlockingInterrupt { minioClient.statObject(StatObjectArgs.builder.bucket(conf.bucket).`object`(objectName).build) }
         .as(true)
         .catchSome { case e: ErrorResponseException if e.errorResponse().code() == "NoSuchKey" => succeed(false) }
-        .mapError(RfsErr(s"Fail to get object from S3: s3Path=${remotePath(path)}", _))
+        .mapError(RfsErr(s"Fail to get object from S3: s3Path=${actualPath(path)}", _))
     } yield exists
