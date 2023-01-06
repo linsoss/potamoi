@@ -7,7 +7,7 @@ import potamoi.errs.{headMessage, recurse}
 import potamoi.flink.*
 import potamoi.flink.model.*
 import potamoi.flink.model.CheckpointStorageType.Filesystem
-import potamoi.flink.model.FlinkExecMode.K8sSession
+import potamoi.flink.model.FlinkTargetType.K8sSession
 import potamoi.flink.model.FlK8sComponentName.jobmanager
 import potamoi.flink.model.StateBackendType.Rocksdb
 import potamoi.flink.observer.FlinkObserver

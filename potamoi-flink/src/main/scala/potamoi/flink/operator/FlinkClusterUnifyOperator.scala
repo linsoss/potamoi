@@ -16,11 +16,11 @@ import potamoi.flink.observer.FlinkObserver
 import potamoi.fs.S3Conf
 import potamoi.kubernetes.{K8sOperator, given}
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
+import potamoi.syntax.valueToSome
+import potamoi.zios.*
 import zio.{durationInt, Clock, IO, Schedule, Task, UIO, ZIO, ZIOAspect, ZLayer}
 import zio.ZIO.{logInfo, succeed}
 import zio.ZIOAspect.annotated
-import potamoi.syntax.valueToSome
-import potamoi.zios.*
 import zio.prelude.data.Optional.Present
 
 /**
@@ -60,7 +60,7 @@ class FlinkClusterUnifyOperatorLive(flinkConf: FlinkConf, k8sOperator: K8sOperat
 
   // Local workplace directory for each Flink cluster.
   protected def clusterLocalWorkspace(clusterId: String, namespace: String): UIO[String] =
-    succeed(s"${flinkConf.localTmpDir}/${namespace}@${clusterId}")
+    succeed(s"${flinkConf.localTmpDeployDir}/${namespace}@${clusterId}")
 
   // Local Generated flink kubernetes pod-template file output path.
   protected def podTemplateFileOutputPath(clusterDef: FlinkClusterDef[_]): UIO[String] =
@@ -71,9 +71,9 @@ class FlinkClusterUnifyOperatorLive(flinkConf: FlinkConf, k8sOperator: K8sOperat
     clusterLocalWorkspace(clusterDef.clusterId, clusterDef.namespace).map(wp => s"$wp/log-conf")
 
   // Get Flink ClusterClientFactory by execution mode.
-  protected def getFlinkClusterClientFactory(execMode: FlinkExecMode): Task[ClusterClientFactory[String]] =
+  protected def getFlinkClusterClientFactory(execType: FlinkTargetType): Task[ClusterClientFactory[String]] =
     ZIO.attempt {
-      val conf = Configuration().append("execution.target", execMode.value)
+      val conf = Configuration().append("execution.target", execType.rawValue)
       flinkClusterClientLoader.getClusterClientFactory(conf)
     }
 

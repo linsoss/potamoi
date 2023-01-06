@@ -1,5 +1,9 @@
 package potamoi.flink.model
 
+import zio.json.JsonCodec
+import potamoi.flink.model.FlinkRawConfig.given_JsonCodec_FlinkRawConfig
+import potamoi.flink.model.RestExportTypes.given
+
 /**
  * Flink Kubernetes cluster definition.
  */
@@ -26,7 +30,7 @@ sealed trait FlinkClusterDef[SubType <: FlinkClusterDef[SubType]] { this: SubTyp
   val extRawConfigs: Map[String, String]
   val overridePodTemplate: Option[String]
 
-  val mode: FlinkExecMode
+  val execType: FlinkTargetType with DeploySupport
   lazy val fcid: Fcid = Fcid(clusterId, namespace)
 
   private[flink] def copyExtRawConfigs(extRawConfigs: Map[String, String]): SubType
@@ -60,7 +64,7 @@ case class FlinkSessClusterDef(
     overridePodTemplate: Option[String] = None)
     extends FlinkClusterDef[FlinkSessClusterDef] {
 
-  val mode = FlinkExecMode.K8sSession
+  val execType = FlinkTargetType.K8sSession
 
   private[flink] def copyExtRawConfigs(extRawConfigs: Map[String, String]): FlinkSessClusterDef      = copy(extRawConfigs = extRawConfigs)
   private[flink] def copyBuiltInPlugins(builtInPlugins: Set[String]): FlinkSessClusterDef            = copy(builtInPlugins = builtInPlugins)
@@ -99,7 +103,7 @@ case class FlinkAppClusterDef(
     overridePodTemplate: Option[String] = None)
     extends FlinkClusterDef[FlinkAppClusterDef] {
 
-  val mode = FlinkExecMode.K8sApplication
+  val execType = FlinkTargetType.K8sApplication
 
   private[flink] def copyExtRawConfigs(extRawConfigs: Map[String, String]): FlinkAppClusterDef      = copy(extRawConfigs = extRawConfigs)
   private[flink] def copyBuiltInPlugins(builtInPlugins: Set[String]): FlinkAppClusterDef            = copy(builtInPlugins = builtInPlugins)

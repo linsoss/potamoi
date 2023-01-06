@@ -29,14 +29,14 @@ case class FlinkRestSvcEndpoint(svcName: String, svcNs: String, port: Int, clust
    */
   def chooseUrl(using endpointType: FlinkRestEndpointType): String = endpointType match
     case SvcDns    => dnsRest
-    case ClusterIp => clusterIpRest
+    case ClusterIP => clusterIpRest
 
   /**
    * Choose host type by [[FlinkRestEndpointType]].
    */
   def chooseHost(using endpointType: FlinkRestEndpointType): String = endpointType match
     case SvcDns    => dns
-    case ClusterIp => clusterIp
+    case ClusterIP => clusterIp
 
   def show: String = s"svcName=$svcName, svcNs=$svcNs, port=$port, clusterIP=$clusterIp"
 }

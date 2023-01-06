@@ -1,9 +1,10 @@
 package potamoi.flink
 
 import com.softwaremill.quicklens.modify
+import potamoi.codecs
 import potamoi.common.Codec
 import potamoi.common.Codec.scalaDurationJsonCodec
-import potamoi.fs.PathTool
+import potamoi.flink.FlinkRestEndpointTypes.given
 import potamoi.fs.refactor.paths
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
@@ -17,22 +18,22 @@ case class FlinkConf(
     @name("k8s-account") k8sAccount: String = "flink-opr",
     @name("mc-image") minioClientImage: String = "minio/mc:RELEASE.2022-10-12T18-12-50Z",
     @name("local-tmpdir") localTmpDir: String = "tmp/flink",
-    @name("rest-endpoint-internal") restEndpointTypeInternal: FlinkRestEndpointType = FlinkRestEndpointType.ClusterIp,
+    @name("rest-endpoint-internal") restEndpointTypeInternal: FlinkRestEndpointType = FlinkRestEndpointType.ClusterIP,
     @name("log-failed-deploy") logFailedDeployReason: Boolean = false,
     @name("tracking") tracking: FlinkTrackConf = FlinkTrackConf(),
-    @name("proxy") reverseProxy: FlinkReverseProxyConf = FlinkReverseProxyConf()):
+    @name("proxy") reverseProxy: FlinkReverseProxyConf = FlinkReverseProxyConf())
+    derives JsonCodec:
+
+  lazy val localTmpDeployDir = s"${localTmpDir}/deploy"
+  lazy val localTmpInterpDir = s"${localTmpDir}/interp"
 
   def resolve(rootDataDir: String): FlinkConf =
     if localTmpDir.startsWith(rootDataDir) then this
     else copy(localTmpDir = s"$rootDataDir/${paths.rmFirstSlash(localTmpDir)}")
 
-object FlinkConf:
-  import FlinkRestEndpointTypes.given
-  given JsonCodec[Duration]              = scalaDurationJsonCodec
-  given JsonCodec[FlinkTrackConf]        = DeriveJsonCodec.gen[FlinkTrackConf]
-  given JsonCodec[FlinkReverseProxyConf] = DeriveJsonCodec.gen[FlinkReverseProxyConf]
-  given JsonCodec[FlinkConf]             = DeriveJsonCodec.gen[FlinkConf]
+end FlinkConf
 
+object FlinkConf:
   val default = FlinkConf()
   val test = FlinkConf()
     .modify(_.tracking.tmdDetailPolling)
@@ -61,6 +62,7 @@ case class FlinkTrackConf(
     @name("job-metrics-poll-interval") jobMetricsPolling: Duration = 2.seconds,
     @name("k8s-pod-metrics-poll-interval") k8sPodMetricsPolling: Duration = 4.seconds,
     @name("savepoint-trigger-poll-interval") savepointTriggerPolling: Duration = 100.millis)
+    derives JsonCodec
 
 /**
  * Flink ui reversed proxy config.
@@ -68,16 +70,14 @@ case class FlinkTrackConf(
 case class FlinkReverseProxyConf(
     @name("route-table-cache-size") routeTableCacheSize: Int = 1000,
     @name("route-table-cache-ttl") routeTableCacheTtl: Duration = 45.seconds)
+    derives JsonCodec
 
 /**
  * Flink rest api export type.
  */
-enum FlinkRestEndpointType(val value: String):
-  case SvcDns    extends FlinkRestEndpointType("svc-dns")
-  case ClusterIp extends FlinkRestEndpointType("cluster-ip")
+enum FlinkRestEndpointType:
+  case SvcDns
+  case ClusterIP
 
 object FlinkRestEndpointTypes:
-  given JsonCodec[FlinkRestEndpointType] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].mapOrFail(s => FlinkRestEndpointType.values.find(_.value == s).map(Right(_)).getOrElse(Left("not matching value")))
-  )
+  given JsonCodec[FlinkRestEndpointType] = codecs.simpleEnumJsonCodec(FlinkRestEndpointType.values)

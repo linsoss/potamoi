@@ -161,16 +161,20 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, e
       clusterConfig      <- clusterConfigFiber.join
 
       isFromPotamoi = clusterConfig.exists(_ == InjectedDeploySourceConf)
-      execMode = clusterConfig
+      execType = clusterConfig
         .get(InjectedExecModeKey)
-        .flatMap(FlinkExecModes.valueOfOption)
-        .getOrElse(FlinkExecModes.ofRawConfValue(clusterConfig.get("execution.target")))
+        .flatMap(e => FlinkTargetTypes.values.find(_.toString == e))
+        .getOrElse(
+          FlinkTargetTypes.ofRawValue(clusterConfig.getOrElse("execution.target", "unknown")) match
+            case FlinkTargetType.Embedded => FlinkTargetType.K8sApplication
+            case e                        => e
+        )
 
       preMur <- mur.get
-      curMur = MurmurHash3.productHash(clusterOv -> execMode.value)
+      curMur = MurmurHash3.productHash(clusterOv -> execType.toString)
 
       _ <- snapStg.cluster.overview
-        .put(clusterOv.toFlinkClusterOverview(fcid, execMode, isFromPotamoi))
+        .put(clusterOv.toFlinkClusterOverview(fcid, execType, isFromPotamoi))
         .zip(mur.set(curMur))
         .when(preMur != curMur)
     } yield ()

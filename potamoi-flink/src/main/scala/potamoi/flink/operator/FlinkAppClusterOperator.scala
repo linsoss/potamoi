@@ -9,14 +9,13 @@ import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExe
 import potamoi.flink.FlinkErr.{ClusterNotFound, EmptyJobOnCluster, JobIsActive, SubmitFlinkClusterFail}
 import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.model.*
-import potamoi.flink.model.FlinkExecMode.*
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.resolver.{ClusterDefResolver, LogConfigResolver, PodTemplateResolver}
 import potamoi.flink.FlinkRestRequest.{JobStatusInfo, RunJobReq, StopJobSptReq, TriggerSptReq}
 import potamoi.fs.{S3Conf, S3Operator}
 import potamoi.fs.PathTool.{getFileName, isS3Path}
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
-import potamoi.kubernetes.K8sOperator
+import potamoi.kubernetes.{given_Conversion_String_K8sNamespace, K8sOperator}
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.usingAttempt
 import zio.{durationInt, Console, IO, ZIO}
@@ -24,7 +23,6 @@ import zio.Console.printLine
 import zio.Schedule.{recurWhile, spaced}
 import zio.ZIO.{attempt, attemptBlockingInterrupt, logErrorCause, logInfo, scoped, succeed}
 import zio.ZIOAspect.annotated
-import potamoi.kubernetes.given_Conversion_String_K8sNamespace
 
 /**
  * Flink application mode cluster operator.
@@ -121,20 +119,20 @@ case class FlinkAppClusterOperatorLive(
           .append("$internal.deployment.config-dir", logConfFilePath)
           .append("execution.shutdown-on-application-finish", false) // prevents the jobmanager from being destroyed
           .append("execution.shutdown-on-attached-exit", false)
-          .append(InjectedExecModeKey, K8sApplication)
+          .append(InjectedExecModeKey, FlinkTargetType.K8sApplication)
           .append(InjectedDeploySourceConf._1, InjectedDeploySourceConf._2)
       }
       _ <- logInfo(s"Start to deploy flink application cluster:\n${rawConfig.toMap(true).toPrettyStr}".stripMargin)
       // deploy app cluster
       _ <- scoped {
         for {
-          clusterClientFactory <- getFlinkClusterClientFactory(K8sApplication)
+          clusterClientFactory <- getFlinkClusterClientFactory(FlinkTargetType.K8sApplication)
           clusterSpecification <- attempt(clusterClientFactory.getClusterSpecification(rawConfig))
           appConfiguration     <- attempt(new ApplicationConfiguration(clusterDef.appArgs.toArray, clusterDef.appMain.orNull))
           k8sClusterDescriptor <- usingAttempt(clusterClientFactory.createClusterDescriptor(rawConfig))
           _                    <- attemptBlockingInterrupt(k8sClusterDescriptor.deployApplicationCluster(clusterSpecification, appConfiguration))
         } yield ()
-      }.mapError(SubmitFlinkClusterFail(clusterDef.fcid, K8sApplication, _))
+      }.mapError(SubmitFlinkClusterFail(clusterDef.fcid, FlinkTargetType.K8sApplication, _))
       // tracking cluster
       _ <- observer.manager
         .track(clusterDef.fcid)

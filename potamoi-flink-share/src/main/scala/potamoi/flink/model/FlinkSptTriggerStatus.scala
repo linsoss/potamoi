@@ -1,8 +1,8 @@
 package potamoi.flink.model
 
+import potamoi.codecs
 import potamoi.flink.model.FlinkPipeOprStates.given
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
-import potamoi.codecs
 
 /**
  * Flink savepoint trigger status.
@@ -17,6 +17,5 @@ enum FlinkPipeOprState(val rawValue: String):
   case Unknown    extends FlinkPipeOprState("UNKNOWN")
 
 object FlinkPipeOprStates:
-  given JsonCodec[FlinkPipeOprState] = codecs.simpleEnumJsonCodec(FlinkPipeOprState.values)
-  def ofRaw(rawValue: String): FlinkPipeOprState =
-    FlinkPipeOprState.values.find(_.rawValue == rawValue).getOrElse(FlinkPipeOprState.Unknown)
+  given JsonCodec[FlinkPipeOprState]             = codecs.simpleEnumJsonCodec(FlinkPipeOprState.values)
+  def ofRaw(rawValue: String): FlinkPipeOprState = FlinkPipeOprState.values.find(_.rawValue == rawValue).getOrElse(FlinkPipeOprState.Unknown)

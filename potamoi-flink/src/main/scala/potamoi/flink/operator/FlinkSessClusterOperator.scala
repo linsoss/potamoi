@@ -8,7 +8,6 @@ import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.FlinkRestRequest.{RunJobReq, StopJobSptReq, TriggerSptReq}
 import potamoi.flink.ResolveJobDefErr.{DownloadJobJarFail, NotSupportJobJarPath}
 import potamoi.flink.model.*
-import potamoi.flink.model.FlinkExecMode.*
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.resolver.{ClusterDefResolver, LogConfigResolver, PodTemplateResolver}
 import potamoi.fs.{lfs, S3Conf, S3Operator}
@@ -79,19 +78,19 @@ class FlinkSessClusterOperatorLive(
           .append("kubernetes.pod-template-file.jobmanager", podTemplateFilePath)
           .append("kubernetes.pod-template-file.taskmanager", podTemplateFilePath)
           .append("$internal.deployment.config-dir", logConfFilePath)
-          .append(InjectedExecModeKey, K8sSession)
+          .append(InjectedExecModeKey, FlinkTargetType.K8sSession)
           .append(InjectedDeploySourceConf._1, InjectedDeploySourceConf._2)
       }
       _ <- logInfo(s"Start to deploy flink session cluster:\n${rawConfig.toMap(true).toPrettyStr}")
       // deploy cluster
       _ <- scoped {
         for {
-          clusterClientFactory <- getFlinkClusterClientFactory(K8sSession)
+          clusterClientFactory <- getFlinkClusterClientFactory(FlinkTargetType.K8sSession)
           clusterSpecification <- attempt(clusterClientFactory.getClusterSpecification(rawConfig))
           k8sClusterDescriptor <- usingAttempt(clusterClientFactory.createClusterDescriptor(rawConfig))
           _                    <- attemptBlockingInterrupt(k8sClusterDescriptor.deploySessionCluster(clusterSpecification))
         } yield ()
-      }.mapError(SubmitFlinkClusterFail(clusterDef.fcid, K8sSession, _))
+      }.mapError(SubmitFlinkClusterFail(clusterDef.fcid, FlinkTargetType.K8sSession, _))
       // tracking cluster
       _ <- observer.manager
         .track(clusterDef.fcid)
@@ -114,7 +113,7 @@ class FlinkSessClusterOperatorLive(
       // download job jar
       _ <- logInfo(s"Downloading flink job jar from s3 storage: ${jobDef.jobJar}")
       jobJarPath <- s3Operator
-        .download(jobDef.jobJar, s"${flinkConf.localTmpDir}/${jobDef.namespace}@${jobDef.clusterId}/${getFileName(jobDef.jobJar)}")
+        .download(jobDef.jobJar, s"${flinkConf.localTmpDeployDir}/${jobDef.namespace}@${jobDef.clusterId}/${getFileName(jobDef.jobJar)}")
         .mapBoth(DownloadJobJarFail(jobDef.jobJar, _), _.getPath)
 
       // submit job

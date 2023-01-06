@@ -9,6 +9,8 @@ object Syntax {
    */
   extension [T](value: T) inline def contra[A](func: T => A): A = func(value)
 
+  extension [T](value: T) inline def tap(func: T => Unit): T = { func(value); value }
+
   /**
    * Auto convert value to Some
    */
@@ -18,7 +20,7 @@ object Syntax {
    * Trim String value safely.
    */
   def safeTrim(value: String): String = Option(value).map(_.trim).getOrElse("")
-  
+
   /**
    * A more reader-friendly version of toString.
    */

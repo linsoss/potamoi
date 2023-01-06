@@ -1,7 +1,7 @@
 package potamoi.flink.model
 
-import zio.json.JsonCodec
 import potamoi.codecs
+import zio.json.JsonCodec
 
 /**
  * Flink execution runtime mode.

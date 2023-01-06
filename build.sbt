@@ -106,7 +106,7 @@ lazy val potaCommon = (project in file("potamoi-common"))
   )
 
 lazy val potaKubernetes = (project in file("potamoi-kubernetes"))
-  .dependsOn(potaLogger, potaCommon)
+  .dependsOn(potaCommon)
   .settings(commonSettings)
   .settings(
     name := "potamoi-kubernetes",
@@ -116,7 +116,7 @@ lazy val potaKubernetes = (project in file("potamoi-kubernetes"))
   )
 
 lazy val potaFs = (project in file("potamoi-fs"))
-  .dependsOn(potaLogger, potaCommon)
+  .dependsOn(potaCommon)
   .settings(commonSettings)
   .settings(
     name := "potamoi-fs",
@@ -127,7 +127,7 @@ lazy val potaFs = (project in file("potamoi-fs"))
   )
 
 lazy val potaCluster = (project in file("potamoi-cluster"))
-  .dependsOn(potaLogger, potaCommon, potaKubernetes)
+  .dependsOn(potaCommon, potaKubernetes)
   .settings(commonSettings)
   .settings(
     name := "potamoi-cluster",
@@ -141,8 +141,13 @@ lazy val potaCluster = (project in file("potamoi-cluster"))
     )
   )
 
+lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
+  .dependsOn(potaCommon, potaFs, potaKubernetes)
+  .settings(commonSettings)
+  .settings(name := "potamoi-flink-share")
+
 lazy val potaFlink = (project in file("potamoi-flink"))
-  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs, potaCluster, potaFlinkShare)
+  .dependsOn(potaCommon, potaKubernetes, potaFs, potaCluster, potaFlinkShare)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink",
@@ -152,13 +157,8 @@ lazy val potaFlink = (project in file("potamoi-flink"))
     )
   )
 
-lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
-  .dependsOn(potaLogger, potaCommon)
-  .settings(commonSettings)
-  .settings(name := "potamoi-flink-share")
-
 lazy val potaFlinkInterp = (project in file("potamoi-flink-interp"))
-  .dependsOn(potaLogger, potaCommon, potaCluster, potaFlinkShare)
+  .dependsOn(potaCommon, potaFs, potaCluster, potaFlinkShare)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink-interp",
@@ -170,7 +170,7 @@ lazy val potaFlinkInterp = (project in file("potamoi-flink-interp"))
   )
 
 lazy val potaServer = (project in file("potamoi-server"))
-  .dependsOn(potaLogger, potaCommon, potaKubernetes, potaFs)
+  .dependsOn(potaCommon, potaKubernetes, potaFs)
   .settings(commonSettings)
   .settings(
     name := "potamoi-server",

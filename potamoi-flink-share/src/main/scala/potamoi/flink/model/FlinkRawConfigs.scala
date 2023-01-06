@@ -1,6 +1,10 @@
 package potamoi.flink.model
 
+import potamoi.codecs
+import potamoi.flink.model.CheckpointStorageTypes.given
 import potamoi.flink.model.FlinkRawConfig.dry
+import potamoi.flink.model.SavepointRestoreModes.given
+import potamoi.flink.model.StateBackendTypes.given
 import potamoi.fs.S3Conf
 import potamoi.fs.refactor.S3AccessStyle
 import potamoi.nums.*
@@ -10,30 +14,14 @@ import zio.json.{jsonField, DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder
 /**
  * Type-safe flink major configuration entries.
  */
-sealed trait FlinkRawConfig {
-
+sealed trait FlinkRawConfig:
   /**
    * convert to flink raw configuration.
    */
   def mapping: Map[String, String]
-}
 
-object FlinkRawConfig {
-
-  import CheckpointStorageTypes.given
-  import RestExportTypes.given
-  import SavepointRestoreModes.given
-  import StateBackendTypes.given
-
-  given JsonCodec[CpuConfig]              = DeriveJsonCodec.gen[CpuConfig]
-  given JsonCodec[MemConfig]              = DeriveJsonCodec.gen[MemConfig]
-  given JsonCodec[ParConfig]              = DeriveJsonCodec.gen[ParConfig]
-  given JsonCodec[WebUIConfig]            = DeriveJsonCodec.gen[WebUIConfig]
-  given JsonCodec[RestartStgConfig]       = DeriveJsonCodec.gen[RestartStgConfig]
-  given JsonCodec[StateBackendConfig]     = DeriveJsonCodec.gen[StateBackendConfig]
-  given JsonCodec[JmHaConfig]             = DeriveJsonCodec.gen[JmHaConfig]
-  given JsonCodec[S3AccessConf]           = DeriveJsonCodec.gen[S3AccessConf]
-  given JsonCodec[SavepointRestoreConfig] = DeriveJsonCodec.gen[SavepointRestoreConfig]
+object FlinkRawConfig:
+  given JsonCodec[FlinkRawConfig] = DeriveJsonCodec.gen[FlinkRawConfig]
 
   /**
    * Eliminate empty configuration items and convert to String format.
@@ -56,7 +44,6 @@ object FlinkRawConfig {
         case (k, value: Iterable[_]) => k -> value.mkString(",")
         case (k, v)                  => k -> v.toString
       }
-}
 
 /**
  * Flink k8s cpu configuration.
@@ -136,8 +123,8 @@ case class StateBackendConfig(
     checkpointNumRetained: Int = 1)
     extends FlinkRawConfig:
   def mapping = Map(
-    "state.backend"                  -> backendType.value,
-    "state.checkpoint-storage"       -> checkpointStorage.value,
+    "state.backend"                  -> backendType.rawValue,
+    "state.checkpoint-storage"       -> checkpointStorage.rawValue,
     "state.checkpoints.dir"          -> checkpointDir,
     "state.savepoints.dir"           -> savepointDir,
     "state.backend.incremental"      -> incremental,
@@ -145,25 +132,19 @@ case class StateBackendConfig(
     "state.checkpoints.num-retained" -> checkpointNumRetained.ensureIntMin(1),
   ).dry
 
-enum StateBackendType(val value: String):
+enum StateBackendType(val rawValue: String):
   case Hashmap extends StateBackendType("hashmap")
   case Rocksdb extends StateBackendType("rocksdb")
 
 object StateBackendTypes:
-  given JsonCodec[StateBackendType] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].mapOrFail(s => StateBackendType.values.find(_.value == s).toRight(s"Unknown state backend type: $s"))
-  )
+  given JsonCodec[StateBackendType] = codecs.simpleEnumJsonCodec(StateBackendType.values)
 
-enum CheckpointStorageType(val value: String):
+enum CheckpointStorageType(val rawValue: String):
   case Jobmanager extends CheckpointStorageType("jobmanager")
   case Filesystem extends CheckpointStorageType("filesystem")
 
 object CheckpointStorageTypes:
-  given JsonCodec[CheckpointStorageType] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].mapOrFail(s => CheckpointStorageType.values.find(_.value == s).toRight(s"Unknown checkpoint storage type: $s"))
-  )
+  given JsonCodec[CheckpointStorageType] = codecs.simpleEnumJsonCodec(CheckpointStorageType.values)
 
 /**
  * Flink Jobmanager HA configuration.
@@ -187,7 +168,8 @@ case class S3AccessConf(
     accessKey: String,
     secretKey: String,
     pathStyleAccess: Option[Boolean] = None,
-    sslEnabled: Option[Boolean] = None) {
+    sslEnabled: Option[Boolean] = None)
+    derives JsonCodec {
 
   /**
    * Mapping to standard flink-s3 configuration.
@@ -227,17 +209,14 @@ object S3AccessConf:
   def apply(conf: S3Conf): S3AccessConf =
     S3AccessConf(conf.endpoint, conf.accessKey, conf.secretKey, Some(conf.accessStyle == S3AccessStyle.PathStyle), Some(conf.sslEnabled))
 
-enum RestExportType(val value: String):
+enum RestExportType(val rawValue: String):
   case ClusterIP         extends RestExportType("ClusterIP")
   case NodePort          extends RestExportType("NodePort")
   case LoadBalancer      extends RestExportType("LoadBalancer")
   case HeadlessClusterIP extends RestExportType("Headless_ClusterIP")
 
 object RestExportTypes:
-  given JsonCodec[RestExportType] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].mapOrFail(s => RestExportType.values.find(_.value == s).toRight(s"Unknown rest export type: $s"))
-  )
+  given JsonCodec[RestExportType] = codecs.simpleEnumJsonCodec(RestExportType.values)
 
 /**
  * Savepoint restore config.
@@ -250,7 +229,7 @@ case class SavepointRestoreConfig(
     restoreMode: SavepointRestoreMode = SavepointRestoreMode.Claim)
     extends FlinkRawConfig:
   def mapping = Map(
-    "execution.savepoint-restore-mode"           -> restoreMode.value,
+    "execution.savepoint-restore-mode"           -> restoreMode.rawValue,
     "execution.savepoint.path"                   -> savepointPath,
     "execution.savepoint.ignore-unclaimed-state" -> allowNonRestoredState
   ).dry
@@ -258,13 +237,10 @@ case class SavepointRestoreConfig(
 /**
  * @see [[org.apache.flink.runtime.jobgraph.RestoreMode]]
  */
-enum SavepointRestoreMode(val value: String):
+enum SavepointRestoreMode(val rawValue: String):
   case Claim   extends SavepointRestoreMode("CLAIM")
   case NoClaim extends SavepointRestoreMode("NO_CLAIM")
   case Legacy  extends SavepointRestoreMode("LEGACY")
 
 object SavepointRestoreModes:
-  given JsonCodec[SavepointRestoreMode] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].mapOrFail(s => SavepointRestoreMode.values.find(_.value == s).toRight(s"Unknown savepoint restore mode: $s"))
-  )
+  given JsonCodec[SavepointRestoreMode] = codecs.simpleEnumJsonCodec(SavepointRestoreMode.values)

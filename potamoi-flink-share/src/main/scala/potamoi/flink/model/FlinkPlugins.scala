@@ -1,7 +1,7 @@
 package potamoi.flink.model
 
-import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
 import potamoi.codecs
+import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
 
 import scala.util.Try
 

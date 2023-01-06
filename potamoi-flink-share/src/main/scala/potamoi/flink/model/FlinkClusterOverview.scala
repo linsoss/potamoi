@@ -1,6 +1,6 @@
 package potamoi.flink.model
 
-import potamoi.flink.model.FlinkExecModes.given_JsonCodec_FlinkExecMode
+import potamoi.flink.model.FlinkTargetTypes.given
 import zio.json.JsonCodec
 
 /**
@@ -9,7 +9,7 @@ import zio.json.JsonCodec
 case class FlinkClusterOverview(
     clusterId: String,
     namespace: String,
-    execMode: FlinkExecMode,
+    execType: FlinkTargetType,
     deployByPotamoi: Boolean,
     tmTotal: Int,
     slotsTotal: Int,

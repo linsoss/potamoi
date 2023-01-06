@@ -137,12 +137,12 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
       .attempt {
         Configuration()
           // inject inner raw configs
-          .append("execution.target", clusterDef.mode.value)
+          .append("execution.target", clusterDef.execType.rawValue)
           .append("kubernetes.cluster-id", clusterDef.clusterId)
           .append("kubernetes.namespace", clusterDef.namespace)
           .append("kubernetes.container.image", clusterDef.image)
           .append("kubernetes.jobmanager.service-account", clusterDef.k8sAccount.getOrElse(flinkConf.k8sAccount))
-          .append("kubernetes.rest-service.exposed.type", clusterDef.restExportType.value)
+          .append("kubernetes.rest-service.exposed.type", clusterDef.restExportType.rawValue)
           .append("blob.server.port", 6124)
           .append("taskmanager.rpc.port", 6122)
           .append(clusterDef.cpu)

@@ -1,6 +1,7 @@
 package potamoi.flink
 
 import potamoi.{codecs, curTs}
+import potamoi.flink.{model, FlinkRestErr, FlinkRestRequest}
 import potamoi.flink.FlinkRestErr.*
 import potamoi.flink.FlinkRestRequest.*
 import potamoi.flink.model.*
@@ -493,11 +494,11 @@ object FlinkRestRequest {
       @jsonField("jobs-cancelled") jobsCancelled: Int,
       @jsonField("jobs-failed") jobsFailed: Int):
 
-    def toFlinkClusterOverview(fcid: Fcid, execMode: FlinkExecMode, deployByPota: Boolean): FlinkClusterOverview =
+    def toFlinkClusterOverview(fcid: Fcid, execType: FlinkTargetType, deployByPota: Boolean): FlinkClusterOverview =
       model.FlinkClusterOverview(
         clusterId = fcid.clusterId,
         namespace = fcid.namespace,
-        execMode = execMode,
+        execType = execType,
         deployByPotamoi = deployByPota,
         tmTotal = taskManagers,
         slotsTotal = slotsTotal,

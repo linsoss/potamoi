@@ -1,7 +1,5 @@
 package potamoi.flink.model
 
-import zio.json.{DeriveJsonCodec, JsonCodec}
-
 /**
  * Definition of the job submitted to Flink session cluster.
  */
@@ -13,7 +11,6 @@ case class FlinkSessJobDef(
     appMain: Option[String] = None,
     appArgs: List[String] = List.empty,
     parallelism: Option[Int] = None,
-    savepointRestore: Option[SavepointRestoreConfig] = None)
-    derives JsonCodec:
+    savepointRestore: Option[SavepointRestoreConfig] = None):
 
   lazy val fcid: Fcid = clusterId -> namespace
