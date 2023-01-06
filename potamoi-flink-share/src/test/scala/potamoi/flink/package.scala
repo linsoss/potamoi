@@ -3,9 +3,8 @@ package potamoi
 import potamoi.common.Syntax.toPrettyString
 import potamoi.fs.{S3AccessStyle, S3Conf}
 import potamoi.kubernetes.K8sConf
-
+import zio.{durationInt, IO, ZIO}
 import zio.Schedule.spaced
-import zio.{IO, ZIO, durationInt}
 
 package object flink:
 
