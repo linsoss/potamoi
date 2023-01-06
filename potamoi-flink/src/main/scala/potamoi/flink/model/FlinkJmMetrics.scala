@@ -41,9 +41,9 @@ case class FlinkJmMetrics(
     taskSlotsAvailable: Option[Long] = None,
     taskSlotsTotal: Option[Long] = None,
     ts: Long = curTs)
+    derives JsonCodec
 
 object FlinkJmMetrics:
-  given JsonCodec[FlinkJmMetrics] = DeriveJsonCodec.gen[FlinkJmMetrics]
 
   val metricsRawKeys: Set[String] = Set(
     "Status.JVM.CPU.Load",

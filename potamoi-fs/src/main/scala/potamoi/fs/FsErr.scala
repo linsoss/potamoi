@@ -2,6 +2,8 @@ package potamoi.fs
 
 import potamoi.common.Err
 
+
+// todo remove
 /**
  * File system error.
  */

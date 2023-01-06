@@ -1,7 +1,7 @@
 package potamoi.flink.model
 
-import potamoi.flink.model.FlinkVersion
 import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
+import potamoi.codecs
 
 import scala.util.Try
 
@@ -28,11 +28,7 @@ enum FlinkPlugin(val name: String, jarNameFunc: (String, FlinkVersion) => String
 object FlinkPlugins {
 
   import FlinkPlugin.*
-
-  given JsonCodec[FlinkPlugin] = JsonCodec(
-    JsonEncoder[String].contramap(_.toString),
-    JsonDecoder[String].mapOrFail(s => values.find(_.toString == s).toRight(s"Unknown FlinkPlugin: $s"))
-  )
+  given JsonCodec[FlinkPlugin] = codecs.simpleEnumJsonCodec(FlinkPlugin.values)
 
   /**
    * All built-in plugins.

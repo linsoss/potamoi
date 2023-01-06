@@ -32,9 +32,9 @@ case class FlinkJobMetrics(
     totalNumberOfCheckpoints: Option[Long] = None,
     uptime: Option[Long] = None,
     ts: Long = curTs)
+    derives JsonCodec
 
 object FlinkJobMetrics:
-  given JsonCodec[FlinkJobMetrics] = DeriveJsonCodec.gen[FlinkJobMetrics]
 
   val metricsRawKeys: Set[String] = Set(
     "cancellingTime",

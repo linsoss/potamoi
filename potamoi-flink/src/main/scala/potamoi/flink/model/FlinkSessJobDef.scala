@@ -13,8 +13,7 @@ case class FlinkSessJobDef(
     appMain: Option[String] = None,
     appArgs: List[String] = List.empty,
     parallelism: Option[Int] = None,
-    savepointRestore: Option[SavepointRestoreConfig] = None):
-  lazy val fcid: Fcid = clusterId -> namespace
+    savepointRestore: Option[SavepointRestoreConfig] = None)
+    derives JsonCodec:
 
-object FlinkSessJobDef:
-  given JsonCodec[FlinkSessJobDef] = DeriveJsonCodec.gen[FlinkSessJobDef]
+  lazy val fcid: Fcid = clusterId -> namespace

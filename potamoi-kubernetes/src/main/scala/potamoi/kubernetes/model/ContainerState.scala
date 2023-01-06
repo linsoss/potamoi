@@ -1,8 +1,10 @@
 package potamoi.kubernetes.model
 
 import com.coralogix.zio.k8s.model.core.v1.ContainerState as RawContainerState
+import potamoi.codecs
 import potamoi.kubernetes.*
-import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder, jsonField}
+import potamoi.kubernetes.model.ContainerStates.given_JsonCodec_ContainerState
+import zio.json.{jsonField, JsonCodec, JsonDecoder, JsonEncoder}
 import zio.prelude.data.Optional.{Absent, Present}
 
 import scala.util.Try
@@ -14,12 +16,12 @@ enum ContainerState:
   case Running, Terminated, Waiting, Unknown
 
 object ContainerStates:
-  given JsonCodec[ContainerState] = JsonCodec(
-    JsonEncoder[String].contramap(_.toString),
-    JsonDecoder[String].map(s => Try(ContainerState.valueOf(s)).getOrElse(ContainerState.Unknown))
-  )
+  given JsonCodec[ContainerState] = codecs.simpleEnumJsonCodec(ContainerState.values)
 
-sealed trait ContainerStateDetail
+/**
+ * k8s container state detail information.
+ */
+sealed trait ContainerStateDetail derives JsonCodec
 
 @jsonField("running") case class ContainerRunning(
     startedAt: Option[Long])
@@ -42,8 +44,6 @@ sealed trait ContainerStateDetail
 @jsonField("unknown") case object ContainerStateUnknown extends ContainerStateDetail
 
 object ContainerStateDetail:
-  given JsonCodec[ContainerStateDetail] = DeriveJsonCodec.gen[ContainerStateDetail]
-
   /**
    * resolve raw [[com.coralogix.zio.k8s.model.core.v1.ContainerState]]
    */

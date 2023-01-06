@@ -1,6 +1,7 @@
 package potamoi.sharding
 
 import com.devsisters.shardcake.{Config, GrpcConfig, ManagerConfig}
+import potamoi.codecs.scalaDurationJsonCodec
 import potamoi.times.given
 import sttp.client3.UriContext
 import zio.json.{DeriveJsonCodec, JsonCodec}
@@ -20,7 +21,8 @@ case class ShardManagerConf(
     persistRetryInterval: Duration = 3.seconds,
     persistRetryCount: Int = 100,
     rebalanceRate: Double = 2 / 100d,
-    grpcMaxInbound: Int = 32 * 1024 * 1024):
+    grpcMaxInbound: Int = 32 * 1024 * 1024)
+    derives JsonCodec:
 
   def toManagerConfig: ManagerConfig = ManagerConfig(
     apiPort = port,
@@ -35,9 +37,7 @@ case class ShardManagerConf(
   def toGrpcConfig: GrpcConfig = GrpcConfig(maxInboundMessageSize = grpcMaxInbound)
 
 object ShardManagerConf:
-  import potamoi.common.Codec.scalaDurationJsonCodec
-  given JsonCodec[ShardManagerConf] = DeriveJsonCodec.gen[ShardManagerConf]
-  val test                          = ShardManagerConf()
+  val test = ShardManagerConf()
 
 /**
  * Shardcake sharding client configuration.
@@ -56,7 +56,8 @@ case class ShardingConf(
     refreshAssignmentsRetryInterval: Duration = 5.seconds,
     unhealthyPodReportInterval: Duration = 5.seconds,
     simulateRemotePods: Boolean = false,
-    grpcMaxInbound: Int = 32 * 1024 * 1024):
+    grpcMaxInbound: Int = 32 * 1024 * 1024)
+    derives JsonCodec:
 
   def toConfig: Config = Config(
     numberOfShards = numberOfShards,
@@ -74,6 +75,4 @@ case class ShardingConf(
   def toGrpcConfig: GrpcConfig = GrpcConfig(maxInboundMessageSize = grpcMaxInbound)
 
 object ShardingConf:
-  import potamoi.common.Codec.scalaDurationJsonCodec
-  given JsonCodec[ShardingConf] = DeriveJsonCodec.gen[ShardingConf]
-  val test                      = ShardingConf()
+  val test = ShardingConf()

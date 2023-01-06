@@ -1,6 +1,7 @@
 package potamoi.common
 
 import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
+import potamoi.codecs
 
 /**
  * Scala major version.
@@ -13,8 +14,5 @@ enum ScalaVersion(val value: String):
   case Unknown  extends ScalaVersion("unknown")
 
 object ScalaVersions:
+  given JsonCodec[ScalaVersion]            = codecs.simpleEnumJsonCodec(ScalaVersion.values)
   def ofMajor(major: String): ScalaVersion = ScalaVersion.values.find(_.value == major).getOrElse(ScalaVersion.Unknown)
-  given JsonCodec[ScalaVersion] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].map(s => ScalaVersion.values.find(_.value == s).getOrElse(ScalaVersion.Unknown))
-  )

@@ -68,7 +68,7 @@ lazy val commonSettings = Seq(
 
 lazy val root = (project in file("."))
   .settings(name := "potamoi")
-  .aggregate(potaLogger, potaCommon, potaFs, potaKubernetes, potaFlink, potaFlinkShare, potaServer)
+  .aggregate(potaLogger, potaCommon, potaFs, potaKubernetes, potaFlink, potaFlinkShare, potaFlinkInterp, potaServer)
 
 lazy val potaLogger = (project in file("potamoi-logger"))
   .settings(commonSettings)
@@ -153,19 +153,19 @@ lazy val potaFlink = (project in file("potamoi-flink"))
   )
 
 lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
-  .dependsOn(potaLogger)
+  .dependsOn(potaLogger, potaCommon)
   .settings(commonSettings)
   .settings(name := "potamoi-flink-share")
 
-lazy val potaFlinkInterpreter = (project in file("potamoi-flink-interpreter"))
+lazy val potaFlinkInterp = (project in file("potamoi-flink-interp"))
   .dependsOn(potaLogger, potaCommon, potaCluster, potaFlinkShare)
   .settings(commonSettings)
   .settings(
-    name := "potamoi-flink-interpreter",
+    name := "potamoi-flink-interp",
     libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-clients"              % flinkVer,
-      "org.apache.flink" % "flink-table-planner-loader" % flinkVer,
-      "org.apache.flink" % "flink-table-runtime"        % flinkVer
+      "org.apache.flink" % "flink-clients"              % flink116Ver,
+      "org.apache.flink" % "flink-table-planner-loader" % flink116Ver,
+      "org.apache.flink" % "flink-table-runtime"        % flink116Ver
     )
   )
 

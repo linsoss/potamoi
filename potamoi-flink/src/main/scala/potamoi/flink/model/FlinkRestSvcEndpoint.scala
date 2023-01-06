@@ -2,11 +2,12 @@ package potamoi.flink.model
 
 import potamoi.flink.{FlinkConf, FlinkRestEndpointType}
 import potamoi.flink.FlinkRestEndpointType.*
+import zio.json.JsonCodec
 
 /**
  * K8s svc endpoint of flink rest-service.
  */
-case class FlinkRestSvcEndpoint(svcName: String, svcNs: String, port: Int, clusterIp: String) {
+case class FlinkRestSvcEndpoint(svcName: String, svcNs: String, port: Int, clusterIp: String) derives JsonCodec {
 
   /**
    * DNS name of the k8s svc.

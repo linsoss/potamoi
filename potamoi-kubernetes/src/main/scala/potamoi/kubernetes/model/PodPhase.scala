@@ -2,6 +2,7 @@ package potamoi.kubernetes.model
 
 import potamoi.kubernetes.model.PodPhase
 import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
+import potamoi.codecs
 
 import scala.util.Try
 
@@ -13,7 +14,4 @@ enum PodPhase:
   case Pending, Running, Succeeded, Failed, Unknown
 
 object PodPhases:
-  given JsonCodec[PodPhase] = JsonCodec(
-    JsonEncoder[String].contramap(_.toString),
-    JsonDecoder[String].map(s => Try(PodPhase.valueOf(s)).getOrElse(PodPhase.Unknown))
-  )
+  given JsonCodec[PodPhase] = codecs.simpleEnumJsonCodec(PodPhase.values)

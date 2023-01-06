@@ -10,6 +10,7 @@ import zio.ZIO.succeed
 
 import java.io.File
 
+// todo remove
 /**
  * S3 storage operator
  */

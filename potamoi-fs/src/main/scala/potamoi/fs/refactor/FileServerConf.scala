@@ -2,7 +2,7 @@ package potamoi.fs.refactor
 
 import zio.config.magnolia.name
 import zio.http.ServerConfig
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import zio.json.JsonCodec
 import zio.{ZIO, ZLayer}
 
 /**
@@ -11,7 +11,7 @@ import zio.{ZIO, ZLayer}
 case class FileServerConf(
     @name("host") host: String,
     @name("port") port: Int = 3400)
+    derives JsonCodec
 
 object FileServerConf:
-  given JsonCodec[FileServerConf] = DeriveJsonCodec.gen[FileServerConf]
-  val test                        = FileServerConf("127.0.0.1", 3400)
+  val test = FileServerConf("127.0.0.1", 3400)

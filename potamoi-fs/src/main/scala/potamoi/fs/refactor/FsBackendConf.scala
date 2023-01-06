@@ -2,15 +2,13 @@ package potamoi.fs.refactor
 
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
+import potamoi.codecs
+import S3AccessStyles.given_JsonCodec_S3AccessStyle
 
 /**
  * Remote file system backend configuration.
  */
-sealed trait FsBackendConf
-
-object FsBackendConf:
-  import S3AccessStyles.given
-  given JsonCodec[FsBackendConf] = DeriveJsonCodec.gen[FsBackendConf]
+sealed trait FsBackendConf derives JsonCodec
 
 /**
  * S3 file system backend configuration.
@@ -32,17 +30,12 @@ enum S3AccessStyle(val value: String):
   case VirtualHostedStyle extends S3AccessStyle("virtual-hosted-style")
 
 object S3AccessStyles:
-  given JsonCodec[S3AccessStyle] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].map(s => S3AccessStyle.values.find(_.value == s).getOrElse(S3AccessStyle.PathStyle))
-  )
+  given JsonCodec[S3AccessStyle] = codecs.simpleEnumJsonCodec(S3AccessStyle.values)
 
 /**
  * Local file system backend configuration.
  */
-case class LocalFsBackendConf(dir: String = "storage"):
+case class LocalFsBackendConf(dir: String = "storage") derives JsonCodec:
   def resolve(rootDataDir: String): LocalFsBackendConf =
-    if dir.startsWith(rootDataDir) then this else copy(dir = s"$rootDataDir/${paths.rmFirstSlash(dir)}")
-
-object LocalFsBackendConf:
-  given JsonCodec[LocalFsBackendConf] = DeriveJsonCodec.gen[LocalFsBackendConf]
+    if dir.startsWith(rootDataDir) then this
+    else copy(dir = s"$rootDataDir/${paths.rmFirstSlash(dir)}")

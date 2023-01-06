@@ -6,6 +6,7 @@ import scala.util.Try
 
 /**
  * Flink job execution mode.
+ * todo refactor
  */
 enum FlinkExecMode(val value: String):
   case K8sApplication extends FlinkExecMode("kubernetes-application")

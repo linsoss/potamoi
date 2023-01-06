@@ -1,6 +1,8 @@
 package potamoi.flink.model
 
-import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
+import potamoi.codecs
+import potamoi.flink.model.SavepointFormatTypes.given_JsonCodec_SavepointFormatType
+import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
 
 /**
  * Flink job savepoint conf.
@@ -10,17 +12,11 @@ case class FlinkJobSavepointDef(
     savepointPath: Option[String] = None,
     formatType: Option[SavepointFormatType] = None,
     triggerId: Option[String] = None)
+    derives JsonCodec
 
-enum SavepointFormatType(val value: String):
+enum SavepointFormatType(val rawValue: String):
   case Canonical extends SavepointFormatType("CANONICAL")
   case Native    extends SavepointFormatType("NATIVE")
 
 object SavepointFormatTypes:
-  given JsonCodec[SavepointFormatType] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].mapOrFail(s => SavepointFormatType.values.find(_.value == s).toRight(s"Unknown savepoint format type: $s"))
-  )
-
-object FlinkJobSavepointDef:
-  import SavepointFormatTypes.given
-  given JsonCodec[FlinkJobSavepointDef] = DeriveJsonCodec.gen[FlinkJobSavepointDef]
+  given JsonCodec[SavepointFormatType] = codecs.simpleEnumJsonCodec(SavepointFormatType.values)

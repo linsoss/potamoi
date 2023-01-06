@@ -15,8 +15,7 @@ case class FlinkJobOverview(
     startTs: Long,
     endTs: Long,
     tasks: TaskStats,
-    ts: Long):
-
+    ts: Long) derives JsonCodec:
   lazy val fjid: Fjid  = Fjid(clusterId, namespace, jobId)
   def durationTs: Long = curTs - startTs
 

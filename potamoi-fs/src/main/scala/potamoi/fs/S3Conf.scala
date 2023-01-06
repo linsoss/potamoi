@@ -5,6 +5,7 @@ import potamoi.fs.S3AccessStyle.*
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 
+// todo remove
 /**
  * S3 storage configuration.
  */

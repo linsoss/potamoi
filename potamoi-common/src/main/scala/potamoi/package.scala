@@ -1,4 +1,4 @@
-import potamoi.common.{ErrorExtension, FutureExtension, NumExtension, SttpExtension, Syntax, TimeExtension, ZIOExtension}
+import potamoi.common.*
 
 package object potamoi:
 
@@ -9,5 +9,6 @@ package object potamoi:
   val times   = TimeExtension
   val nums    = NumExtension
   val errs    = ErrorExtension
+  val codecs  = Codec
 
   def curTs: Long = System.currentTimeMillis

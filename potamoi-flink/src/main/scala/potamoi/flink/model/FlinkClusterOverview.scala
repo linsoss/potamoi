@@ -1,6 +1,7 @@
 package potamoi.flink.model
 
-import zio.json.{DeriveJsonCodec, JsonCodec}
+import potamoi.flink.model.FlinkExecModes.given_JsonCodec_FlinkExecMode
+import zio.json.JsonCodec
 
 /**
  * Flink cluster overview.
@@ -14,7 +15,8 @@ case class FlinkClusterOverview(
     slotsTotal: Int,
     slotsAvailable: Int,
     jobs: JobsStats,
-    ts: Long):
+    ts: Long)
+    derives JsonCodec:
   lazy val fcid = Fcid(clusterId, namespace)
 
 case class JobsStats(
@@ -22,9 +24,4 @@ case class JobsStats(
     finished: Int,
     canceled: Int,
     failed: Int)
-
-object FlinkClusterOverview:
-  import potamoi.flink.model.FlinkExecModes.given
-  given JsonCodec[JobsStats]            = DeriveJsonCodec.gen[JobsStats]
-  given JsonCodec[FlinkClusterOverview] = DeriveJsonCodec.gen[FlinkClusterOverview]
-  given Ordering[FlinkClusterOverview]  = Ordering.by(e => (e.clusterId, e.namespace))
+    derives JsonCodec

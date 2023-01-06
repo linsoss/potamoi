@@ -1,5 +1,6 @@
 package potamoi.flink.model
 
+import potamoi.flink.model.FlinkRawConfig.dry
 import potamoi.fs.S3Conf
 import potamoi.fs.refactor.S3AccessStyle
 import potamoi.nums.*
@@ -56,8 +57,6 @@ object FlinkRawConfig {
         case (k, v)                  => k -> v.toString
       }
 }
-
-import potamoi.flink.model.FlinkRawConfig.dry
 
 /**
  * Flink k8s cpu configuration.
@@ -194,13 +193,13 @@ case class S3AccessConf(
    * Mapping to standard flink-s3 configuration.
    */
   def mappingS3 = Map(
-    "s3.endpoint" -> endpoint,
-    "s3.access-key" -> accessKey,
-    "s3.secret-key" -> secretKey,
+    "s3.endpoint"          -> endpoint,
+    "s3.access-key"        -> accessKey,
+    "s3.secret-key"        -> secretKey,
     "s3.path.style.access" -> pathStyleAccess,
-    "s3.ssl.enabled" -> sslEnabled,
+    "s3.ssl.enabled"       -> sslEnabled,
   ).dry
-  
+
   /**
    * Mapping to flink-s3-presto configuration.
    */
@@ -210,9 +209,8 @@ case class S3AccessConf(
     "hive.s3.aws-secret-key"    -> secretKey,
     "hive.s3.path-style-access" -> pathStyleAccess,
     "hive.s3.ssl.enabled"       -> sslEnabled,
-    
   ).dry
-  
+
   /**
    * Mapping to flink-s3-hadoop configuration.
    */

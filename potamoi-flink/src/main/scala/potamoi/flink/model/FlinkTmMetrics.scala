@@ -46,10 +46,9 @@ case class FlinkTmMetrics(
     jvmMemoryNonHeapMax: Option[Long] = None,
     jvmMemoryNonHeapUsed: Option[Long] = None,
     jvmThreadsCount: Option[Long] = None,
-    ts: Long = curTs)
+    ts: Long = curTs) derives JsonCodec
 
 object FlinkTmMetrics:
-  given JsonCodec[FlinkTmMetrics] = DeriveJsonCodec.gen[FlinkTmMetrics]
 
   val metricsRawKeys: Set[String] = Set(
     "Status.Flink.Memory.Managed.Total",

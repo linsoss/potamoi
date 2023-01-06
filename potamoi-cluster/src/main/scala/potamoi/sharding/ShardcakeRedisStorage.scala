@@ -41,7 +41,4 @@ object ShardcakeRedisStorage:
 /**
  * Shardcake redis storage config.
  */
-case class ShardRedisStgConf(redisUri: String)
-
-object ShardRedisStgConf:
-  given JsonCodec[ShardRedisStgConf] = DeriveJsonCodec.gen[ShardRedisStgConf]
+case class ShardRedisStgConf(redisUri: String) derives JsonCodec

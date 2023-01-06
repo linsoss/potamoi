@@ -18,7 +18,8 @@ case class FlinkTmDetail(
     freeResource: TmResource,
     hardware: TmHardware,
     memoryConfiguration: TmMemoryConfig,
-    ts: Long = curTs):
+    ts: Long = curTs)
+    derives JsonCodec:
   lazy val ftid: Ftid = Ftid(clusterId, namespace, tmId)
 
 case class TmResource(
@@ -27,12 +28,14 @@ case class TmResource(
     taskOffHeapMemory: Long,
     managedMemory: Long,
     networkMemory: Long)
+    derives JsonCodec
 
 case class TmHardware(
     cpuCores: Float,
     physicalMemory: Long,
     freeMemory: Long,
     managedMemory: Long)
+    derives JsonCodec
 
 case class TmMemoryConfig(
     frameworkHeap: Long,
@@ -45,10 +48,4 @@ case class TmMemoryConfig(
     jvmOverhead: Long,
     totalFlinkMemory: Long,
     totalProcessMemory: Long)
-
-object FlinkTmDetail:
-  given JsonCodec[TmResource]     = DeriveJsonCodec.gen[TmResource]
-  given JsonCodec[TmHardware]     = DeriveJsonCodec.gen[TmHardware]
-  given JsonCodec[TmMemoryConfig] = DeriveJsonCodec.gen[TmMemoryConfig]
-  given JsonCodec[FlinkTmDetail]  = DeriveJsonCodec.gen[FlinkTmDetail]
-  given Ordering[FlinkTmDetail]   = Ordering.by(e => (e.clusterId, e.namespace, e.tmId))
+    derives JsonCodec

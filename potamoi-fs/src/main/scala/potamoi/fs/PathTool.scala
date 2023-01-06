@@ -2,6 +2,7 @@ package potamoi.fs
 
 import potamoi.common.Syntax.contra
 
+// todo remove
 /**
  * Tools for handling file paths.
  */

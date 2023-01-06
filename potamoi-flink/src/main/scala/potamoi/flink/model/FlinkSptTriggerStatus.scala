@@ -1,28 +1,22 @@
 package potamoi.flink.model
 
+import potamoi.flink.model.FlinkPipeOprStates.given
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
+import potamoi.codecs
 
 /**
  * Flink savepoint trigger status.
  */
-case class FlinkSptTriggerStatus(state: FlinkPipeOprState, failureCause: Option[String], location: Option[String]) {
+case class FlinkSptTriggerStatus(state: FlinkPipeOprState, failureCause: Option[String], location: Option[String]) derives JsonCodec:
   lazy val isCompleted = state == FlinkPipeOprState.Completed
   lazy val isFailed    = failureCause.isDefined
-}
 
-object FlinkSptTriggerStatus:
-  import FlinkPipeOprStates.given
-  given JsonCodec[FlinkSptTriggerStatus] = DeriveJsonCodec.gen[FlinkSptTriggerStatus]
-
-enum FlinkPipeOprState(val value: String):
+enum FlinkPipeOprState(val rawValue: String):
   case Completed  extends FlinkPipeOprState("COMPLETED")
   case InProgress extends FlinkPipeOprState("IN_PROGRESS")
   case Unknown    extends FlinkPipeOprState("UNKNOWN")
 
 object FlinkPipeOprStates:
-  given JsonCodec[FlinkPipeOprState] = JsonCodec(
-    JsonEncoder[String].contramap(_.value),
-    JsonDecoder[String].map(s => FlinkPipeOprState.values.find(_.value == s).getOrElse(FlinkPipeOprState.Unknown))
-  )
+  given JsonCodec[FlinkPipeOprState] = codecs.simpleEnumJsonCodec(FlinkPipeOprState.values)
   def ofRaw(rawValue: String): FlinkPipeOprState =
-    FlinkPipeOprState.values.find(_.value == rawValue).getOrElse(FlinkPipeOprState.Unknown)
+    FlinkPipeOprState.values.find(_.rawValue == rawValue).getOrElse(FlinkPipeOprState.Unknown)
