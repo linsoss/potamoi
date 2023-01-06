@@ -7,9 +7,7 @@ import org.apache.flink.table.api.internal.TableEnvironmentInternal
 import org.apache.flink.table.delegation.Parser
 import potamoi.flink.FlinkConf
 import potamoi.syntax.tap
-import potamoi.testing.Testing21.config
 import potamoi.fs.refactor.RemoteFsOperator
-import potamoi.testing.Testing233.config
 import zio.IO
 
 trait SqlInteropExecutor {

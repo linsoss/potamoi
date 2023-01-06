@@ -3,6 +3,7 @@ package potamoi.flink.model
 import zio.json.JsonCodec
 import potamoi.flink.model.FlinkRawConfig.given_JsonCodec_FlinkRawConfig
 import potamoi.flink.model.RestExportTypes.given
+import potamoi.flink.FlinkVersion
 
 /**
  * Flink Kubernetes cluster definition.
