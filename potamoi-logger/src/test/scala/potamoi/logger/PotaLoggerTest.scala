@@ -16,7 +16,7 @@ object PotaLoggerTest1 extends ZIOAppDefault:
     ZIO.succeed(logger.debug("slf4j-debug-msg")) *>
     ZIO.succeed(logger.info("slf4j-info-msg")) *>
     ZIO.succeed(logger.warn("slf4j-warn-msg"))
-  }.provide(PotaLogger.layer(level = LogsLevel.debug))
+  }.provide(PotaLogger.layer(level = LogsLevel.Debug))
 
 object PotaLoggerTest2 extends ZIOAppDefault:
   val run = {

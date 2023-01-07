@@ -32,8 +32,8 @@ object PotaLogger {
    * @param appendLf  Appended log format content.
    */
   def layer(
-      level: LogsLevel = LogsLevel.info,
-      style: LogsStyle = LogsStyle.plain,
+      level: LogsLevel = LogsLevel.Info,
+      style: LogsStyle = LogsStyle.Plain,
       colored: Boolean = true,
       inOneLine: Boolean = false,
       allowedMdc: Set[String] = Set.empty,
@@ -41,8 +41,8 @@ object PotaLogger {
     val logFormat = if (colored) stLogFormatColored(appendLf, inOneLine) else stLogFormat(appendLf, inOneLine)
     val logLevel  = level.zioLevel
     val logLayer = style match {
-      case LogsStyle.plain => console(logFormat, logLevel)
-      case LogsStyle.json  => consoleJson(logFormat, logLevel)
+      case LogsStyle.Plain => console(logFormat, logLevel)
+      case LogsStyle.Json  => consoleJson(logFormat, logLevel)
     }
     zio.Runtime.removeDefaultLoggers >>> logLayer >+> Slf4jBridge.initialize(logLevel, (defaultAcceptedSlf4jMdc ++ allowedMdc).toVector)
   }
