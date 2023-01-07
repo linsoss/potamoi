@@ -19,8 +19,13 @@ case class S3FsBackendConf(
     @name("access-key") accessKey: String,
     @name("secret-key") secretKey: String,
     @name("access-style") accessStyle: S3AccessStyle = S3AccessStyle.PathStyle,
-    @name("enable-ssl") sslEnabled: Boolean = false)
-    extends FsBackendConf
+    @name("enable-ssl") sslEnabled: Boolean = false,
+    @name("tmp-dir") tmpDir: String = "s3-mirror")
+    extends FsBackendConf:
+
+  def resolve(rootDataDir: String): S3FsBackendConf =
+    if tmpDir.startsWith(rootDataDir) then this
+    else copy(tmpDir = s"$rootDataDir/${paths.rmFirstSlash(tmpDir)}")
 
 /**
  * S3 path access style.

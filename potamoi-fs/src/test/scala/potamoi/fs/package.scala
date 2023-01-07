@@ -11,7 +11,7 @@ package object fs:
     accessKey = "minio",
     secretKey = "minio123",
     accessStyle = PathStyle
-  )
+  ).resolve("var/potamoi")
 
   val LocalFsBackendConfDev = LocalFsBackendConf().resolve("var/potamoi")
 

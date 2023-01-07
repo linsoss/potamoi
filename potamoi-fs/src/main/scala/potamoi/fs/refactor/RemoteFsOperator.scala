@@ -22,7 +22,7 @@ trait RemoteFsOperator:
   /**
    * Get the actual path to remote storage.
    */
-  def actualPath(path: String): UIO[String]
+  def actualPath(path: String): String
 
   /**
    * Upload file to remote storage.
@@ -35,6 +35,12 @@ trait RemoteFsOperator:
    * @param srcPath allowed without schema or with pota-fs schema, for example: "aa/bb.txt", "pota://aa/bb.txt"
    */
   def download(srcPath: String, targetPath: String): IO[FsErr, File]
+
+  /**
+   * Download file from remote storage to local temporary directory.
+   * @param srcPath allowed without schema or with pota-fs schema.
+   */
+  def download(srcPath: String): IO[FsErr, File]
 
   /**
    * Download file as ZStream.
@@ -51,5 +57,3 @@ trait RemoteFsOperator:
    * Determine whether file exists on remote storage.
    */
   def exist(path: String): IO[FsErr, Boolean]
-
-  final protected def purePath(path: String): UIO[String] = ZIO.succeed(paths.rmSchema andThen paths.rmFirstSlash apply path)

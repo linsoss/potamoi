@@ -2,6 +2,7 @@ package potamoi.fs.refactor
 
 import org.apache.tika.Tika
 import potamoi.common.Syntax.contra
+import zio.{UIO, ZIO}
 
 import java.io.File
 import scala.util.Try
@@ -23,8 +24,8 @@ object PathTool:
    * Extract schema from path.
    */
   def getSchema(path: String): Option[String] = path.split("://").contra { segs =>
-      if segs.length < 2 then None else segs.headOption
-    }
+    if segs.length < 2 then None else segs.headOption
+  }
 
   /**
    * Remove path schema likes from "s3://bucket/xx.jar" to "bucket/xx.jar".
@@ -35,6 +36,11 @@ object PathTool:
    * Remove the slash at the beginning of the path.
    */
   def rmFirstSlash(path: String): String = if path.startsWith("/") then path.substring(1, path.length) else path
+
+  /**
+   * Remove path schema and first slash.
+   */
+  def purePath(path: String) = rmSchema andThen rmFirstSlash apply path
 
   /**
    * Get file name from path.
