@@ -20,6 +20,7 @@ lazy val quicklensVer = "1.9.0"
 lazy val upickleVer   = "2.0.0"
 lazy val pprintVer    = "0.8.1"
 lazy val osLibVer     = "0.8.1"
+lazy val circeVer     = "0.14.3"
 
 lazy val slf4jVer       = "1.7.36"
 lazy val munitVer       = "1.0.0-M7"
@@ -59,6 +60,8 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-schema-json"       % zioSchemaVer,
     "dev.zio"       %% "zio-schema-protobuf"   % zioSchemaVer,
     "org.typelevel" %% "cats-core"             % catsVer,
+    "io.circe"      %% "circe-core"            % circeVer,
+    "io.circe"      %% "circe-parser"          % circeVer,
     "dev.zio"       %% "zio-test"              % zioVer   % Test,
     "dev.zio"       %% "zio-test-sbt"          % zioVer   % Test,
     "org.scalameta" %% "munit"                 % munitVer % Test,
@@ -144,7 +147,12 @@ lazy val potaCluster = (project in file("potamoi-cluster"))
 lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
   .dependsOn(potaCommon, potaFs, potaKubernetes)
   .settings(commonSettings)
-  .settings(name := "potamoi-flink-share")
+  .settings(
+    name := "potamoi-flink-share",
+    libraryDependencies ++= Seq(
+      "org.apache.flink" % "flink-core" % flinkVer % Provided
+    )
+  )
 
 lazy val potaFlink = (project in file("potamoi-flink"))
   .dependsOn(potaCommon, potaKubernetes, potaFs, potaCluster, potaFlinkShare)
@@ -165,7 +173,8 @@ lazy val potaFlinkInterp = (project in file("potamoi-flink-interp"))
     libraryDependencies ++= Seq(
       "org.apache.flink" % "flink-clients"              % flink116Ver,
       "org.apache.flink" % "flink-table-planner-loader" % flink116Ver,
-      "org.apache.flink" % "flink-table-runtime"        % flink116Ver
+      "org.apache.flink" % "flink-table-runtime"        % flink116Ver,
+      "org.apache.flink" % "flink-json"                 % flink116Ver
     )
   )
 

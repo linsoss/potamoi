@@ -77,3 +77,13 @@ object K8sEntityConvertErr:
   case object IllegalK8sServiceEntity    extends K8sEntityConvertErr("Fail to convert kubernetes service entity")
   case object IllegalK8sDeploymentEntity extends K8sEntityConvertErr("Fail to convert kubernetes deployment entity")
   case object IllegalK8sPodEntity        extends K8sEntityConvertErr("Fail to convert kubernetes pod entity")
+
+/**
+ * Flink interactive operation error.
+ */
+sealed abstract class FlinkInterpErr(sessionId: String, msg: String, cause: Throwable = null) extends FlinkErr(msg, cause)
+
+object FlinkInterpErr:
+  case class InitSessionFail(sessionId: String, cause: Throwable)
+      extends FlinkInterpErr(sessionId, s"Fail to initialize flink sql session[$sessionId] due to: ${cause.getMessage}", cause)
+  case class SessionNotReady(sessionId: String) extends FlinkInterpErr(sessionId, s"Flink sql session[$sessionId] is not ready")

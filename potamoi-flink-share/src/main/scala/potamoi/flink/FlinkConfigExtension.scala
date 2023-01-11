@@ -8,6 +8,7 @@ import scala.jdk.CollectionConverters.*
 
 /**
  * Extension for Flink [[Configuration]]
+ * todo refactor
  */
 object FlinkConfigExtension:
 
@@ -36,26 +37,19 @@ object FlinkConfigExtension:
     /**
      * Append [[FlinkRawConf]] to internal configuration.
      */
+    def append(rawConf: Option[FlinkRawConfig]): ConfigurationPF = rawConf.map(append).getOrElse(this)
     def append(rawConf: FlinkRawConfig): ConfigurationPF =
       rawConf.mapping.foldLeft(this) { case (conf, (key, value)) =>
         conf.append(key, value)
       }
 
-    def append(rawConf: Option[FlinkRawConfig]): ConfigurationPF = rawConf.map(append).getOrElse(this)
-
-    /**
-     * Tapping internal configuration.
-     */
-    def tap(f: Configuration => Any): Configuration = {
-      f(this.conf)
-      this
-    }
-
     /**
      * Handling internal configuration via monand.
      */
-    def pipe(f: ConfigurationPF => ConfigurationPF): ConfigurationPF                       = f(this)
-    def pipeWhen(cond: => Boolean)(f: ConfigurationPF => ConfigurationPF): ConfigurationPF = if (cond) f(this) else this
+    def pipe(f: ConfigurationPF => ConfigurationPF): ConfigurationPF = f(this)
+
+    def pipeWhen(cond: => Boolean)(f: ConfigurationPF => ConfigurationPF): ConfigurationPF =
+      if (cond) f(this) else this
 
     /**
      * Merge key value in Map to internal configuration.
@@ -83,7 +77,7 @@ object FlinkConfigExtension:
   /**
    * The keys in the flink configuration that may need to be protected.
    */
-  val protectedFlinkConfigKeys = Vector(
+  lazy val protectedFlinkConfigKeys = Vector(
     "hive.s3.aws-secret-key",
     "fs.s3a.secret.key",
     "s3.secret-key"
@@ -91,3 +85,5 @@ object FlinkConfigExtension:
 
   lazy val InjectedDeploySourceConf = "deploy.source" -> "potamoi"
   lazy val InjectedExecModeKey      = "exec.mode"
+
+end FlinkConfigExtension

@@ -1,32 +1,33 @@
-package potamoi.flink.interp
+package potamoi.flink.interp.model
 
 import potamoi.codecs
 import potamoi.common.ScalaVersion
-import potamoi.flink.interp.ResultDropStrategy.*
+import potamoi.flink.interp.model.ResultDropStrategies.given
+import potamoi.flink.interp.model.ResultDropStrategy.*
 import potamoi.flink.model.{FlinkRuntimeMode, FlinkTargetType, InterpSupport}
-import zio.json.JsonCodec
-import potamoi.flink.interp.ResultDropStrategies.given
-import potamoi.flink.model.InterpFlinkTargetTypes.given
 import potamoi.flink.model.FlinkRuntimeModes.given
+import potamoi.flink.model.InterpFlinkTargetTypes.given
+import zio.json.JsonCodec
 
-case class InterpSessionDef(
+case class SessionDef(
     execType: FlinkTargetType with InterpSupport,
     execMode: FlinkRuntimeMode = FlinkRuntimeMode.Streaming,
     remote: Option[RemoteClusterEndpoint] = None,
     jobName: Option[String] = None,
     jars: List[String] = List.empty,
+    sentClusterJars: List[String] = List.empty,
     parallelism: Int = 1,
     extraProps: Map[String, String] = Map.empty,
     resultStore: ResultStoreConf = ResultStoreConf())
     derives JsonCodec
 
-object InterpSessionDef:
-  lazy val nonAllowedOverviewConfigKeys =
-    Vector(
-      "execution.target",
-      "execution.attached",
-      "execution.shutdown-on-attached-exit"
-    )
+object SessionDef:
+  lazy val nonAllowedOverviewConfigKeys = Vector(
+    "execution.target",
+    "execution.attached",
+    "execution.shutdown-on-attached-exit",
+    "pipeline.jars"
+  )
   def defaultJobName(sessionId: String) = s"potamoi-interp@$sessionId"
 
 case class RemoteClusterEndpoint(
