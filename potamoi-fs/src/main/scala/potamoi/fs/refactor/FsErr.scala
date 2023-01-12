@@ -1,12 +1,12 @@
 package potamoi.fs.refactor
 
-import potamoi.common.Err
+import potamoi.common.{Err, PotaErr}
 import potamoi.fs.{FsErr, S3Conf}
 
 /**
  * File system error.
  */
-sealed abstract class FsErr(msg: String, cause: Throwable = null) extends Err(msg, cause)
+sealed abstract class FsErr(msg: String, cause: Throwable = null) extends Err(msg, cause) with PotaErr
 
 object FsErr:
   case class LfsErr(msg: String, cause: Throwable = null) extends FsErr(msg, cause)

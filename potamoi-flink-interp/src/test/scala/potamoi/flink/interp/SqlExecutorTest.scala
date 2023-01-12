@@ -11,15 +11,15 @@ import zio.{IO, Task, ZIO}
 
 object SqlExecutorTest:
 
-  def testing[E, A](f: SqlExecutor => IO[E, A]) = {
-    (for {
-      fs       <- ZIO.service[RemoteFsOperator]
-      executor <- SqlExecutor.instance("23333", fs)
-      rs       <- f(executor)
-    } yield rs)
-      .provide(S3FsBackendConfDev.asLayer >>> S3FsBackend.live)
-      .run
-  }
+//  def testing[E, A](f: SqlExecutor => IO[E, A]) = {
+//    (for {
+//      fs       <- ZIO.service[RemoteFsOperator]
+//      executor <- SqlExecutor.instance("23333", fs)
+//      rs       <- f(executor)
+//    } yield rs)
+//      .provide(S3FsBackendConfDev.asLayer >>> S3FsBackend.live)
+//      .run
+//  }
 
 //  @main def testExecutor1 = testing { exec =>
 //    exec.initEnvironment(SessionDef(FlinkTargetType.Local)) *>
@@ -36,3 +36,5 @@ object SqlExecutorTest:
 //                           |""".stripMargin)
 //
 //  }
+
+end SqlExecutorTest

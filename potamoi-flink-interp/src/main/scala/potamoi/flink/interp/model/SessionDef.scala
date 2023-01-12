@@ -9,6 +9,9 @@ import potamoi.flink.model.FlinkRuntimeModes.given
 import potamoi.flink.model.InterpFlinkTargetTypes.given
 import zio.json.JsonCodec
 
+/**
+ * Behavior definition configuration for the flink sql executor.
+ */
 case class SessionDef(
     execType: FlinkTargetType with InterpSupport,
     execMode: FlinkRuntimeMode = FlinkRuntimeMode.Streaming,
@@ -18,7 +21,8 @@ case class SessionDef(
     sentClusterJars: List[String] = List.empty,
     parallelism: Int = 1,
     extraProps: Map[String, String] = Map.empty,
-    resultStore: ResultStoreConf = ResultStoreConf())
+    resultStore: ResultStoreConf = ResultStoreConf(),
+    allowSinkOperation: Boolean = false)
     derives JsonCodec
 
 object SessionDef:

@@ -29,7 +29,7 @@ object SessionContext:
   /**
    * Create and initialize SessionContext.
    */
-  def buildContext(sessionId: String, sessDef: SessionDef, remoteFs: RemoteFsOperator): IO[Throwable, SessionContext] = defer {
+  private[interp] def buildContext(sessionId: String, sessDef: SessionDef, remoteFs: RemoteFsOperator): IO[Throwable, SessionContext] = defer {
     // download extra jars
     val (jarsFiles, sentClusterJarsFiles) = {
       val extraJars = (sessDef.jars ++ sessDef.sentClusterJars).distinct

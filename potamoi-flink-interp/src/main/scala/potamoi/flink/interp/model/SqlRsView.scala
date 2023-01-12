@@ -4,7 +4,6 @@ import io.circe.Json
 import org.apache.flink.table.api.ResultKind
 import org.apache.flink.table.types.logical.LogicalTypeRoot
 import org.apache.flink.types.RowKind
-import potamoi.flink.interp.SqlExecutor.HandleId
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -34,21 +33,4 @@ object SqlRsView:
       ))
   )
 
-end SqlRsView
 
-/**
- * See [[org.apache.flink.table.catalog.Column]]
- */
-case class FieldMeta(
-    name: String,
-    typeRoot: LogicalTypeRoot,
-    typeDesc: String,
-    comment: Option[String] = None)
-
-/**
- * See: [[org.apache.flink.types.Row]]
- *
- * The row data will be encoded as a json structure, for the corresponding mapping
- * refer to: [[ https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/#data-type-mapping ]]
- */
-case class RowValue(kind: RowKind, fields: Json)
