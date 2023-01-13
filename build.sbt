@@ -67,7 +67,7 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-test-sbt"          % zioVer       % Test,
     "org.scalatest" %% "scalatest"             % scalaTestVer % Test
   ),
-  testFrameworks           := Seq(TestFramework("zio.test.sbt.ZTestFramework"), TestFramework("org.scalatest.tools.Framework")),
+  testFrameworks           := Seq(TestFramework("zio.test.sbt.ZTestFramework")),
 )
 
 lazy val root = (project in file("."))
