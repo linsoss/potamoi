@@ -10,23 +10,23 @@ import potamoi.flink.storage.FlinkSnapshotStorage
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.PotaLogger
 import potamoi.sharding.{LocalShardManager, ShardingConf, Shardings}
+import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.{durationInt, IO, ZIO}
 import zio.Console.printLine
 import zio.Schedule.spaced
-import potamoi.sharding.LocalShardManager.withLocalShardManager
 
 object FlinkObserverTest {
 
-  def testing[A](effect: FlinkObserver => IO[PotaErr, A]): Unit = {
+  def testing[E, A](effect: FlinkObserver => IO[E, A]): Unit = {
     val program = ZIO
       .serviceWithZIO[FlinkObserver] { obr =>
         obr.manager.registerEntities *>
         Sharding.registerScoped.ignore *>
         effect(obr)
       }
-      .tapErrorCause(cause => PotaErr.logErrorCausePretty(cause))
+      .tapErrorCause(cause => ZIO.logErrorCause(cause))
 
     ZIO
       .scoped(program)
@@ -164,7 +164,7 @@ object TestFlinkK8sRefQuery:
   }
 
   @main def testScanK8sNamespace = testing { obr =>
-    obr.k8s.scanK8sNamespace("fdev").runForeach(fcid => printLine(fcid.toPrettyStr))
+    obr.k8s.scanK8sNamespace("fdev").runForeach(fcid => printLine(fcid.toPrettyStr)).ignore
   }
 
   @main def testViewLog = testing { obr =>

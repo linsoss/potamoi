@@ -34,9 +34,8 @@ object ZIOExtension {
     inline def debugPretty: ZIO[R, E, A] =
       zio
         .tap(value => ZIO.succeed(println(toPrettyString(value))))
-        .tapErrorCause {
-          case cause: Cause[PotaErr] => ZIO.succeed(println(s"<FAIL> ${cause.failureOption.map(toPrettyString(_)).getOrElse("")}\n${cause}"))
-          case cause                 => ZIO.succeed(println(s"<FAIL> ${cause}"))
+        .tapErrorCause { case cause =>
+          ZIO.succeed(println(s"<FAIL> ${cause.prettyPrint}"))
         }
 
     inline def repeatWhileWithSpaced(f: A => Boolean, spaced: Duration): ZIO[R, E, A] =

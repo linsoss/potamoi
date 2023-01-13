@@ -25,13 +25,4 @@ object PotaErr:
       sw.toString
     }
 
-  /**
-   * Pretty logging of PotaErr type Cause.
-   */
-  def logErrorCausePretty(cause: Cause[PotaErr]): UIO[Unit] =
-    ZIO.logErrorCause(cause.failureOption.map(toPrettyString).getOrElse(""), cause)
-
-  def logErrorCausePretty(message: String, cause: Cause[PotaErr]): UIO[Unit] =
-    ZIO.logErrorCause(s"$message, cause: ${cause.failureOption.map(toPrettyString).getOrElse("")}", cause)
-
 end PotaErr

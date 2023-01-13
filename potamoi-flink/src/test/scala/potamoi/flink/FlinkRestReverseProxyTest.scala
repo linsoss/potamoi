@@ -13,6 +13,7 @@ import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.*
+import zio.http.{Server,Client}
 
 object FlinkRestReverseProxyTestApp extends ZIOAppDefault:
 

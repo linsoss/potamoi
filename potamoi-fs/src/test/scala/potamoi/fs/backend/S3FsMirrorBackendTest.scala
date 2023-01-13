@@ -2,7 +2,6 @@ package potamoi.fs.backend
 
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{BeforeAndAfterAll, Ignore}
-import potamoi.PotaErr.logErrorCausePretty
 import potamoi.fs.refactor.{lfs, S3AccessStyle, S3FsBackendConf}
 import potamoi.fs.refactor.backend.{S3FsBackend, S3FsMirrorBackend}
 import potamoi.fs.S3FsBackendConfDev

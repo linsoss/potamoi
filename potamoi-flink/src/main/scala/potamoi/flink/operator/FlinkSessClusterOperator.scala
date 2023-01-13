@@ -57,8 +57,8 @@ class FlinkSessClusterOperatorLive(
       _ <- existRemoteCluster(clusterDef.fcid).flatMap(ZIO.fail(ClusterAlreadyExist(clusterDef.fcid)).when(_))
       _ <- internalDeployCluster(clusterDef)
     } yield ()
-  }.tapErrorCause { case cause: Cause[PotaErr] =>
-    PotaErr.logErrorCausePretty("Fail to deploy flink session cluster", cause).when(flinkConf.logFailedDeployReason)
+  }.tapErrorCause { cause =>
+    logErrorCause("Fail to deploy flink session cluster", cause).when(flinkConf.logFailedDeployReason)
   } @@ annotated(clusterDef.fcid.toAnno: _*)
 
   // noinspection DuplicatedCode
@@ -128,8 +128,8 @@ class FlinkSessClusterOperatorLive(
       _ <- lfs.rm(jobJarPath).ignore
       _ <- logInfo(s"Submit job to flink session cluster successfully, jobId: $jobId")
     } yield jobId
-  }.tapErrorCause { case cause: Cause[PotaErr] =>
-    PotaErr.logErrorCausePretty("Fail to submit flink job to session cluster", cause).when(flinkConf.logFailedDeployReason)
+  }.tapErrorCause { cause =>
+    logErrorCause("Fail to submit flink job to session cluster", cause).when(flinkConf.logFailedDeployReason)
   } @@ annotated(Fcid(jobDef.clusterId, jobDef.namespace).toAnno: _*)
 
 }

@@ -7,7 +7,6 @@ import potamoi.fs.refactor.backend.S3FsBackend
 import potamoi.fs.S3FsBackendConfDev
 import potamoi.zios.*
 import potamoi.PotaErr
-import potamoi.PotaErr.logErrorCausePretty
 import zio.{IO, ZIO, ZLayer}
 
 import java.io.File

@@ -72,8 +72,8 @@ case class FlinkAppClusterOperatorLive(
       _ <- ensureRemoteEnvReady(clusterDef.fcid)
       _ <- internalDeployCluster(clusterDef)
     } yield ()
-  }.tapErrorCause { case cause: Cause[PotaErr] =>
-    PotaErr.logErrorCausePretty("Fail to deploy flink application cluster", cause).when(flinkConf.logFailedDeployReason)
+  }.tapErrorCause { cause =>
+    logErrorCause("Fail to deploy flink application cluster", cause).when(flinkConf.logFailedDeployReason)
   } @@ annotated(clusterDef.fcid.toAnno: _*)
 
   // Delete the flink cluster when no job exists in the flink cluster
@@ -135,7 +135,7 @@ case class FlinkAppClusterOperatorLive(
       _                   <- observer.manager
                                .track(clusterDef.fcid)
                                .retryN(3)
-                               .tapErrorCause(cause => PotaErr.logErrorCausePretty("Failed to submit flink cluster trace request, need to trace manually later", cause))
+                               .tapErrorCause(cause => logErrorCause("Failed to submit flink cluster trace request, need to trace manually later", cause))
                                .ignore
       _                   <- logInfo(s"Deploy flink application cluster successfully.")
     } yield ()

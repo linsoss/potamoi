@@ -26,7 +26,7 @@ import zio.ZIO.logInfo
 
 object FlinkOperatorTest {
 
-  def testing[A](effect: (FlinkOperator, FlinkObserver) => IO[PotaErr, A]): Unit = {
+  def testing[E, A](effect: (FlinkOperator, FlinkObserver) => IO[E, A]): Unit = {
     val program =
       (
         for {
@@ -35,7 +35,7 @@ object FlinkOperatorTest {
           _   <- obr.manager.registerEntities *> Sharding.registerScoped.ignore
           r   <- effect(opr, obr)
         } yield r
-      ).tapErrorCause(cause => PotaErr.logErrorCause(cause))
+      ).tapErrorCause(cause => ZIO.logErrorCause(cause))
 
     ZIO
       .scoped(program)

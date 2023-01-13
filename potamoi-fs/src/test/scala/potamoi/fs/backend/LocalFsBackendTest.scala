@@ -7,7 +7,6 @@ import potamoi.fs.refactor.{lfs, S3AccessStyle, S3FsBackendConf}
 import potamoi.fs.refactor.backend.{LocalFsBackend, S3FsBackend}
 import potamoi.zios.*
 import potamoi.PotaErr
-import potamoi.PotaErr.logErrorCausePretty
 import potamoi.logger.PotaLogger
 import zio.{IO, ZIO, ZLayer}
 
