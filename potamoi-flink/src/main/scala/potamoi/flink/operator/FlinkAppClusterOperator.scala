@@ -18,7 +18,7 @@ import potamoi.kubernetes.{given_Conversion_String_K8sNamespace, K8sOperator}
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.usingAttempt
-import zio.{durationInt, Console, IO, ZIO}
+import zio.{durationInt, Cause, Console, IO, ZIO}
 import zio.Console.printLine
 import zio.Schedule.{recurWhile, spaced}
 import zio.ZIO.{attempt, attemptBlockingInterrupt, logErrorCause, logInfo, scoped, succeed}
@@ -72,11 +72,9 @@ case class FlinkAppClusterOperatorLive(
       _ <- ensureRemoteEnvReady(clusterDef.fcid)
       _ <- internalDeployCluster(clusterDef)
     } yield ()
-  }.tapErrorCause(cause =>
-    ZIO
-      .logErrorCause(s"Fail to deploy flink application cluster due to: ${cause.headMessage}", cause.recurse)
-      .when(flinkConf.logFailedDeployReason))
-  @@ annotated (clusterDef.fcid.toAnno: _*)
+  }.tapErrorCause { case cause: Cause[PotaErr] =>
+    PotaErr.logErrorCausePretty("Fail to deploy flink application cluster", cause).when(flinkConf.logFailedDeployReason)
+  } @@ annotated(clusterDef.fcid.toAnno: _*)
 
   // Delete the flink cluster when no job exists in the flink cluster
   // or when the only one job existed is inactive.

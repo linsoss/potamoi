@@ -8,7 +8,6 @@ package object potamoi:
   val sttps    = SttpExtension
   val times    = TimeExtension
   val nums     = NumExtension
-  val errs     = ErrorExtension
   val codecs   = Codec
   val uuids    = Uuid
   val collects = CollectionExtension

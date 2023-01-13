@@ -59,8 +59,7 @@ class FlinkSessClusterOperatorLive(
     } yield ()
   }.tapErrorCause { case cause: Cause[PotaErr] =>
     PotaErr.logErrorCausePretty("Fail to deploy flink session cluster", cause).when(flinkConf.logFailedDeployReason)
-  }
-  @@ annotated (clusterDef.fcid.toAnno: _*)
+  } @@ annotated(clusterDef.fcid.toAnno: _*)
 
   // noinspection DuplicatedCode
   private def internalDeployCluster(clusterDef: FlinkSessClusterDef): IO[ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] =
@@ -94,7 +93,7 @@ class FlinkSessClusterOperatorLive(
       _                   <- observer.manager
                                .track(clusterDef.fcid)
                                .retryN(3)
-                               .tapErrorCause(cause => logErrorCause(s"Failed to submit flink cluster trace request, need to trace manually later.", cause.recurse))
+                               .tapErrorCause(cause => logErrorCause(s"Failed to submit flink cluster trace request, need to trace manually later.", cause))
                                .ignore
       _                   <- logInfo(s"Deploy flink session cluster successfully.")
     } yield ()
@@ -129,7 +128,7 @@ class FlinkSessClusterOperatorLive(
       _ <- lfs.rm(jobJarPath).ignore
       _ <- logInfo(s"Submit job to flink session cluster successfully, jobId: $jobId")
     } yield jobId
-  } tapErrorCause { case cause: Cause[PotaErr] =>
+  }.tapErrorCause { case cause: Cause[PotaErr] =>
     PotaErr.logErrorCausePretty("Fail to submit flink job to session cluster", cause).when(flinkConf.logFailedDeployReason)
   } @@ annotated(Fcid(jobDef.clusterId, jobDef.namespace).toAnno: _*)
 
