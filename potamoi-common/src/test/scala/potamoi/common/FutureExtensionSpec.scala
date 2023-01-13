@@ -1,25 +1,30 @@
 package potamoi.common
 
+import org.scalatest.wordspec.AnyWordSpec
 import potamoi.common.FutureExtension.*
 import zio.*
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class FutureExtensionSpec extends munit.FunSuite:
+class FutureExtensionSpec extends AnyWordSpec:
 
-  test("asZIO") {
-    val ef = Unsafe.unsafe { implicit u =>
-      Runtime.default.unsafe.run(Future(1 + 1).asZIO).getOrThrow()
+  "FutureExtension" should {
+
+    "asZIO" in {
+      val ef = Unsafe.unsafe { implicit u =>
+        Runtime.default.unsafe.run(Future(1 + 1).asZIO).getOrThrow()
+      }
+      assert(ef == 2)
     }
-    assert(ef == 2)
-  }
 
-  test("blocking result") {
-    assert(Future(1 + 1).blocking() == 2)
-  }
+    "blocking result" in {
+      assert(Future(1 + 1).blocking() == 2)
+    }
 
-  test("safeBlocking result") {
-    case object Boom extends Exception
-    assert(Future(throw Boom).safeBlocking() == Left(Boom))
+    "safeBlocking result" in {
+      case object Boom extends Exception
+      assert(Future(throw Boom).safeBlocking() == Left(Boom))
+    }
+
   }

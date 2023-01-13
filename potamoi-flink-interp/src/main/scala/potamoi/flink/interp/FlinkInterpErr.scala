@@ -1,6 +1,6 @@
 package potamoi.flink.interp
 
-import potamoi.common.PotaErr
+import potamoi.PotaErr
 
 sealed trait FlinkInterpErr extends PotaErr
 
@@ -16,4 +16,3 @@ object FlinkInterpErr:
   case class ParseSqlErr(sql: String, cause: Throwable)            extends FlinkInterpErr with ExecuteSqlErr
   case class BannedOperation(opClzName: String)                    extends FlinkInterpErr with ExecuteSqlErr
   case class ExecOperationErr(opClzName: String, cause: Throwable) extends FlinkInterpErr with ExecuteSqlErr
-  case class PotaInternalErr(cause: PotaErr)                       extends FlinkInterpErr with ExecuteSqlErr

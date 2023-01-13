@@ -1,13 +1,13 @@
 package potamoi.fs
 
-import potamoi.common.Err
+import potamoi.PotaErr
 
 
-// todo remove
 /**
+ * todo remove
  * File system error.
  */
-sealed abstract class FsErr(msg: String, cause: Throwable = null) extends Err(msg, cause)
+sealed abstract class FsErr(msg: String, cause: Throwable = null) extends PotaErr
 
 /**
  * Local file system error.

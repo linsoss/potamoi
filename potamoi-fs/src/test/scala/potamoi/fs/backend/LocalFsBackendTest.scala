@@ -6,6 +6,8 @@ import potamoi.fs.{LocalFsBackendConfDev, S3FsBackendConfDev}
 import zio.{IO, ZIO, ZLayer}
 import potamoi.zios.*
 import potamoi.errs.*
+import potamoi.PotaErr.logErrorCausePretty
+import potamoi.PotaErr
 
 import java.io.File
 
@@ -13,32 +15,35 @@ object LocalFsBackendTest:
 
   val layer = LocalFsBackendConfDev.asLayer >>> LocalFsBackend.live
 
-  def testing[A](f: LocalFsBackend => IO[Throwable, A]) = zioRun {
-    ZIO.service[LocalFsBackend].flatMap { b => f(b) }.provide(layer)
-      .tapErrorCause(cause => ZIO.logErrorCause(cause.headMessage, cause.recurse))
-  }
+  def testing[E, A](f: LocalFsBackend => IO[E, A]) =
+    zioRun {
+      ZIO
+        .service[LocalFsBackend]
+        .flatMap { b => f(b) }
+        .provide(layer)
+    }.exitCode
 
   @main def testLfsDownload = testing { backend =>
     backend
       .download("pota://README.md", "spec-test/README.md")
-      .debug
+      .debugPretty
   }
 
   @main def testLfsUpload = testing { backend =>
     backend
       .upload(File("spec-test/README.md"), "pota://README2.md")
-      .debug
+      .debugPretty
   }
 
   @main def testLfsRemove = testing { backend =>
     backend
       .remove("pota://README2.md")
-      .debug
+      .debugPretty
   }
 
   @main def testLfsExists = testing { backend =>
-    backend.exist("pota://README2.md").debug *>
-      backend.exist("pota://README.md").debug
+    backend.exist("pota://README2.md").debugPretty *>
+    backend.exist("pota://README.md").debugPretty
   }
 
   @main def cleanLfsTmpDir = lfs.rm("spec-test").run

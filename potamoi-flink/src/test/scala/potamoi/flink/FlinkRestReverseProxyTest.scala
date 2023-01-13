@@ -2,14 +2,6 @@ package potamoi.flink
 
 import com.devsisters.shardcake
 import com.devsisters.shardcake.Sharding
-import potamoi.common.ScalaVersion.Scala212
-import potamoi.common.Syntax.toPrettyString
-import potamoi.errs.{headMessage, recurse}
-import potamoi.flink
-import potamoi.flink.*
-import potamoi.flink.model.*
-import potamoi.flink.model.CheckpointStorageType.Filesystem
-import potamoi.flink.model.FlK8sComponentName.jobmanager
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.FlinkOperator
 import potamoi.flink.storage.FlinkSnapshotStorage
@@ -21,11 +13,6 @@ import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.*
-import zio.Console.printLine
-import zio.Schedule.spaced
-import zio.ZIO.logInfo
-import zio.http.*
-import zio.http.model.Status
 
 object FlinkRestReverseProxyTestApp extends ZIOAppDefault:
 

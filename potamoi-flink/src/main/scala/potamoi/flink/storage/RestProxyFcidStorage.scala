@@ -1,6 +1,6 @@
 package potamoi.flink.storage
 
-import potamoi.flink.DataStorageErr
+import potamoi.flink.DataStoreErr
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import zio.IO
 import zio.cache.Cache
@@ -15,10 +15,10 @@ trait RestProxyFcidStorage extends RestProxyFcidStorage.Modify with RestProxyFci
 
 object RestProxyFcidStorage {
   trait Modify:
-    def put(fcid: Fcid): IO[DataStorageErr, Unit]
-    def rm(fcid: Fcid): IO[DataStorageErr, Unit]
+    def put(fcid: Fcid): IO[DataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
 
   trait Query:
-    def list: Stream[DataStorageErr, Fcid]
-    def exists(fcid: Fcid): IO[DataStorageErr, Boolean]
+    def list: Stream[DataStoreErr, Fcid]
+    def exists(fcid: Fcid): IO[DataStoreErr, Boolean]
 }

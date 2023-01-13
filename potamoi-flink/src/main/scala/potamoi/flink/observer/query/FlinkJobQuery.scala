@@ -1,6 +1,5 @@
 package potamoi.flink.observer.query
 
-import potamoi.common.Err
 import potamoi.flink.*
 import potamoi.flink.model.{Fjid, FlinkPipeOprState, FlinkSptTriggerStatus}
 import potamoi.flink.storage.{JobMetricsStorage, JobOverviewStorage, JobSnapStorage}

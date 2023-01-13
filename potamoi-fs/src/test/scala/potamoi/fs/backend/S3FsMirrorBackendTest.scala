@@ -1,10 +1,12 @@
 package potamoi.fs.backend
 
+import potamoi.PotaErr.logErrorCausePretty
 import potamoi.fs.refactor.{lfs, S3AccessStyle, S3FsBackendConf}
 import potamoi.fs.refactor.backend.{S3FsBackend, S3FsMirrorBackend}
 import potamoi.fs.S3FsBackendConfDev
 import potamoi.logger.{LogsLevel, PotaLogger}
 import potamoi.zios.*
+import potamoi.PotaErr
 import zio.{IO, ZIO, ZLayer}
 import zio.ZIO.{logErrorCause, logLevel}
 
@@ -14,13 +16,14 @@ object S3FsMirrorBackendTest:
 
   val layer = S3FsBackendConfDev.asLayer >>> S3FsMirrorBackend.live
 
-  def testing[A](f: S3FsMirrorBackend => IO[Throwable, A]) = zioRun {
-    ZIO
-      .service[S3FsMirrorBackend]
-      .flatMap { b => f(b) }
-      .provideLayer(layer)
-      .provideLayer(PotaLogger.layer(level = LogsLevel.Debug))
-  }.exitCode
+  def testing[E, A](f: S3FsMirrorBackend => IO[E, A]) =
+    zioRun {
+      ZIO
+        .service[S3FsMirrorBackend]
+        .flatMap { b => f(b) }
+        .provideLayer(layer)
+        .provideLayer(PotaLogger.layer(level = LogsLevel.Debug))
+    }.exitCode
 
   @main def testDownload2 = testing { backend =>
     backend

@@ -1,6 +1,6 @@
 package potamoi.flink
 
-import potamoi.errs.recurse
+import potamoi.flink.FlinkRestRequestTest.url
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.ZIO
@@ -17,7 +17,6 @@ object FlinkRestRequestTest:
 
   @main def testGetJmMetrics = flinkRest(url).getJmMetricsKeys.debugPretty.run
 
-  @main def testGetDmDetail =
-    flinkRest(url).getTaskManagerDetail("session-01-taskmanager-1-45").tapErrorCause(e => ZIO.logErrorCause(e.recurse)).debugPretty.run
-
   @main def testIsAvailable = flinkRest(url).isAvailable.debugPretty.run
+
+  @main def testGetDmDetail = flinkRest(url).getTaskManagerDetail("session-01-taskmanager-1-45").debugPretty.run

@@ -1,6 +1,6 @@
 package potamoi.flink.storage
 
-import potamoi.flink.DataStorageErr
+import potamoi.flink.DataStoreErr
 import potamoi.flink.model.*
 import potamoi.flink.storage.mem.*
 import zio.{IO, ZLayer}
@@ -21,7 +21,7 @@ trait FlinkSnapshotStorage:
   /**
    * Remove all current snapshot data belongs to Fcid.
    */
-  def rmSnapData(fcid: Fcid): IO[DataStorageErr, Unit] = {
+  def rmSnapData(fcid: Fcid): IO[DataStoreErr, Unit] = {
     restEndpoint.rm(fcid) <&>
     restProxy.rm(fcid) <&>
     cluster.rmSnapData(fcid) <&>

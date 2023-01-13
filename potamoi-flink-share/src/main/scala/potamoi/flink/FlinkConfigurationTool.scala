@@ -32,12 +32,12 @@ object FlinkConfigurationTool:
      */
     def safeSet(key: String, value: ConfigValue, ignoreEmpty: Boolean = true): Configuration = {
       value match
-        case v: BasicValue => setBasicValue(key, v)
-        case opt: Option[BasicValue] =>
+        case v: BasicValue                => setBasicValue(key, v)
+        case opt: Option[BasicValue]      =>
           opt match
             case None     => if !ignoreEmpty then config.setString(key, "")
             case Some(vv) => setBasicValue(key, vv)
-        case seq: Seq[BasicValue] =>
+        case seq: Seq[BasicValue]         =>
           seq match
             case seq if seq.isEmpty => if !ignoreEmpty then config.setString(key, "")
             case seq                => config.setString(key, seq.map(valueToString).mkString(";"))

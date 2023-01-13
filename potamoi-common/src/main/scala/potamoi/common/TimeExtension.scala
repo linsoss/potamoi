@@ -3,12 +3,12 @@ package potamoi.common
 import zio.Duration as ZioDuration
 
 import java.time.Duration as JavaDuration
-import scala.concurrent.duration.{FiniteDuration, NANOSECONDS, Duration as ScalaDuration}
+import scala.concurrent.duration.{Duration as ScalaDuration, FiniteDuration, NANOSECONDS}
 
 /**
  * Time, Duration extension.
  */
-object TimeExtension {
+object TimeExtension:
 
   given Conversion[FiniteDuration, JavaDuration] = duration => JavaDuration.ofNanos(duration.toNanos)
 
@@ -23,5 +23,3 @@ object TimeExtension {
     case ZioDuration.Zero     => ScalaDuration.Zero
     case d                    => ScalaDuration.fromNanos(d.toNanos)
   }
-
-}

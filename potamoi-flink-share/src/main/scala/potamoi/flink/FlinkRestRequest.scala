@@ -245,10 +245,10 @@ class FlinkRestRequestLive(restUrl: String) extends FlinkRestRequest(restUrl) {
         .send(backend)
         .flattenBody
         .attemptBody { body =>
-          val rspJson = ujson.read(body)
-          val status  = rspJson("status")("id").str.contra(FlinkPipeOprStates.ofRaw)
+          val rspJson                  = ujson.read(body)
+          val status                   = rspJson("status")("id").str.contra(FlinkPipeOprStates.ofRaw)
           val (location, failureCause) = rspJson("operation").objOpt match
-            case None => None -> None
+            case None            => None -> None
             case Some(operation) =>
               println(operation)
               val loc     = operation.get("location").flatMap(_.strOpt)
@@ -390,17 +390,6 @@ object FlinkRestRequest {
   import potamoi.flink.model.JobStates.given
   given JsonCodec[SavepointFormatType] = codecs.stringBasedJsonCodec(_.rawValue, s => SavepointFormatType.values.find(_.rawValue == s))
 
-  given JsonCodec[RunJobReq]           = DeriveJsonCodec.gen[RunJobReq]
-  given JsonCodec[StopJobSptReq]       = DeriveJsonCodec.gen[StopJobSptReq]
-  given JsonCodec[TriggerSptReq]       = DeriveJsonCodec.gen[TriggerSptReq]
-  given JsonCodec[JobStatusInfo]       = DeriveJsonCodec.gen[JobStatusInfo]
-  given JsonCodec[JobStatusRsp]        = DeriveJsonCodec.gen[JobStatusRsp]
-  given JsonCodec[TaskStats]           = DeriveJsonCodec.gen[TaskStats]
-  given JsonCodec[JobOverviewInfo]     = DeriveJsonCodec.gen[JobOverviewInfo]
-  given JsonCodec[JobOverviewRsp]      = DeriveJsonCodec.gen[JobOverviewRsp]
-  given JsonCodec[ClusterOverviewInfo] = DeriveJsonCodec.gen[ClusterOverviewInfo]
-  given JsonCodec[TmDetailInfo]        = DeriveJsonCodec.gen[TmDetailInfo]
-
   /**
    * see: [[FlinkRestRequest.runJar]]
    */
@@ -412,6 +401,7 @@ object FlinkRestRequest {
       savepointPath: Option[String],
       restoreMode: Option[String],
       allowNonRestoredState: Option[Boolean])
+      derives JsonCodec
 
   object RunJobReq:
     def apply(jobDef: FlinkSessJobDef): RunJobReq = RunJobReq(
@@ -432,6 +422,7 @@ object FlinkRestRequest {
       formatType: Option[SavepointFormatType] = None,
       targetDirectory: Option[String],
       triggerId: Option[String] = None)
+      derives JsonCodec
 
   object StopJobSptReq:
     def apply(sptConf: FlinkJobSavepointDef): StopJobSptReq =
@@ -445,6 +436,7 @@ object FlinkRestRequest {
       formatType: Option[SavepointFormatType] = None,
       @jsonField("target-directory") targetDirectory: Option[String],
       triggerId: Option[String] = None)
+      derives JsonCodec
 
   object TriggerSptReq:
     def apply(sptConf: FlinkJobSavepointDef): TriggerSptReq =
@@ -453,14 +445,14 @@ object FlinkRestRequest {
   /**
    * see: [[FlinkRestRequest.listJobsStatusInfo]]
    */
-  case class JobStatusRsp(jobs: Vector[JobStatusInfo])
+  case class JobStatusRsp(jobs: Vector[JobStatusInfo]) derives JsonCodec
 
-  case class JobStatusInfo(id: String, status: JobState)
+  case class JobStatusInfo(id: String, status: JobState) derives JsonCodec
 
   /**
    * see: [[FlinkRestRequest.listJobOverviewInfo]]
    */
-  case class JobOverviewRsp(jobs: Vector[JobOverviewInfo])
+  case class JobOverviewRsp(jobs: Vector[JobOverviewInfo]) derives JsonCodec
 
   case class JobOverviewInfo(
       @jsonField("jid") jid: String,
@@ -469,7 +461,8 @@ object FlinkRestRequest {
       @jsonField("start-time") startTime: Long,
       @jsonField("end-time") endTime: Long,
       @jsonField("last-modification") lastModifyTime: Long,
-      tasks: TaskStats):
+      tasks: TaskStats)
+      derives JsonCodec:
 
     def toFlinkJobOverview(fcid: Fcid): FlinkJobOverview =
       model.FlinkJobOverview(
@@ -492,7 +485,8 @@ object FlinkRestRequest {
       @jsonField("jobs-running") jobsRunning: Int,
       @jsonField("jobs-finished") jobsFinished: Int,
       @jsonField("jobs-cancelled") jobsCancelled: Int,
-      @jsonField("jobs-failed") jobsFailed: Int):
+      @jsonField("jobs-failed") jobsFailed: Int)
+      derives JsonCodec:
 
     def toFlinkClusterOverview(fcid: Fcid, execType: FlinkTargetType, deployByPota: Boolean): FlinkClusterOverview =
       model.FlinkClusterOverview(
@@ -521,7 +515,8 @@ object FlinkRestRequest {
       totalResource: TmResource,
       freeResource: TmResource,
       hardware: TmHardware,
-      memoryConfiguration: TmMemoryConfig):
+      memoryConfiguration: TmMemoryConfig)
+      derives JsonCodec:
 
     def toTmDetail(fcid: Fcid): FlinkTmDetail = FlinkTmDetail(
       clusterId = fcid.clusterId,

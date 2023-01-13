@@ -1,5 +1,6 @@
 package potamoi.fs
 
+import org.scalatest.wordspec.AnyWordSpec
 import potamoi.fs.OsTool.{randomDir, randomFile, rmFile}
 import potamoi.fs.refactor.lfs
 import potamoi.zios.*
@@ -11,36 +12,47 @@ import scala.io.Source
 import scala.reflect.io.Directory
 import scala.util.{Random, Try, Using}
 
-class LfsOperatorSpec extends munit.FunSuite:
+class LfsOperatorSpec extends AnyWordSpec:
 
-  test("rm file") {
-    randomFile { file =>
-      lfs.rm(file.getPath).run
-      assert(!file.exists())
+  "LfsOperator" should {
+
+    "rm file" in {
+      randomFile { file =>
+        lfs.rm(file.getPath).run
+        assert(!file.exists())
+      }
     }
-  }
 
-  test("rm directory") {
-    randomDir(0) { dir =>
-      lfs.rm(dir.getPath).run
-      assert(!dir.exists())
+    "rm file" in {
+      randomFile { file =>
+        lfs.rm(file.getPath).run
+        assert(!file.exists())
+      }
     }
-    randomDir(5) { dir =>
-      lfs.rm(dir.getPath).run
-      assert(!dir.exists())
+
+    "rm directory" in {
+      randomDir(0) { dir =>
+        lfs.rm(dir.getPath).run
+        assert(!dir.exists())
+      }
+      randomDir(5) { dir =>
+        lfs.rm(dir.getPath).run
+        assert(!dir.exists())
+      }
     }
-  }
 
-  test("rm not exist file/directory") {
-    lfs.rm("test-233.txt").run
-    lfs.rm("test-23/233").run
-  }
+    "rm not exist file/directory" in {
+      lfs.rm("test-233.txt").run
+      lfs.rm("test-23/233").run
+    }
 
-  test("write content to file") {
-    val file = File(s"${System.currentTimeMillis}.txt")
-    lfs.write(file.getPath, "hello world 你好").run
-    assert(Using(Source.fromFile(file))(_.mkString).get == "hello world 你好")
-    rmFile(file)
+    "write content to file" in {
+      val file = File(s"${System.currentTimeMillis}.txt")
+      lfs.write(file.getPath, "hello world 你好").run
+      assert(Using(Source.fromFile(file))(_.mkString).get == "hello world 你好")
+      rmFile(file)
+    }
+
   }
 
 object OsTool:

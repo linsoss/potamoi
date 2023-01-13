@@ -33,7 +33,7 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
   /**
    * Convert to Flink raw configuration.
    */
-  def toFlinkRawConfig(clusterDef: ClusterDef, flinkConf: FlinkConf, s3Conf: S3Conf): IO[ConvertToRawConfigErr, Configuration]
+  def toFlinkRawConfig(clusterDef: ClusterDef, flinkConf: FlinkConf, s3Conf: S3Conf): IO[ConvertToFlinkRawConfigErr, Configuration]
 
   /**
    * Check whether S3 support is required.
@@ -132,7 +132,7 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
       clusterDef: ClusterDef,
       flinkConf: FlinkConf,
       s3Conf: S3Conf,
-      moreInject: ConfigurationPF => ConfigurationPF = identity): IO[ConvertToRawConfigErr, Configuration] =
+      moreInject: ConfigurationPF => ConfigurationPF = identity): IO[ConvertToFlinkRawConfigErr, Configuration] =
     ZIO
       .attempt {
         Configuration()
@@ -171,7 +171,7 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
           .merge(clusterDef.extRawConfigs)
           .value
       }
-      .mapError(ConvertToRawConfigErr.apply)
+      .mapError(ConvertToFlinkRawConfigErr.apply)
 }
 
 object ClusterDefResolver {
@@ -208,7 +208,7 @@ object SessClusterDefResolver extends ClusterDefResolver[FlinkSessClusterDef] {
   override def revise(clusterDef: FlinkSessClusterDef): IO[ReviseClusterDefErr, FlinkSessClusterDef] =
     reviseDefinition(clusterDef)
 
-  override def toFlinkRawConfig(clusterDef: FlinkSessClusterDef, flinkConf: FlinkConf, s3Conf: S3Conf): IO[ConvertToRawConfigErr, Configuration] =
+  override def toFlinkRawConfig(clusterDef: FlinkSessClusterDef, flinkConf: FlinkConf, s3Conf: S3Conf): IO[ConvertToFlinkRawConfigErr, Configuration] =
     convertToFlinkConfig(clusterDef, flinkConf, s3Conf)
 }
 
@@ -222,7 +222,7 @@ object AppClusterDefResolver extends ClusterDefResolver[FlinkAppClusterDef] {
   override def revise(clusterDef: FlinkAppClusterDef): IO[ReviseClusterDefErr, FlinkAppClusterDef] =
     reviseDefinition(clusterDef, clDef => clDef.copy(jobJar = reviseToS3pSchema(clDef.jobJar)))
 
-  override def toFlinkRawConfig(clusterDef: FlinkAppClusterDef, flinkConf: FlinkConf, s3Conf: S3Conf): IO[ConvertToRawConfigErr, Configuration] =
+  override def toFlinkRawConfig(clusterDef: FlinkAppClusterDef, flinkConf: FlinkConf, s3Conf: S3Conf): IO[ConvertToFlinkRawConfigErr, Configuration] =
     convertToFlinkConfig(
       clusterDef,
       flinkConf,

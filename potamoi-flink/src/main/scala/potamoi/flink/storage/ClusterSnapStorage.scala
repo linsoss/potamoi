@@ -1,6 +1,6 @@
 package potamoi.flink.storage
 
-import potamoi.flink.DataStorageErr
+import potamoi.flink.DataStoreErr
 import potamoi.flink.model.*
 import zio.IO
 import zio.stream.Stream
@@ -14,7 +14,7 @@ trait ClusterSnapStorage:
   def jmMetrics: JmMetricsStorage
   def tmMetrics: TmMetricStorage
 
-  def rmSnapData(fcid: Fcid): IO[DataStorageErr, Unit] = {
+  def rmSnapData(fcid: Fcid): IO[DataStoreErr, Unit] = {
     overview.rm(fcid) <&>
     tmDetail.rm(fcid) <&>
     jmMetrics.rm(fcid) <&>
@@ -28,12 +28,12 @@ trait ClusterOverviewStorage extends ClusterOverviewStorage.Modifier with Cluste
 
 object ClusterOverviewStorage {
   trait Modifier:
-    def put(ov: FlinkClusterOverview): IO[DataStorageErr, Unit]
-    def rm(fcid: Fcid): IO[DataStorageErr, Unit]
+    def put(ov: FlinkClusterOverview): IO[DataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
 
   trait Query:
-    def get(fcid: Fcid): IO[DataStorageErr, Option[FlinkClusterOverview]]
-    def listAll: Stream[DataStorageErr, FlinkClusterOverview]
+    def get(fcid: Fcid): IO[DataStoreErr, Option[FlinkClusterOverview]]
+    def listAll: Stream[DataStoreErr, FlinkClusterOverview]
 }
 
 /**
@@ -43,11 +43,11 @@ trait JmMetricsStorage extends JmMetricsStorage.Modify with JmMetricsStorage.Que
 
 object JmMetricsStorage {
   trait Modify:
-    def put(metric: FlinkJmMetrics): IO[DataStorageErr, Unit]
-    def rm(fcid: Fcid): IO[DataStorageErr, Unit]
+    def put(metric: FlinkJmMetrics): IO[DataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
 
   trait Query:
-    def get(fcid: Fcid): IO[DataStorageErr, Option[FlinkJmMetrics]]
+    def get(fcid: Fcid): IO[DataStoreErr, Option[FlinkJmMetrics]]
 }
 
 /**
@@ -57,17 +57,17 @@ trait TmDetailStorage extends TmDetailStorage.Modify with TmDetailStorage.Query
 
 object TmDetailStorage {
   trait Modify:
-    def put(tm: FlinkTmDetail): IO[DataStorageErr, Unit]
-    def putAll(tm: List[FlinkTmDetail]): IO[DataStorageErr, Unit]
-    def rm(fcid: Fcid): IO[DataStorageErr, Unit]
-    def rm(ftid: Ftid): IO[DataStorageErr, Unit]
+    def put(tm: FlinkTmDetail): IO[DataStoreErr, Unit]
+    def putAll(tm: List[FlinkTmDetail]): IO[DataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def rm(ftid: Ftid): IO[DataStoreErr, Unit]
 
   trait Query:
-    def get(ftid: Ftid): IO[DataStorageErr, Option[FlinkTmDetail]]
-    def list(fcid: Fcid): IO[DataStorageErr, List[FlinkTmDetail]]
-    def listAll: Stream[DataStorageErr, FlinkTmDetail]
-    def listTmId(fcid: Fcid): IO[DataStorageErr, List[Ftid]]
-    def listAllTmId: Stream[DataStorageErr, Ftid]
+    def get(ftid: Ftid): IO[DataStoreErr, Option[FlinkTmDetail]]
+    def list(fcid: Fcid): IO[DataStoreErr, List[FlinkTmDetail]]
+    def listAll: Stream[DataStoreErr, FlinkTmDetail]
+    def listTmId(fcid: Fcid): IO[DataStoreErr, List[Ftid]]
+    def listAllTmId: Stream[DataStoreErr, Ftid]
 }
 
 /**
@@ -77,12 +77,12 @@ trait TmMetricStorage extends TmMetricStorage.Modify with TmMetricStorage.Query
 
 object TmMetricStorage {
   trait Modify:
-    def put(metric: FlinkTmMetrics): IO[DataStorageErr, Unit]
-    def rm(ftid: Ftid): IO[DataStorageErr, Unit]
-    def rm(fcid: Fcid): IO[DataStorageErr, Unit]
+    def put(metric: FlinkTmMetrics): IO[DataStoreErr, Unit]
+    def rm(ftid: Ftid): IO[DataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
 
   trait Query:
-    def get(ftid: Ftid): IO[DataStorageErr, Option[FlinkTmMetrics]]
-    def list(fcid: Fcid): IO[DataStorageErr, List[FlinkTmMetrics]]
-    def listTmId(fcid: Fcid): IO[DataStorageErr, List[Ftid]]
+    def get(ftid: Ftid): IO[DataStoreErr, Option[FlinkTmMetrics]]
+    def list(fcid: Fcid): IO[DataStoreErr, List[FlinkTmMetrics]]
+    def listTmId(fcid: Fcid): IO[DataStoreErr, List[Ftid]]
 }

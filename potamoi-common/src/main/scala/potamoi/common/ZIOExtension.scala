@@ -1,7 +1,7 @@
 package potamoi.common
 
-import potamoi.errs.recurse
 import potamoi.syntax.toPrettyString
+import potamoi.PotaErr
 import zio.{Exit, *}
 import zio.stream.ZStream
 
@@ -13,20 +13,20 @@ import scala.reflect.ClassTag
 object ZIOExtension {
 
   extension [E, A](zio: IO[E, A]) {
-    inline def run: Exit[E, A] = zioRun(zio)
+    inline def run: Exit[E, A]                                      = zioRun(zio)
     inline def distPollStream(spaced: Duration): ZStream[Any, E, A] =
       for {
-        ref <- ZStream.fromZIO(Ref.make[Option[A]](None))
+        ref    <- ZStream.fromZIO(Ref.make[Option[A]](None))
         stream <- ZStream
-          .fromZIO(zio)
-          .repeat(Schedule.spaced(spaced))
-          .filterZIO { a =>
-            for {
-              pre <- ref.get
-              pass = !pre.contains(a)
-              _ <- ref.set(Some(a))
-            } yield pass
-          }
+                    .fromZIO(zio)
+                    .repeat(Schedule.spaced(spaced))
+                    .filterZIO { a =>
+                      for {
+                        pre <- ref.get
+                        pass = !pre.contains(a)
+                        _   <- ref.set(Some(a))
+                      } yield pass
+                    }
       } yield stream
   }
 
@@ -35,11 +35,8 @@ object ZIOExtension {
       zio
         .tap(value => ZIO.succeed(println(toPrettyString(value))))
         .tapErrorCause {
-          case cause: Cause[Throwable] => ZIO.succeed(println(s"<FAIL> ${cause.recurse.prettyPrint}"))
-          case cause: Cause[PotaErr] =>
-            ZIO.succeed(println(s"""<FAIL> ${cause.failureOption.map(toPrettyString).getOrElse("")}
-                                   |${cause.prettyPrint}"""".stripMargin))
-          case cause => ZIO.succeed(println(s"<FAIL> ${toPrettyString(cause)}"))
+          case cause: Cause[PotaErr] => ZIO.succeed(println(s"<FAIL> ${cause.failureOption.map(toPrettyString(_)).getOrElse("")}\n${cause}"))
+          case cause                 => ZIO.succeed(println(s"<FAIL> ${cause}"))
         }
 
     inline def repeatWhileWithSpaced(f: A => Boolean, spaced: Duration): ZIO[R, E, A] =

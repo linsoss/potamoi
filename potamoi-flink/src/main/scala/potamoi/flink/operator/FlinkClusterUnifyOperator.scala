@@ -8,7 +8,7 @@ import org.apache.flink.client.deployment.{ClusterClientFactory, DefaultClusterC
 import org.apache.flink.configuration.Configuration
 import potamoi.flink.*
 import potamoi.flink.FlinkConfigExtension.given_Conversion_Configuration_ConfigurationPF
-import potamoi.flink.FlinkErr.{ClusterNotFound, ConnectShardErr, K8sFail}
+import potamoi.flink.FlinkErr.{ClusterNotFound, FailToConnectShardEntity, K8sFailure}
 import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.FlinkRestRequest.{StopJobSptReq, TriggerSptReq}
 import potamoi.flink.model.*
@@ -89,7 +89,7 @@ class FlinkClusterUnifyOperatorLive(flinkConf: FlinkConf, k8sOperator: K8sOperat
   /**
    * Terminate the flink cluster and reclaim all associated k8s resources.
    */
-  override def killCluster(fcid: Fcid): IO[DataStorageErr | ConnectShardErr | ClusterNotFound | K8sFail | FlinkErr, Unit] = {
+  override def killCluster(fcid: Fcid): IO[DataStoreErr | FailToConnectShardEntity | ClusterNotFound | K8sFailure | FlinkErr, Unit] = {
     // untrack cluster
     observer.manager.untrack(fcid) *>
     // delete kubernetes resources
@@ -97,14 +97,14 @@ class FlinkClusterUnifyOperatorLive(flinkConf: FlinkConf, k8sOperator: K8sOperat
     logInfo(s"Delete flink cluster successfully.")
   } @@ annotated(fcid.toAnno: _*)
 
-  protected def internalKillCluster(fcid: Fcid, wait: Boolean): IO[DataStorageErr | ConnectShardErr | ClusterNotFound | K8sFail | FlinkErr, Unit] =
+  protected def internalKillCluster(fcid: Fcid, wait: Boolean): IO[DataStoreErr | FailToConnectShardEntity | ClusterNotFound | K8sFailure | FlinkErr, Unit] =
     k8sOperator.client.flatMap { client =>
       if (wait)
         client.deployments
           .deleteAndWait(name = fcid.clusterId, namespace = fcid.namespace, deleteOptions = DeleteOptions(propagationPolicy = Present("Background")))
           .mapError {
             case NotFound => FlinkErr.ClusterNotFound(fcid)
-            case failure  => FlinkErr.K8sFail(RequestK8sApiErr(failure))
+            case failure  => FlinkErr.K8sFailure(RequestK8sApiErr(failure))
           }
           .unit
           .provide(ZLayer.succeed(Clock.ClockLive)) *>
@@ -114,14 +114,14 @@ class FlinkClusterUnifyOperatorLive(flinkConf: FlinkConf, k8sOperator: K8sOperat
           .as(true)
           .catchSome { case NotFound => ZIO.succeed(false) }
           .repeatWhileWithSpaced(e => e, 500.millis)
-          .mapError(e => FlinkErr.K8sFail(RequestK8sApiErr(e)))
+          .mapError(e => FlinkErr.K8sFailure(RequestK8sApiErr(e)))
           .unit
       else
         client.deployments
           .delete(name = fcid.clusterId, namespace = fcid.namespace, deleteOptions = DeleteOptions(propagationPolicy = Present("Background")))
           .mapError {
             case NotFound => FlinkErr.ClusterNotFound(fcid)
-            case failure  => FlinkErr.K8sFail(RequestK8sApiErr(failure))
+            case failure  => FlinkErr.K8sFailure(RequestK8sApiErr(failure))
           }
           .unit
     }

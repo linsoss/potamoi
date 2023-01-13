@@ -216,8 +216,8 @@ class SerialSqlExecutorImpl(sessionId: String, remoteFs: RemoteFsOperator) exten
   private def executeAddJarOperation(
       ctx: SessionContext,
       handleId: String,
-      operation: AddJarOperation): IO[PotaInternalErr | ExecOperationErr, OpRsDesc] = for {
-    localPath          <- remoteFs.download(operation.getPath).mapBoth(PotaInternalErr(_), _.getAbsolutePath)
+      operation: AddJarOperation): IO[ExecOperationErr, OpRsDesc] = for {
+    localPath          <- remoteFs.download(operation.getPath).mapBoth(ExecOperationErr(operation.getClass.getName, _), _.getAbsolutePath)
     actualJarOperation <- succeed(AddJarOperation(localPath))
     rsDesc             <- executeOperation(ctx, handleId, actualJarOperation)
   } yield rsDesc
@@ -226,12 +226,13 @@ class SerialSqlExecutorImpl(sessionId: String, remoteFs: RemoteFsOperator) exten
    * Execute "set" sql command.
    * See: https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/set/
    */
-  private def executeSetOperation(ctx: SessionContext, handleId: String, operation: SetOperation): IO[PotaInternalErr, OpRsDesc] = {
+  private def executeSetOperation(ctx: SessionContext, handleId: String, operation: SetOperation): IO[ExecOperationErr, OpRsDesc] = {
     val (key, value) = (operation.getKey.toScala.map(_.trim), operation.getValue.toScala.map(_.trim))
     (key, value) match
       // update env
       case (Some(k), Some(v)) if k.nonEmpty =>
-        updateEnv(Map(k -> v)).mapError(PotaInternalErr(_)) *> succeed(PlainSqlRsDesc(PlainSqlRs.plainOkResult(handleId)))
+        updateEnv(Map(k -> v)).mapError(ExecOperationErr(operation.getClass.getName, _)) *>
+        succeed(PlainSqlRsDesc(PlainSqlRs.plainOkResult(handleId)))
 
       // show configuration
       case _ =>
@@ -251,18 +252,20 @@ class SerialSqlExecutorImpl(sessionId: String, remoteFs: RemoteFsOperator) exten
   private def executeResetOperation(
       ctx: SessionContext,
       handleId: String,
-      operation: ResetOperation): IO[PotaInternalErr, OpRsDesc] = {
+      operation: ResetOperation): IO[ExecOperationErr, OpRsDesc] = {
     operation.getKey.toScala.map(_.trim) match
       // reset configuration via key
       case Some(key) if key.nonEmpty =>
         for {
           originSessDef <- oriSessDef.get.map(_.getOrElse(ctx.sessDef))
           oriConfValue   = originSessDef.extraProps.get(key)
-          _             <- updateEnv(Map(key -> oriConfValue.get)).when(oriConfValue.isDefined).mapError(PotaInternalErr(_))
+          _             <- updateEnv(Map(key -> oriConfValue.get))
+                             .when(oriConfValue.isDefined)
+                             .mapError(ExecOperationErr(operation.getClass.getName, _))
         } yield PlainSqlRsDesc(PlainSqlRs.plainOkResult(handleId))
       // reset whole env
       case _                         =>
-        resetEnv.mapError(PotaInternalErr(_)) *>
+        resetEnv.mapError(ExecOperationErr(operation.getClass.getName, _)) *>
         succeed(PlainSqlRsDesc(PlainSqlRs.plainOkResult(handleId)))
   }
 

@@ -1,6 +1,6 @@
 package potamoi.flink.storage.mem
 
-import potamoi.flink.DataStorageErr
+import potamoi.flink.DataStoreErr
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.RestEndpointStorage
 import zio.{IO, Ref}
@@ -16,7 +16,7 @@ object RestEndpointMemoryStorage:
 
 class RestEndpointMemoryStorage(ref: Ref[mutable.Map[Fcid, FlinkRestSvcEndpoint]]) extends RestEndpointStorage:
   private val stg                                                               = MapBasedStg(ref)
-  def put(fcid: Fcid, endpoint: FlinkRestSvcEndpoint): IO[DataStorageErr, Unit] = stg.put(fcid, endpoint)
-  def rm(fcid: Fcid): IO[DataStorageErr, Unit]                                  = stg.delete(fcid)
-  def get(fcid: Fcid): IO[DataStorageErr, Option[FlinkRestSvcEndpoint]]         = stg.get(fcid)
-  def list: Stream[DataStorageErr, FlinkRestSvcEndpoint]                        = stg.streamValues
+  def put(fcid: Fcid, endpoint: FlinkRestSvcEndpoint): IO[DataStoreErr, Unit] = stg.put(fcid, endpoint)
+  def rm(fcid: Fcid): IO[DataStoreErr, Unit]                                  = stg.delete(fcid)
+  def get(fcid: Fcid): IO[DataStoreErr, Option[FlinkRestSvcEndpoint]]         = stg.get(fcid)
+  def list: Stream[DataStoreErr, FlinkRestSvcEndpoint]                        = stg.streamValues

@@ -1,10 +1,11 @@
 package potamoi.flink.model
 
+import org.scalatest.wordspec.AnyWordSpec
 import potamoi.syntax.*
 
-class FlinkRawConfigsSpec extends munit.FunSuite:
+class FlinkRawConfigsSpec extends AnyWordSpec:
 
-  test("dry config items") {
+  "dry config items" in {
     assert {
       JmHaConfig(haImplClz = "", storageDir = "/tmp", clusterId = None).mapping == Map(
         "high-availability"            -> "",

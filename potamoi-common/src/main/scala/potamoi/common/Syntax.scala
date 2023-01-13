@@ -24,7 +24,10 @@ object Syntax {
   /**
    * A more reader-friendly version of toString.
    */
-  def toPrettyString(value: Any): String = pprint.apply(value, height = 2000).render
+  def toPrettyString(value: Any): String =
+    value match
+      case v: String => v
+      case v         => pprint.apply(value, height = 2000).render
 
   extension (value: AnyRef) def toPrettyStr: String = Syntax.toPrettyString(value)
 

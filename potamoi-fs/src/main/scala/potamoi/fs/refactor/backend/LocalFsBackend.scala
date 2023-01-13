@@ -14,7 +14,7 @@ import java.io.File
  * Local file system storage implementation for testing.
  */
 object LocalFsBackend:
-  val live = ZLayer {
+  val live                                                                  = ZLayer {
     for {
       conf    <- ZIO.service[LocalFsBackendConf]
       backend <- instance(conf)
@@ -87,13 +87,13 @@ case class LocalFsBackend(conf: LocalFsBackendConf) extends RemoteFsOperator:
   override def downloadAsStream(srcPath: String): ZStream[Scope, FsErr, Byte] = {
     for {
       localSrcPath <- ZStream.from(actualPath(srcPath))
-      inputStream <- ZStream
-        .acquireReleaseWith {
-          ZIO.attemptBlockingInterrupt(os.read.inputStream(os.Path(localSrcPath)))
-        } { fis =>
-          ZIO.attempt(fis.close()).ignore
-        }
-      stream <- ZStream.fromInputStream(inputStream)
+      inputStream  <- ZStream
+                        .acquireReleaseWith {
+                          ZIO.attemptBlockingInterrupt(os.read.inputStream(os.Path(localSrcPath)))
+                        } { fis =>
+                          ZIO.attempt(fis.close()).ignore
+                        }
+      stream       <- ZStream.fromInputStream(inputStream)
     } yield stream
   }.mapError(RfsErr(s"Fail to get input stream bytes from local fs: ${actualPath(srcPath)}", _))
 

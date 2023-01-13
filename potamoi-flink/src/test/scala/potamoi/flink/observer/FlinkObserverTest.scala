@@ -2,7 +2,7 @@ package potamoi.flink.observer
 
 import com.devsisters.shardcake.Sharding
 import potamoi.common.Syntax.toPrettyString
-import potamoi.errs.{headMessage, recurse}
+import potamoi.PotaErr
 import potamoi.flink.*
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.model.FlK8sComponentName.jobmanager
@@ -19,14 +19,14 @@ import potamoi.sharding.LocalShardManager.withLocalShardManager
 
 object FlinkObserverTest {
 
-  def testing[A](effect: FlinkObserver => IO[Throwable, A]): Unit = {
+  def testing[A](effect: FlinkObserver => IO[PotaErr, A]): Unit = {
     val program = ZIO
       .serviceWithZIO[FlinkObserver] { obr =>
         obr.manager.registerEntities *>
         Sharding.registerScoped.ignore *>
         effect(obr)
       }
-      .tapErrorCause(cause => ZIO.logErrorCause(cause.headMessage, cause.recurse))
+      .tapErrorCause(cause => PotaErr.logErrorCausePretty(cause))
 
     ZIO
       .scoped(program)

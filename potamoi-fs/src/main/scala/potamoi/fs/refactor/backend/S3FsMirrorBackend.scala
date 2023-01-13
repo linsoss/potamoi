@@ -1,10 +1,10 @@
 package potamoi.fs.refactor.backend
 
 import io.minio.StatObjectArgs
-import potamoi.errs.stackTraceString
 import potamoi.fs.refactor.*
 import potamoi.fs.refactor.FsErr.{LfsErr, RfsErr}
 import potamoi.syntax.contra
+import potamoi.zios.runNow
 import zio.{durationInt, IO, Scope, Task, UIO, ZIO, ZLayer}
 import zio.cache.{Cache, Lookup}
 import zio.direct.*
@@ -25,12 +25,7 @@ object S3FsMirrorBackend:
       conf         <- ZIO.service[S3FsBackendConf]
       s3Backend    <- S3FsBackend.instance(conf)
       localBackend <- LocalFsBackend.instance(LocalFsBackendConf(conf.tmpDir))
-      localCheckSumCache <- Cache.make[String, Any, LfsErr, String](
-        capacity = 500,
-        timeToLive = 114514.hours,
-        lookup = Lookup(objectName => lfs.md5(File(localBackend.actualPath(objectName))))
-      )
-      _ <- logInfo(s"""Using S3FsMirrorBackend as RemoteFsOperator:
+      _            <- logInfo(s"""Using S3FsMirrorBackend as RemoteFsOperator:
                       |   endpoint = ${conf.endpoint},
                       |   bucket = ${conf.bucket},
                       |   accessKey = ${conf.accessKey},
@@ -40,17 +35,21 @@ object S3FsMirrorBackend:
                       |   localMirrorDir = ${conf.tmpDir},
                       |   checkSumCacheCapacity = 500
                       |""".stripMargin)
-    } yield S3FsMirrorBackend(s3Backend, localBackend, localCheckSumCache)
+    } yield S3FsMirrorBackend(s3Backend, localBackend)
   }
 
 /**
  * Default implementation.
  */
-class S3FsMirrorBackend(
-    s3Backend: S3FsBackend,
-    localBackend: LocalFsBackend,
-    localCheckSumCache: Cache[String, FsErr, String])
-    extends RemoteFsOperator:
+class S3FsMirrorBackend(s3Backend: S3FsBackend, localBackend: LocalFsBackend) extends RemoteFsOperator:
+
+  private val localCheckSumCache = Cache
+    .make[String, Any, LfsErr, String](
+      capacity = 500,
+      timeToLive = 114514.hours,
+      lookup = Lookup(objectName => lfs.md5(File(localBackend.actualPath(objectName))))
+    )
+    .runNow
 
   override val name: String                     = "s3-mirror"
   override def actualPath(path: String): String = s3Backend.actualPath(path)
@@ -92,7 +91,7 @@ class S3FsMirrorBackend(
   override def downloadAsStream(srcPath: String): ZStream[Scope, FsErr, Byte] =
     for {
       useMirror <- ZStream.fromZIO(canUseMirror(s3Backend.objectNameOf(srcPath)))
-      stream <- {
+      stream    <- {
         if useMirror then
           ZStream.logDebug(s"Hit local mirror file for $srcPath") *>
           localBackend.downloadAsStream(srcPath)

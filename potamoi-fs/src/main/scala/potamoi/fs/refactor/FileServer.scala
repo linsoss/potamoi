@@ -20,8 +20,8 @@ object FileServer:
    */
   def run: ZIO[RemoteFsOperator with FileServerConf, Throwable, Unit] =
     for {
-      conf    <- ZIO.service[FileServerConf]
-      backend <- ZIO.service[RemoteFsOperator]
+      conf               <- ZIO.service[FileServerConf]
+      backend            <- ZIO.service[RemoteFsOperator]
       app                 = FileServer(conf, backend)
       httpServerConfLayer = ServerConfig.live.project(_.binding(conf.host, conf.port))
 
@@ -30,8 +30,8 @@ object FileServer:
                           |- GET /heath
                           |- GET /fs/<file-path>""".stripMargin)
       _ <- Server
-        .serve(app.routes)
-        .provideLayer(ServerConfig.live ++ httpServerConfLayer >>> Server.live ++ Scope.default)
+             .serve(app.routes)
+             .provideLayer(ServerConfig.live ++ httpServerConfLayer >>> Server.live ++ Scope.default)
     } yield ()
 
   /**
@@ -42,7 +42,7 @@ object FileServer:
     paths.getSchema(path) match
       case None                                         => ZIO.fail(UnSupportedSchema(path))
       case Some(schema) if schema != paths.potaFsSchema => ZIO.fail(UnSupportedSchema(path))
-      case Some(_) =>
+      case Some(_)                                      =>
         val purePath = paths.rmSchema andThen paths.rmFirstSlash apply path
         ZIO.succeed(s"http://${conf.host}:${conf.port}/fs/$purePath")
   }
@@ -50,7 +50,7 @@ object FileServer:
 class FileServer(conf: FileServerConf, backend: RemoteFsOperator):
 
   val routes = Http.collectHttp[Request] {
-    case Method.GET -> !! / "health" => Http.ok
+    case Method.GET -> !! / "health"      => Http.ok
     case Method.GET -> "" /: "fs" /: path =>
       val pathStr = path.toString
       Http

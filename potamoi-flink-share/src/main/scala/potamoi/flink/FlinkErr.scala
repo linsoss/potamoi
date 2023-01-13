@@ -1,6 +1,6 @@
 package potamoi.flink
 
-import potamoi.common.Err
+import potamoi.PotaErr
 import potamoi.flink.model.*
 import potamoi.kubernetes.K8sErr
 
@@ -9,81 +9,74 @@ import scala.concurrent.duration.Duration
 /**
  * Flink error.
  */
-sealed abstract class FlinkErr(msg: String, cause: Throwable = null) extends Err(msg, cause)
+sealed trait FlinkErr extends PotaErr
 
 object FlinkErr:
-  case class K8sFail(err: K8sErr)                              extends FlinkErr(err.getMessage, err.getCause)
-  case class ClusterNotFound(fcid: Fcid)                       extends FlinkErr(s"Flink cluster not found: ${fcid.show}")
-  case class NotBeTracked(fcid: Fcid)                          extends FlinkErr(s"Flink cluster has not been tracked yet: ${fcid.show}")
-  case class WatchTimeout(timeout: Duration)                   extends FlinkErr(s"Watch timeout with ${timeout.toString}")
-  case class ConnectShardErr(entity: String, cause: Throwable) extends FlinkErr(s"Connect shard entity fail: $entity", cause)
 
-  case class ClusterAlreadyExist(fcid: Fcid) extends FlinkErr(s"Flink cluster[${fcid.show}] already exists on kubernetes.")
-  case class EmptyJobOnCluster(fcid: Fcid)   extends FlinkErr(s"There are no any jobs on the flink cluster: ${fcid.show}")
-  case class SubmitFlinkClusterFail(fcid: Fcid, execType: FlinkTargetType, cause: Throwable)
-      extends FlinkErr(s"Fail to submit flink cluster to kubernetes: ${fcid.show}. execMode=${execType.rawValue}", cause)
-  case class JobIsActive(fjid: Fjid, status: JobState)
-      extends FlinkErr(s"Reject to submit application job, due to job[${fjid.jobId}] is [$status] on cluster[${fjid.fcid.show}]")
+  case class K8sFailure(err: K8sErr)                                    extends FlinkErr
+  case class WatchTimeout(timeout: Duration)                            extends FlinkErr
+  case class FailToConnectShardEntity(entity: String, cause: Throwable) extends FlinkErr
+
+  case class ClusterNotFound(fcid: Fcid)                                                     extends FlinkErr
+  case class ClusterIsNotYetTracked(fcid: Fcid)                                              extends FlinkErr
+  case class ClusterAlreadyExist(fcid: Fcid)                                                 extends FlinkErr
+  case class EmptyJobOnCluster(fcid: Fcid)                                                   extends FlinkErr
+  case class SubmitFlinkClusterFail(fcid: Fcid, execType: FlinkTargetType, cause: Throwable) extends FlinkErr
+  case class JobAlreadyExist(fjid: Fjid, status: JobState)                                   extends FlinkErr
 
 /**
  * Resolve flink cluster definition error.
  */
-sealed abstract class ResolveClusterDefErr(msg: String, cause: Throwable) extends FlinkErr(msg, cause)
+sealed trait ResolveClusterDefErr extends FlinkErr
 
 object ResolveClusterDefErr:
-  case class ReviseClusterDefErr(cause: Throwable)                  extends ResolveClusterDefErr(s"Fail to revise flink cluster definition", cause)
-  case class ConvertToRawConfigErr(cause: Throwable)                extends ResolveClusterDefErr(s"Fail to convert to flink raw configuration", cause)
-  case class ResolveLogConfigErr(message: String, cause: Throwable) extends ResolveClusterDefErr(message, cause)
-  case class ResolvePodTemplateErr(message: String, cause: Throwable) extends ResolveClusterDefErr(message, cause)
+  case class ReviseClusterDefErr(cause: Throwable)                    extends ResolveClusterDefErr
+  case class ConvertToFlinkRawConfigErr(cause: Throwable)             extends ResolveClusterDefErr
+  case class ResolveLogConfigErr(message: String, cause: Throwable)   extends ResolveClusterDefErr
+  case class ResolvePodTemplateErr(message: String, cause: Throwable) extends ResolveClusterDefErr
 
 /**
  * Resolve flink job definition error.
  */
-sealed abstract class ResolveJobDefErr(msg: String, cause: Throwable = null) extends FlinkErr(msg, cause)
+sealed trait ResolveJobDefErr extends FlinkErr
 
 object ResolveJobDefErr:
-  case class NotSupportJobJarPath(path: String) extends ResolveJobDefErr(s"Unsupported flink jar path: $path")
-  case class DownloadJobJarFail(remotePath: String, cause: Throwable)
-      extends ResolveJobDefErr(s"Fail to download flink jar from remote: $remotePath", cause)
+  case class NotSupportJobJarPath(path: String)                            extends FlinkErr
+  case class DownloadRemoteJobJarErr(remotePath: String, cause: Throwable) extends FlinkErr
 
 /**
  * Flink snapshot data storage operation err.
  */
-sealed abstract class DataStorageErr(msg: String, cause: Throwable) extends FlinkErr(msg, cause)
+sealed trait DataStoreErr extends FlinkErr
 
-object DataStorageErr:
-  case class ReadDataErr(cause: Throwable)   extends DataStorageErr("Fail to read data from storage", cause)
-  case class UpdateDataErr(cause: Throwable) extends DataStorageErr("Fail to update data to storage", cause)
+object DataStoreErr:
+  case class ReadDataErr(cause: Throwable)   extends DataStoreErr
+  case class UpdateDataErr(cause: Throwable) extends DataStoreErr
 
 /**
  * Flink rest api error
  */
-sealed abstract class FlinkRestErr(msg: String, cause: Throwable = null) extends FlinkErr(msg, cause)
+sealed trait FlinkRestErr extends FlinkErr
 
 object FlinkRestErr:
-  case class JarNotFound(jarId: String)         extends FlinkRestErr(s"Flink jar not found: jarId=$jarId")
-  case class JobNotFound(jobId: String)         extends FlinkRestErr(s"Flink job not found: jarId=$jobId")
-  case class TriggerNotFound(triggerId: String) extends FlinkRestErr(s"Flink trigger not found: triggerId=$triggerId")
-  case class TaskmanagerNotFound(tmId: String)  extends FlinkRestErr(s"Flink task manager not found: tmId=$tmId")
-  case class RequestApiErr(method: String, uri: String, cause: Throwable)
-      extends FlinkRestErr(s"Fail to request flink rest api: method=$method, uri=$uri", cause)
+  case class RequestApiErr(method: String, uri: String, cause: Throwable) extends FlinkRestErr
+
+  sealed trait NotFound                         extends FlinkRestErr
+  case class JarNotFound(jarId: String)         extends NotFound
+  case class JobNotFound(jobId: String)         extends NotFound
+  case class TriggerNotFound(triggerId: String) extends NotFound
+  case class TaskmanagerNotFound(tmId: String)  extends NotFound
 
 /**
  * Flink ref k8s entity conversion error.
  */
-sealed abstract class K8sEntityConvertErr(msg: String) extends FlinkErr(msg)
+sealed trait FlinkK8sEntityConvertErr extends FlinkErr
 
-object K8sEntityConvertErr:
-  case object IllegalK8sServiceEntity    extends K8sEntityConvertErr("Fail to convert kubernetes service entity")
-  case object IllegalK8sDeploymentEntity extends K8sEntityConvertErr("Fail to convert kubernetes deployment entity")
-  case object IllegalK8sPodEntity        extends K8sEntityConvertErr("Fail to convert kubernetes pod entity")
+object FlinkK8sEntityConvertErr:
+  case object IllegalK8sServiceEntity    extends FlinkK8sEntityConvertErr
+  case object IllegalK8sDeploymentEntity extends FlinkK8sEntityConvertErr
+  case object IllegalK8sPodEntity        extends FlinkK8sEntityConvertErr
 
 /**
  * Flink interactive operation error.
  */
-sealed abstract class FlinkInterpErr(sessionId: String, msg: String, cause: Throwable = null) extends FlinkErr(msg, cause)
-
-object FlinkInterpErr:
-  case class InitSessionFail(sessionId: String, cause: Throwable)
-      extends FlinkInterpErr(sessionId, s"Fail to initialize flink sql session[$sessionId] due to: ${cause.getMessage}", cause)
-  case class SessionNotReady(sessionId: String) extends FlinkInterpErr(sessionId, s"Flink sql session[$sessionId] is not ready")

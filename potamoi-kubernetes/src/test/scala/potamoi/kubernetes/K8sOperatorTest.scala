@@ -10,15 +10,13 @@ object K8sOperatorTest:
   @main def testGetPodMetrics = zioRun {
     K8sOperator
       .getPodMetrics("app-t1-taskmanager-1-1", "fdev")
-      .map(_.toPrettyStr)
-      .debug
+      .debugPretty
       .provide(layer)
   }
 
   @main def testGetDeploymentSpec = zioRun {
     K8sOperator
       .getDeploymentSpec("app-t1", "fdev")
-      .map(_.toPrettyStr)
-      .debug
+      .debugPretty
       .provide(layer)
   }

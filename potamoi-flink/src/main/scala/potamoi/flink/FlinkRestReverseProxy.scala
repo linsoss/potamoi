@@ -1,14 +1,14 @@
 package potamoi.flink
 
-import potamoi.common.Err
+import potamoi.PotaErr
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.FlinkSnapshotStorage
 import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
+import zio.{durationInt, IO, ZIO, ZLayer}
 import zio.http.*
 import zio.http.model.Status
 import zio.ZIO.{logDebug, logInfo}
 import zio.cache.{Cache, Lookup}
-import zio.{durationInt, IO, ZIO, ZLayer}
 
 /**
  * Flink http rest reverse proxy routes.
@@ -31,22 +31,22 @@ object FlinkRestProxyProvider {
 
   val live = ZLayer {
     for {
-      flinkConf   <- ZIO.service[FlinkConf]
-      snapStorage <- ZIO.service[FlinkSnapshotStorage]
-      client      <- ZIO.service[Client]
+      flinkConf     <- ZIO.service[FlinkConf]
+      snapStorage   <- ZIO.service[FlinkSnapshotStorage]
+      client        <- ZIO.service[Client]
       eptRouteTable <- Cache.make[Fcid, Any, Throwable, FlinkRestSvcEndpoint](
-        capacity = flinkConf.reverseProxy.routeTableCacheSize,
-        timeToLive = flinkConf.reverseProxy.routeTableCacheTtl,
-        lookup = Lookup(fcid =>
-          for {
-            _   <- snapStorage.restProxy.exists(fcid).flatMap(ZIO.fail(EndpointNotFound).unless(_))
-            ept <- snapStorage.restEndpoint.get(fcid).someOrFail(EndpointNotFound)
-          } yield ept)
-      )
+                         capacity = flinkConf.reverseProxy.routeTableCacheSize,
+                         timeToLive = flinkConf.reverseProxy.routeTableCacheTtl,
+                         lookup = Lookup(fcid =>
+                           for {
+                             _   <- snapStorage.restProxy.exists(fcid).flatMap(ZIO.fail(EndpointNotFound).unless(_))
+                             ept <- snapStorage.restEndpoint.get(fcid).someOrFail(EndpointNotFound)
+                           } yield ept)
+                       )
     } yield Live(flinkConf, snapStorage, client, eptRouteTable)
   }
 
-  private case object EndpointNotFound extends Err()
+  private case object EndpointNotFound extends PotaErr
 
   case class Live(
       flinkConf: FlinkConf,

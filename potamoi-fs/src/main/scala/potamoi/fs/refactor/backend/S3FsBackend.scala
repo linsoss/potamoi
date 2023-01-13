@@ -3,7 +3,6 @@ package potamoi.fs.refactor.backend
 import io.minio.*
 import io.minio.errors.ErrorResponseException
 import io.minio.messages.Tags
-import potamoi.common.Err
 import potamoi.fs.refactor.*
 import potamoi.fs.refactor.FsErr.{LfsErr, RfsErr}
 import potamoi.fs.S3Err.UploadObjErr
@@ -26,7 +25,7 @@ object S3FsBackend:
     for {
       conf <- ZIO.service[S3FsBackendConf]
       inst <- instance(conf)
-      _ <- logInfo(s"""Using S3FsBackendConf as RemoteFsOperator:
+      _    <- logInfo(s"""Using S3FsBackendConf as RemoteFsOperator:
                       |   endpoint = ${conf.endpoint},
                       |   bucket = ${conf.bucket},
                       |   accessKey = ${conf.accessKey},
@@ -40,11 +39,11 @@ object S3FsBackend:
 
   def instance(conf: S3FsBackendConf): ZIO[Any, Nothing, S3FsBackend] =
     for {
-      _ <- unit
+      _          <- unit
       minioClient = MinioClient.builder
-        .endpoint(conf.endpoint)
-        .credentials(conf.accessKey, conf.secretKey)
-        .build
+                      .endpoint(conf.endpoint)
+                      .credentials(conf.accessKey, conf.secretKey)
+                      .build
     } yield S3FsBackend(minioClient, conf)
 
 end S3FsBackend
@@ -63,28 +62,28 @@ case class S3FsBackend(minioClient: MinioClient, conf: S3FsBackendConf) extends 
    */
   override def upload(srcFile: File, targetPath: String): IO[FsErr, String] =
     for {
-      _ <- unit
+      _         <- unit
       objectName = objectNameOf(targetPath)
-      _ <- ZIO
-        .succeed(srcFile.exists() && srcFile.isFile)
-        .flatMap {
-          ZIO.fail(LfsErr(s"File not found: ${srcFile.getAbsoluteFile}")).unless(_)
-        }
-      srcPath = srcFile.getAbsolutePath
-      _ <- ZIO
-        .attemptBlockingInterrupt {
-          minioClient.uploadObject(
-            UploadObjectArgs.builder
-              .bucket(conf.bucket)
-              .`object`(objectName)
-              .filename(srcPath)
-              .contentType(paths.detectMimeType(srcPath))
-              .tags(Map("a" -> "b").asJava)
-              .build)
-        }
-        .mapError {
-          RfsErr(s"Fail to upload file to S3: srcFile=$srcPath, s3Path=${actualPath(objectName)}", _)
-        }
+      _         <- ZIO
+                     .succeed(srcFile.exists() && srcFile.isFile)
+                     .flatMap {
+                       ZIO.fail(LfsErr(s"File not found: ${srcFile.getAbsoluteFile}")).unless(_)
+                     }
+      srcPath    = srcFile.getAbsolutePath
+      _         <- ZIO
+                     .attemptBlockingInterrupt {
+                       minioClient.uploadObject(
+                         UploadObjectArgs.builder
+                           .bucket(conf.bucket)
+                           .`object`(objectName)
+                           .filename(srcPath)
+                           .contentType(paths.detectMimeType(srcPath))
+                           .tags(Map("a" -> "b").asJava)
+                           .build)
+                     }
+                     .mapError {
+                       RfsErr(s"Fail to upload file to S3: srcFile=$srcPath, s3Path=${actualPath(objectName)}", _)
+                     }
     } yield paths.withPotaSchema(objectName)
 
   /**
@@ -98,22 +97,22 @@ case class S3FsBackend(minioClient: MinioClient, conf: S3FsBackendConf) extends 
    */
   override def download(srcPath: String, targetPath: String): IO[FsErr, File] =
     for {
-      _ <- unit
+      _         <- unit
       objectName = objectNameOf(srcPath)
-      _ <- lfs
-        .ensureParentDir(targetPath)
-        .mapError { e =>
-          LfsErr(s"Fail to create parent directory of target file: $targetPath.", e.cause)
-        }
-      _ <- ZIO
-        .attemptBlockingInterrupt {
-          minioClient.downloadObject(
-            DownloadObjectArgs.builder.bucket(conf.bucket).`object`(objectName).filename(targetPath).overwrite(true).build
-          )
-        }
-        .mapError {
-          RfsErr(s"Fail to download file from S3: s3Path=${actualPath(srcPath)}, targetPath=$targetPath", _)
-        }
+      _         <- lfs
+                     .ensureParentDir(targetPath)
+                     .mapError { e =>
+                       LfsErr(s"Fail to create parent directory of target file: $targetPath.", e.cause)
+                     }
+      _         <- ZIO
+                     .attemptBlockingInterrupt {
+                       minioClient.downloadObject(
+                         DownloadObjectArgs.builder.bucket(conf.bucket).`object`(objectName).filename(targetPath).overwrite(true).build
+                       )
+                     }
+                     .mapError {
+                       RfsErr(s"Fail to download file from S3: s3Path=${actualPath(srcPath)}, targetPath=$targetPath", _)
+                     }
     } yield File(targetPath)
 
   /**
@@ -121,13 +120,13 @@ case class S3FsBackend(minioClient: MinioClient, conf: S3FsBackendConf) extends 
    */
   override def downloadAsStream(srcPath: String): ZStream[Scope, FsErr, Byte] = {
     for {
-      objectName <- ZStream.from(objectNameOf(srcPath))
+      objectName  <- ZStream.from(objectNameOf(srcPath))
       inputStream <- ZStream.acquireReleaseWith {
-        ZIO.attemptBlockingInterrupt {
-          minioClient.getObject(GetObjectArgs.builder.bucket(conf.bucket).`object`(objectName).build)
-        }
-      } { fis => ZIO.attempt(fis.close()).ignore }
-      stream <- ZStream.fromInputStream(inputStream)
+                       ZIO.attemptBlockingInterrupt {
+                         minioClient.getObject(GetObjectArgs.builder.bucket(conf.bucket).`object`(objectName).build)
+                       }
+                     } { fis => ZIO.attempt(fis.close()).ignore }
+      stream      <- ZStream.fromInputStream(inputStream)
     } yield stream
   }.mapError(e => RfsErr(s"Fail to get object stream from S3: ${actualPath(srcPath)}", e))
 
@@ -150,11 +149,11 @@ case class S3FsBackend(minioClient: MinioClient, conf: S3FsBackendConf) extends 
    */
   override def exist(path: String): IO[FsErr, Boolean] =
     for {
-      _ <- unit
+      _         <- unit
       objectName = objectNameOf(path)
-      exists <- ZIO
-        .attemptBlockingInterrupt { minioClient.statObject(StatObjectArgs.builder.bucket(conf.bucket).`object`(objectName).build) }
-        .as(true)
-        .catchSome { case e: ErrorResponseException if e.errorResponse().code() == "NoSuchKey" => succeed(false) }
-        .mapError(RfsErr(s"Fail to get object from S3: s3Path=${actualPath(path)}", _))
+      exists    <- ZIO
+                     .attemptBlockingInterrupt { minioClient.statObject(StatObjectArgs.builder.bucket(conf.bucket).`object`(objectName).build) }
+                     .as(true)
+                     .catchSome { case e: ErrorResponseException if e.errorResponse().code() == "NoSuchKey" => succeed(false) }
+                     .mapError(RfsErr(s"Fail to get object from S3: s3Path=${actualPath(path)}", _))
     } yield exists

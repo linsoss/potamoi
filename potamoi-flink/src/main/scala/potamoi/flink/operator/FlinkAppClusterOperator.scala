@@ -3,10 +3,10 @@ package potamoi.flink.operator
 import com.coralogix.zio.k8s.client.NotFound
 import com.coralogix.zio.k8s.model.pkg.apis.meta.v1.DeleteOptions
 import org.apache.flink.client.deployment.application.ApplicationConfiguration
-import potamoi.errs.{headMessage, recurse}
+import potamoi.PotaErr
 import potamoi.flink.*
 import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExecModeKey, given}
-import potamoi.flink.FlinkErr.{ClusterNotFound, EmptyJobOnCluster, JobIsActive, SubmitFlinkClusterFail}
+import potamoi.flink.FlinkErr.{ClusterNotFound, EmptyJobOnCluster, JobAlreadyExist, SubmitFlinkClusterFail}
 import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.model.*
 import potamoi.flink.observer.FlinkObserver
@@ -14,8 +14,8 @@ import potamoi.flink.operator.resolver.{ClusterDefResolver, LogConfigResolver, P
 import potamoi.flink.FlinkRestRequest.{JobStatusInfo, RunJobReq, StopJobSptReq, TriggerSptReq}
 import potamoi.fs.{S3Conf, S3Operator}
 import potamoi.fs.PathTool.{getFileName, isS3Path}
-import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.kubernetes.{given_Conversion_String_K8sNamespace, K8sOperator}
+import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.usingAttempt
 import zio.{durationInt, Console, IO, ZIO}
@@ -67,7 +67,7 @@ case class FlinkAppClusterOperatorLive(
    * Deploy Flink session cluster.
    */
 
-  override def deployCluster(clusterDef: FlinkAppClusterDef): IO[JobIsActive | ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
+  override def deployCluster(clusterDef: FlinkAppClusterDef): IO[JobAlreadyExist | ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
     for {
       _ <- ensureRemoteEnvReady(clusterDef.fcid)
       _ <- internalDeployCluster(clusterDef)
@@ -83,14 +83,14 @@ case class FlinkAppClusterOperatorLive(
   private def ensureRemoteEnvReady(fcid: Fcid): IO[FlinkErr, Unit] =
     existRemoteCluster(fcid).flatMap {
       case false => ZIO.unit
-      case true =>
+      case true  =>
         observer.restEndpoint.getEnsure(fcid).flatMap {
-          case None => clearCluster(fcid)
+          case None      => clearCluster(fcid)
           case Some(ept) =>
             flinkRest(ept.chooseUrl).listJobsStatusInfo.map(_.headOption).catchAll(_ => ZIO.succeed(None)).flatMap {
-              case None => clearCluster(fcid)
+              case None                              => clearCluster(fcid)
               case Some(JobStatusInfo(jobId, state)) =>
-                if !JobStates.isActive(state) then clearCluster(fcid) else ZIO.fail(JobIsActive(Fjid(fcid, jobId), state))
+                if !JobStates.isActive(state) then clearCluster(fcid) else ZIO.fail(JobAlreadyExist(Fjid(fcid, jobId), state))
             }
         }
     }
@@ -105,41 +105,41 @@ case class FlinkAppClusterOperatorLive(
   // noinspection DuplicatedCode
   private def internalDeployCluster(clusterDef: FlinkAppClusterDef): IO[ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] =
     for {
-      clusterDef <- ClusterDefResolver.application.revise(clusterDef)
+      clusterDef          <- ClusterDefResolver.application.revise(clusterDef)
       // resolve flink pod template and log config
       podTemplateFilePath <- podTemplateFileOutputPath(clusterDef)
       logConfFilePath     <- logConfFileOutputPath(clusterDef)
       _                   <- PodTemplateResolver.resolvePodTemplateAndDump(clusterDef, flinkConf, s3Conf, podTemplateFilePath)
       _                   <- LogConfigResolver.ensureFlinkLogsConfigFiles(logConfFilePath, overwrite = true)
       // convert to effective flink configuration
-      rawConfig <- ClusterDefResolver.application.toFlinkRawConfig(clusterDef, flinkConf, s3Conf).map { conf =>
-        conf
-          .append("kubernetes.pod-template-file.jobmanager", podTemplateFilePath)
-          .append("kubernetes.pod-template-file.taskmanager", podTemplateFilePath)
-          .append("$internal.deployment.config-dir", logConfFilePath)
-          .append("execution.shutdown-on-application-finish", false) // prevents the jobmanager from being destroyed
-          .append("execution.shutdown-on-attached-exit", false)
-          .append(InjectedExecModeKey, FlinkTargetType.K8sApplication)
-          .append(InjectedDeploySourceConf._1, InjectedDeploySourceConf._2)
-      }
-      _ <- logInfo(s"Start to deploy flink application cluster:\n${rawConfig.toMap(true).toPrettyStr}".stripMargin)
+      rawConfig           <- ClusterDefResolver.application.toFlinkRawConfig(clusterDef, flinkConf, s3Conf).map { conf =>
+                               conf
+                                 .append("kubernetes.pod-template-file.jobmanager", podTemplateFilePath)
+                                 .append("kubernetes.pod-template-file.taskmanager", podTemplateFilePath)
+                                 .append("$internal.deployment.config-dir", logConfFilePath)
+                                 .append("execution.shutdown-on-application-finish", false) // prevents the jobmanager from being destroyed
+                                 .append("execution.shutdown-on-attached-exit", false)
+                                 .append(InjectedExecModeKey, FlinkTargetType.K8sApplication)
+                                 .append(InjectedDeploySourceConf._1, InjectedDeploySourceConf._2)
+                             }
+      _                   <- logInfo(s"Start to deploy flink application cluster:\n${rawConfig.toMap(true).toPrettyStr}".stripMargin)
       // deploy app cluster
-      _ <- scoped {
-        for {
-          clusterClientFactory <- getFlinkClusterClientFactory(FlinkTargetType.K8sApplication)
-          clusterSpecification <- attempt(clusterClientFactory.getClusterSpecification(rawConfig))
-          appConfiguration     <- attempt(new ApplicationConfiguration(clusterDef.appArgs.toArray, clusterDef.appMain.orNull))
-          k8sClusterDescriptor <- usingAttempt(clusterClientFactory.createClusterDescriptor(rawConfig))
-          _                    <- attemptBlockingInterrupt(k8sClusterDescriptor.deployApplicationCluster(clusterSpecification, appConfiguration))
-        } yield ()
-      }.mapError(SubmitFlinkClusterFail(clusterDef.fcid, FlinkTargetType.K8sApplication, _))
+      _                   <- scoped {
+                               for {
+                                 clusterClientFactory <- getFlinkClusterClientFactory(FlinkTargetType.K8sApplication)
+                                 clusterSpecification <- attempt(clusterClientFactory.getClusterSpecification(rawConfig))
+                                 appConfiguration     <- attempt(new ApplicationConfiguration(clusterDef.appArgs.toArray, clusterDef.appMain.orNull))
+                                 k8sClusterDescriptor <- usingAttempt(clusterClientFactory.createClusterDescriptor(rawConfig))
+                                 _                    <- attemptBlockingInterrupt(k8sClusterDescriptor.deployApplicationCluster(clusterSpecification, appConfiguration))
+                               } yield ()
+                             }.mapError(SubmitFlinkClusterFail(clusterDef.fcid, FlinkTargetType.K8sApplication, _))
       // tracking cluster
-      _ <- observer.manager
-        .track(clusterDef.fcid)
-        .retryN(3)
-        .tapErrorCause(cause => logErrorCause(s"Failed to submit flink cluster trace request, need to trace manually later.", cause.recurse))
-        .ignore
-      _ <- logInfo(s"Deploy flink application cluster successfully.")
+      _                   <- observer.manager
+                               .track(clusterDef.fcid)
+                               .retryN(3)
+                               .tapErrorCause(cause => PotaErr.logErrorCausePretty("Failed to submit flink cluster trace request, need to trace manually later", cause))
+                               .ignore
+      _                   <- logInfo(s"Deploy flink application cluster successfully.")
     } yield ()
 
   /**

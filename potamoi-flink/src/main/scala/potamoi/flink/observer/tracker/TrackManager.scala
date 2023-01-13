@@ -1,10 +1,10 @@
 package potamoi.flink.observer.tracker
 
 import com.devsisters.shardcake.{Messenger, Sharding}
-import potamoi.flink.{DataStorageErr, FlinkConf, FlinkErr, FlinkRestEndpointRetriever}
+import potamoi.flink.{DataStoreErr, FlinkConf, FlinkErr, FlinkRestEndpointRetriever}
 import potamoi.flink.model.Fcid
 import potamoi.flink.storage.{FlinkSnapshotStorage, TrackedFcidStorage}
-import potamoi.flink.FlinkErr.ConnectShardErr
+import potamoi.flink.FlinkErr.FailToConnectShardEntity
 import potamoi.kubernetes.K8sOperator
 import potamoi.sharding.ShardRegister
 import zio.{IO, RIO, Scope, Task, UIO, URIO, ZIO, ZIOAspect}
@@ -84,41 +84,41 @@ class TrackManagerLive(
     Sharding.registerEntity(K8sRefTrk.Entity, k8sRefTracker.behavior, _ => Some(K8sRefTrk.Terminate))
   }
 
-  override def track(fcid: Fcid): IO[DataStorageErr | ConnectShardErr | FlinkErr, Unit] = {
+  override def track(fcid: Fcid): IO[DataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
     snapStorage.trackedList.put(fcid) *>
     clusterTrkEnvelope
       .send(marshallFcid(fcid))(ClusterTrk.Start.apply)
-      .mapError(ConnectShardErr(ClusterTrk.Entity.name, _))
+      .mapError(FailToConnectShardEntity(ClusterTrk.Entity.name, _))
       .unit *>
     k8sRefTrkEnvelope
       .send(marshallFcid(fcid))(K8sRefTrk.Start.apply)
-      .mapError(ConnectShardErr(K8sRefTrk.Entity.name, _))
+      .mapError(FailToConnectShardEntity(K8sRefTrk.Entity.name, _))
       .unit
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
-  override def untrack(fcid: Fcid): IO[DataStorageErr | ConnectShardErr | FlinkErr, Unit] = {
+  override def untrack(fcid: Fcid): IO[DataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
     snapStorage.trackedList.rm(fcid) *>
     clusterTrkEnvelope
       .send(marshallFcid(fcid))(ClusterTrk.Stop.apply)
-      .mapError(ConnectShardErr(ClusterTrk.Entity.name, _))
+      .mapError(FailToConnectShardEntity(ClusterTrk.Entity.name, _))
       .unit *>
     k8sRefTrkEnvelope
       .send(marshallFcid(fcid))(K8sRefTrk.Stop.apply)
-      .mapError(ConnectShardErr(K8sRefTrk.Entity.name, _))
+      .mapError(FailToConnectShardEntity(K8sRefTrk.Entity.name, _))
       .unit *>
     // remove all snapshot data belongs to Fcid
     snapStorage.rmSnapData(fcid)
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
-  override def isBeTracked(fcid: Fcid): IO[DataStorageErr, Boolean] = snapStorage.trackedList.exists(fcid)
-  override def listTrackedClusters: Stream[DataStorageErr, Fcid]    = snapStorage.trackedList.list
+  override def isBeTracked(fcid: Fcid): IO[DataStoreErr, Boolean] = snapStorage.trackedList.exists(fcid)
+  override def listTrackedClusters: Stream[DataStoreErr, Fcid]    = snapStorage.trackedList.list
 
   override def getTrackersStatus(fcid: Fcid): IO[Nothing, TrackersStatus] = {
     askStatus(clusterTrkEnvelope.send(marshallFcid(fcid))(ClusterTrk.IsStarted.apply)) <&>
     askStatus(k8sRefTrkEnvelope.send(marshallFcid(fcid))(K8sRefTrk.IsStarted.apply))
   } map { case (clusterTrk, k8sRefTrk) => TrackersStatus(fcid, clusterTrk, k8sRefTrk) }
 
-  override def listTrackersStatus(parallelism: Int): Stream[DataStorageErr, TrackersStatus] =
+  override def listTrackersStatus(parallelism: Int): Stream[DataStoreErr, TrackersStatus] =
     snapStorage.trackedList.list.mapZIOParUnordered(parallelism)(getTrackersStatus)
 
   private def askStatus(io: Task[Boolean]) =

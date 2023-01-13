@@ -2,6 +2,7 @@ package potamoi.flink.model
 
 import potamoi.curTs
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
+import potamoi.flink.model.JobStates.given
 
 /**
  * Flink job overview.
@@ -15,7 +16,9 @@ case class FlinkJobOverview(
     startTs: Long,
     endTs: Long,
     tasks: TaskStats,
-    ts: Long) derives JsonCodec:
+    ts: Long)
+    derives JsonCodec:
+
   lazy val fjid: Fjid  = Fjid(clusterId, namespace, jobId)
   def durationTs: Long = curTs - startTs
 
@@ -31,12 +34,7 @@ case class TaskStats(
     failed: Int,
     reconciling: Int,
     initializing: Int)
-
-object FlinkJobOverview:
-  import JobStates.given
-  given JsonCodec[TaskStats]        = DeriveJsonCodec.gen[TaskStats]
-  given JsonCodec[FlinkJobOverview] = DeriveJsonCodec.gen[FlinkJobOverview]
-  given Ordering[FlinkJobOverview]  = Ordering.by(e => (e.clusterId, e.namespace, e.jobId))
+    derives JsonCodec
 
 /**
  * Flink job state.
@@ -48,9 +46,9 @@ enum JobState:
 
 object JobStates:
   import JobState.*
-  given JsonCodec[JobState] = JsonCodec(
+  given JsonCodec[JobState]     = JsonCodec(
     JsonEncoder[String].contramap(_.toString),
     JsonDecoder[String].map(s => JobState.values.find(_.toString == s).getOrElse(JobState.UNKNOWN))
   )
-  lazy val InactiveStates         = Set(FAILED, CANCELED, FINISHED)
-  def isActive(state: JobState)   = !InactiveStates.contains(state)
+  lazy val InactiveStates       = Set(FAILED, CANCELED, FINISHED)
+  def isActive(state: JobState) = !InactiveStates.contains(state)

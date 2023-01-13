@@ -14,6 +14,7 @@ lazy val zioSchemaVer  = "0.4.0"
 lazy val zioCacheVer   = "0.2.1"
 lazy val shardcakeVer  = "2.0.5"
 
+lazy val scalaTestVer = "3.2.15"
 lazy val catsVer      = "2.9.0"
 lazy val sttpVer      = "3.8.5"
 lazy val quicklensVer = "1.9.0"
@@ -38,7 +39,7 @@ lazy val flink115Ver = "1.15.3"
 lazy val commonSettings = Seq(
   ThisBuild / organization := "com.github.potamois",
   ThisBuild / version      := "0.1.0-SNAPSHOT",
-  ThisBuild / developers := List(
+  ThisBuild / developers   := List(
     Developer(
       id = "Al-assad",
       name = "Linying Assad",
@@ -62,11 +63,11 @@ lazy val commonSettings = Seq(
     "org.typelevel" %% "cats-core"             % catsVer,
     "io.circe"      %% "circe-core"            % circeVer,
     "io.circe"      %% "circe-parser"          % circeVer,
-    "dev.zio"       %% "zio-test"              % zioVer   % Test,
-    "dev.zio"       %% "zio-test-sbt"          % zioVer   % Test,
-    "org.scalameta" %% "munit"                 % munitVer % Test,
+    "dev.zio"       %% "zio-test"              % zioVer       % Test,
+    "dev.zio"       %% "zio-test-sbt"          % zioVer       % Test,
+    "org.scalatest" %% "scalatest"             % scalaTestVer % Test
   ),
-  testFrameworks := Seq(TestFramework("zio.test.sbt.ZTestFramework"), TestFramework("munit.Framework")),
+  testFrameworks           := Seq(TestFramework("zio.test.sbt.ZTestFramework"), TestFramework("org.scalatest.tools.Framework")),
 )
 
 lazy val root = (project in file("."))

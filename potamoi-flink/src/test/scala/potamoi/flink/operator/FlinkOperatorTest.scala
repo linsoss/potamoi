@@ -3,7 +3,7 @@ package potamoi.flink.operator
 import com.devsisters.shardcake.Sharding
 import potamoi.common.ScalaVersion.Scala212
 import potamoi.common.Syntax.toPrettyString
-import potamoi.errs.{headMessage, recurse}
+import potamoi.PotaErr
 import potamoi.flink.*
 import potamoi.flink.model.*
 import potamoi.flink.model.CheckpointStorageType.Filesystem
@@ -26,7 +26,7 @@ import zio.ZIO.logInfo
 
 object FlinkOperatorTest {
 
-  def testing[A](effect: (FlinkOperator, FlinkObserver) => IO[Throwable, A]): Unit = {
+  def testing[A](effect: (FlinkOperator, FlinkObserver) => IO[PotaErr, A]): Unit = {
     val program =
       (
         for {
@@ -35,7 +35,7 @@ object FlinkOperatorTest {
           _   <- obr.manager.registerEntities *> Sharding.registerScoped.ignore
           r   <- effect(opr, obr)
         } yield r
-      ).tapErrorCause(cause => ZIO.logErrorCause(cause.headMessage, cause.recurse))
+      ).tapErrorCause(cause => PotaErr.logErrorCause(cause))
 
     ZIO
       .scoped(program)
@@ -213,29 +213,30 @@ object FlinkAppClusterOperatorTest:
     for {
       _ <- opr.application.deployCluster(appDef)
       _ <- obr.job.overview
-        .listJobState("app-t10" -> "fdev")
-        .distPollStream(500.millis)
-        .takeUntil(_.values.headOption.contains(JobState.RUNNING))
-        .runForeach(e => printLine(e.toPrettyStr))
+             .listJobState("app-t10" -> "fdev")
+             .distPollStream(500.millis)
+             .takeUntil(_.values.headOption.contains(JobState.RUNNING))
+             .runForeach(e => printLine(e.toPrettyStr))
       _ <- ZIO.sleep(20.seconds)
 
       _       <- logInfo("Let's stop job !")
       trigger <- opr.application.stopJob("app-t10" -> "fdev", FlinkJobSavepointDef(savepointPath = "s3p://flink-dev/savepoints/myjob"))
-      _ <- obr.job.savepointTrigger
-        .watch(trigger._1, trigger._2)
-        .takeUntil(e => e.isCompleted)
-        .runForeach(e => printLine(e.toPrettyStr))
+      _       <- obr.job.savepointTrigger
+                   .watch(trigger._1, trigger._2)
+                   .takeUntil(e => e.isCompleted)
+                   .runForeach(e => printLine(e.toPrettyStr))
 
-      _ <- obr.job.overview.getJobState(trigger._1)
-        .distPollStream(500.millis)
-        .takeUntil(e => e.exists(s => !JobStates.isActive(s)))
-        .runForeach(e => printLine(e.toPrettyStr))
+      _ <- obr.job.overview
+             .getJobState(trigger._1)
+             .distPollStream(500.millis)
+             .takeUntil(e => e.exists(s => !JobStates.isActive(s)))
+             .runForeach(e => printLine(e.toPrettyStr))
       _ <- ZIO.sleep(3.seconds)
 
       _ <- logInfo("Let's recover job !")
       _ <- opr.application.deployCluster(
-        appDef.copy(restore = SavepointRestoreConfig(savepointPath = "s3p://flink-dev/savepoints/myjob"))
-      )
+             appDef.copy(restore = SavepointRestoreConfig(savepointPath = "s3p://flink-dev/savepoints/myjob"))
+           )
       _ <- obr.job.overview.listJobState("app-t10" -> "fdev").watchPretty
     } yield ()
   }

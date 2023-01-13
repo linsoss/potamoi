@@ -7,6 +7,7 @@ import zio.ZIO.logInfo
 import zio.stream.ZStream
 
 object PotaLoggerTest1 extends ZIOAppDefault:
+
   private val logger = LoggerFactory.getLogger(this.getClass)
   val run = {
     ZIO.logDebug("debug-msg") *>
@@ -19,6 +20,7 @@ object PotaLoggerTest1 extends ZIOAppDefault:
   }.provide(PotaLogger.layer(level = LogsLevel.Debug))
 
 object PotaLoggerTest2 extends ZIOAppDefault:
+
   val run = {
     ZIO.logInfo("msg1") *>
     ZIO.logInfo("msg2") @@ ZIOAspect.annotated("k1", "v1") *>
