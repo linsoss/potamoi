@@ -7,7 +7,7 @@ import zio.config.magnolia.name
  * Logging configuration.
  */
 case class LogConf(
-    level: LogsLevel = LogsLevel.Debug,
+    level: LogsLevel = LogsLevel.Info,
     style: LogsStyle = LogsStyle.Plain,
     colored: Boolean = true,
     @name("in-one-line") inOneLine: Boolean = false)
