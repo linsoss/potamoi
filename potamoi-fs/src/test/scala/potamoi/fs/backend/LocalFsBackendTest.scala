@@ -1,48 +1,50 @@
 package potamoi.fs.backend
 
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
+import org.scalatest.{BeforeAndAfterAll, Ignore}
 import potamoi.fs.{LocalFsBackendConfDev, S3FsBackendConfDev}
 import potamoi.fs.refactor.{lfs, S3AccessStyle, S3FsBackendConf}
 import potamoi.fs.refactor.backend.{LocalFsBackend, S3FsBackend}
 import potamoi.zios.*
 import potamoi.PotaErr
 import potamoi.PotaErr.logErrorCausePretty
+import potamoi.logger.PotaLogger
 import zio.{IO, ZIO, ZLayer}
 
 import java.io.File
 
-object LocalFsBackendTest:
-
-  val layer = LocalFsBackendConfDev.asLayer >>> LocalFsBackend.live
+@Ignore
+class LocalFsBackendTest extends AnyWordSpec with BeforeAndAfterAll:
 
   def testing[E, A](f: LocalFsBackend => IO[E, A]) =
-    zioRun {
-      ZIO
-        .service[LocalFsBackend]
-        .flatMap { b => f(b) }
-        .provide(layer)
-    }.exitCode
+    ZIO
+      .service[LocalFsBackend]
+      .flatMap { b => f(b) }
+      .provide(LocalFsBackendConfDev.asLayer >>> LocalFsBackend.live)
+      .provideLayer(PotaLogger.default)
+      .run
 
-  @main def testLfsDownload = testing { backend =>
+  "lfs download" in testing { backend =>
     backend
       .download("pota://README.md", "spec-test/README.md")
       .debugPretty
   }
 
-  @main def testLfsUpload = testing { backend =>
+  "lfs upload" in testing { backend =>
     backend
       .upload(File("spec-test/README.md"), "pota://README2.md")
       .debugPretty
   }
 
-  @main def testLfsRemove = testing { backend =>
+  "lfs remove" in testing { backend =>
     backend
       .remove("pota://README2.md")
       .debugPretty
   }
 
-  @main def testLfsExists = testing { backend =>
+  "lfs exists" in testing { backend =>
     backend.exist("pota://README2.md").debugPretty *>
     backend.exist("pota://README.md").debugPretty
   }
 
-  @main def cleanLfsTmpDir = lfs.rm("spec-test").run
+  // override protected def afterAll(): Unit = lfs.rm("spec-test").run
