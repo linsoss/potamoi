@@ -9,6 +9,9 @@ object Syntax {
    */
   extension [T](value: T) inline def contra[A](func: T => A): A = func(value)
 
+  /**
+   * Tap any value.
+   */
   extension [T](value: T) inline def tap(func: T => Unit): T = { func(value); value }
 
   /**
