@@ -15,10 +15,10 @@ import zio.json.JsonCodec
 case class SessionDef(
     execType: FlinkTargetType with InterpSupport,
     execMode: FlinkRuntimeMode = FlinkRuntimeMode.Streaming,
-    remote: Option[RemoteClusterEndpoint] = None,
+    remoteEndpoint: Option[RemoteClusterEndpoint] = None,
     jobName: Option[String] = None,
-    jars: List[String] = List.empty,
-    sentClusterJars: List[String] = List.empty,
+    localJars: List[String] = List.empty,
+    clusterJars: List[String] = List.empty,
     parallelism: Int = 1,
     extraProps: Map[String, String] = Map.empty,
     resultStore: ResultStoreConf = ResultStoreConf(),
@@ -26,6 +26,59 @@ case class SessionDef(
     derives JsonCodec
 
 object SessionDef:
+
+  /**
+   * Local target plan.
+   * - remoteEndpoint is unnecessary;
+   * - localJars should be equal to clusterJars;
+   */
+  def local(
+      execMode: FlinkRuntimeMode = FlinkRuntimeMode.Streaming,
+      jobName: Option[String] = None,
+      jars: List[String] = List.empty,
+      parallelism: Int = 1,
+      extraProps: Map[String, String] = Map.empty,
+      resultStore: ResultStoreConf = ResultStoreConf(),
+      allowSinkOperation: Boolean = false): SessionDef =
+    SessionDef(
+      execType = FlinkTargetType.Local,
+      execMode = execMode,
+      jobName = jobName,
+      localJars = jars,
+      clusterJars = jars,
+      parallelism = parallelism,
+      extraProps = extraProps,
+      resultStore = resultStore,
+      allowSinkOperation = allowSinkOperation
+    )
+
+  /**
+   * Remote target plan.
+   * - remoteEndpoint is required.
+   */
+  def remote(
+      endpoint: RemoteClusterEndpoint,
+      execMode: FlinkRuntimeMode = FlinkRuntimeMode.Streaming,
+      jobName: Option[String] = None,
+      localJars: List[String] = List.empty,
+      clusterJars: List[String] = List.empty,
+      parallelism: Int = 1,
+      extraProps: Map[String, String] = Map.empty,
+      resultStore: ResultStoreConf = ResultStoreConf(),
+      allowSinkOperation: Boolean = false): SessionDef =
+    SessionDef(
+      execType = FlinkTargetType.Local,
+      execMode = execMode,
+      remoteEndpoint = Some(endpoint),
+      jobName = jobName,
+      localJars = localJars,
+      clusterJars = clusterJars,
+      parallelism = parallelism,
+      extraProps = extraProps,
+      resultStore = resultStore,
+      allowSinkOperation = allowSinkOperation
+    )
+
   lazy val nonAllowedOverviewConfigKeys = Vector(
     "execution.target",
     "execution.attached",
@@ -34,15 +87,12 @@ object SessionDef:
   )
   def defaultJobName(sessionId: String) = s"potamoi-interp@$sessionId"
 
-case class RemoteClusterEndpoint(
-    address: String,
-    port: Int = 8081)
-    derives JsonCodec
+case class RemoteClusterEndpoint(address: String, port: Int) derives JsonCodec
 
-case class ResultStoreConf(
-    capacity: Int = 1024,
-    dropStrategy: ResultDropStrategy = DropHead)
-    derives JsonCodec:
+object RemoteClusterEndpoint:
+  given Conversion[(String, Int), RemoteClusterEndpoint] = tuple => RemoteClusterEndpoint(tuple._1, tuple._2)
+
+case class ResultStoreConf(capacity: Int = 1024, dropStrategy: ResultDropStrategy = DropHead) derives JsonCodec:
   lazy val limitless: Boolean = capacity < 0
 
 enum ResultDropStrategy:
