@@ -67,7 +67,7 @@ object SessionDef:
       resultStore: ResultStoreConf = ResultStoreConf(),
       allowSinkOperation: Boolean = false): SessionDef =
     SessionDef(
-      execType = FlinkTargetType.Local,
+      execType = FlinkTargetType.Remote,
       execMode = execMode,
       remoteEndpoint = Some(endpoint),
       jobName = jobName,

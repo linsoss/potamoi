@@ -17,7 +17,7 @@ import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.contra
 import potamoi.zios.runNow
 import zio.{Fiber, IO, Promise, Queue, Ref, Scope, UIO, URIO, ZIO}
-import zio.ZIO.{attempt, attemptBlockingInterrupt, fail, logInfo, succeed, unit}
+import zio.ZIO.{attempt, fail, logInfo, succeed, unit}
 import zio.ZIOAspect.annotated
 import zio.direct.*
 import zio.stream.{Stream, ZStream}
@@ -82,10 +82,10 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       isRunning <- handleWorkerFiber.get.map(_.isDefined)
       _         <- {
         if isRunning then
-          ZIO.logInfo(s"Serial sql handle worker is already running: $sessionId.") *>
+          ZIO.logInfo(s"Serial sql handle worker is already running, sessionId=$sessionId.") *>
           unit
         else
-          ZIO.logInfo(s"Launch serial sql handle worker: $sessionId") *>
+          ZIO.logInfo(s"Launch serial sql handle worker, sessionId=$sessionId") *>
           handleWorker.forkScoped.flatMap(fiber => handleWorkerFiber.set(Some(fiber)))
       }
     } yield ()
@@ -105,7 +105,8 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
           }
       }
       .forever
-      .onInterrupt(ZIO.logInfo(s"Serial sql handle worker is interrupted: $sessionId."))
+      .onInterrupt(ZIO.logInfo(s"Serial sql handle worker is interrupted, sessionId=$sessionId."))
+      // ensure Flink TableEnvironment work on the same Thread
       .onExecutionContext(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())) @@ annotated("sessionId" -> sessionId)
   }
 
@@ -177,7 +178,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   private def executeOperation(ctx: SessionContext, handleId: String, operation: Operation): IO[ExecOperationErr, OpRsDesc] = {
     for {
       // execute operation
-      tableResult <- attemptBlockingInterrupt(ctx.tEnv.executeInternal(operation))
+      tableResult <- attempt(ctx.tEnv.executeInternal(operation))
       jobId        = tableResult.getJobClient.toScala.map(_.getJobID.toHexString)
       kind         = tableResult.getResultKind
       schema       = tableResult.getResolvedSchema
@@ -189,7 +190,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
           case _: QueryOperation =>
             succeed {
               ZStream
-                .fromIteratorZIO(attemptBlockingInterrupt(tableResult.collectInternal().asScala))
+                .fromIteratorZIO(attempt(tableResult.collectInternal().asScala))
                 .mapZIO(rawRow => attempt(rsConverter.convertRow(rawRow))) // convert row format
                 .tap(row => lastQueryRsStore.collect(row))                 // collect result
                 .mapError(ExecOperationErr(operation.getClass.getName, _))

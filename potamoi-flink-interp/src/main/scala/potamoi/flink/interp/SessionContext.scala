@@ -83,7 +83,7 @@ object SessionContext:
 
       // create flink execution environment
       val env          = attempt(StreamExecutionEnvironment(configuration, classloader)).run
-      val tEnvSettings = succeed(EnvironmentSettings.Builder().withConfiguration(configuration).withClassLoader(classloader).build).run
+      val tEnvSettings = EnvironmentSettings.Builder().withConfiguration(configuration).withClassLoader(classloader).build
       val tEnv         = attempt(StreamTableEnvironment.create(env, tEnvSettings).asInstanceOf[TableEnvironmentInternal]).run
       val parser       = tEnv.getParser
       SessionContext(sessDef, configuration, classloader, env, tEnv, parser)
