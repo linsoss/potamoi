@@ -182,6 +182,16 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
+  "execute add set sql on local" in testing(SessionDef.local(resultStore = ResultStoreConf(10, DropTail))) { executor =>
+    for {
+      _ <- executor.submitSql(dataFakerTableSql).debugPretty
+      _ <- executor.submitSql("show tables;").debugPretty
+      _ <- executor.submitSql("set 'parallelism.default' = '5'").debugPretty
+      _ <- executor.submitSql("set;").debugPretty
+      _ <- executor.submitSql("show tables;").debugPretty
+    } yield ()
+  }
+
   "cancel handle on local" in testing(SessionDef.local()) { executor =>
     for {
       _ <- executor.submitSql(dataGenEndlessTableSql).debugPretty
@@ -239,5 +249,4 @@ class SerialSqlExecutorTest extends AnyWordSpec:
       _  <- printLine("====================  let me see ==================== ")
       _  <- executor.listHandleFrame.debugPretty
     } yield ()
-
   }

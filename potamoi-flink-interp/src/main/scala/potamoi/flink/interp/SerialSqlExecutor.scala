@@ -9,15 +9,18 @@ import org.apache.flink.table.types.logical.{LogicalTypeRoot, VarCharType}
 import org.apache.flink.types.RowKind
 import potamoi.{collects, uuids}
 import potamoi.collects.updateWith
+import potamoi.flink.flinkRest
 import potamoi.flink.interp.FlinkInterpErr.*
 import potamoi.flink.interp.model.*
 import potamoi.flink.interp.model.HandleStatus.*
 import potamoi.flink.interp.model.ResultDropStrategy.*
+import potamoi.flink.model.FlinkTargetType
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.contra
 import potamoi.zios.runNow
 import zio.{Fiber, IO, Promise, Queue, Ref, Scope, UIO, URIO, ZIO}
 import zio.ZIO.{attempt, attemptBlocking, attemptBlockingInterrupt, blocking, fail, logInfo, succeed, unit}
+
 import zio.ZIOAspect.annotated
 import zio.direct.*
 import zio.stream.{Stream, ZStream}
@@ -240,15 +243,29 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
     proc
       .as(true)
       .catchAllCause { cause =>
+        // mark status of frame to "Fail" when execution fails.
         handleStack.updateWith(handleId, _.copy(status = Fail, error = Some(cause))) *>
         promise.failCause(cause) *>
         succeed(false)
       }
       .onInterrupt { _ =>
+        // mark status of frame to "Cancel" when frame has been canceled.
         handleStack.updateWith(handleId, _.copy(status = Cancel)) *>
-        promise.fail(BeCancelled(handleId))
+        promise.fail(BeCancelled(handleId)) *>
+        // cancel ref remote flink job if necessary
+        cancelRemoteJobIfNecessary(handleId).forkDaemon
       }
     @@ annotated ("handleId" -> handleId)
+  }
+
+  private def cancelRemoteJobIfNecessary(handleId: String): UIO[Unit] = defer {
+    if sessionDef.execType != FlinkTargetType.Remote || sessionDef.remoteEndpoint.isEmpty then unit.run
+    else
+      handleStack.get.map(_.get(handleId).flatMap(_.jobId)).run match
+        case None        => unit.run
+        case Some(jobId) =>
+          val endpointUrl = sessionDef.remoteEndpoint.get.contra(ept => s"http://${ept.address}:${ept.port}")
+          flinkRest(endpointUrl).cancelJob(jobId).unit.ignore.run
   }
 
   /**
