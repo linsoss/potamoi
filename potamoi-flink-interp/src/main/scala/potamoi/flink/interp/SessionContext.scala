@@ -32,13 +32,10 @@ object SessionContext:
   /**
    * Create and initialize SessionContext.
    */
-  private[interp] def buildContext2(sessionId: String, sessDef: SessionDef, remoteFs: RemoteFsOperator): IO[Throwable, SessionContext] =
-    buildContext(sessionId, remoteFs)(sessDef) // todo remove
-
   private[interp] def buildContext(
       sessionId: String,
-      remoteFs: RemoteFsOperator
-    )(sessDef: SessionDef): IO[CreateTableEnvironmentErr, SessionContext] = {
+      remoteFs: RemoteFsOperator,
+      sessDef: SessionDef): IO[CreateTableEnvironmentErr, SessionContext] = {
     defer {
       // download extra jars
       val (localJarFiles, clusterJarsFiles) = {

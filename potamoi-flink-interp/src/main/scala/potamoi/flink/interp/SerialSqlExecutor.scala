@@ -17,7 +17,7 @@ import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.contra
 import potamoi.zios.runNow
 import zio.{Fiber, IO, Promise, Queue, Ref, Scope, UIO, URIO, ZIO}
-import zio.ZIO.{attempt, fail, logInfo, succeed, unit}
+import zio.ZIO.{attempt, attemptBlocking, attemptBlockingInterrupt, blocking, fail, logInfo, succeed, unit}
 import zio.ZIOAspect.annotated
 import zio.direct.*
 import zio.stream.{Stream, ZStream}
@@ -63,12 +63,15 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   private val handleStack      = Ref.make[mutable.Map[HandleId, HandleFrame]](mutable.Map.empty).runNow
   private val lastQueryRsStore = TableRowValueStore.make(queryRsLimit, queryRsDropStg).runNow
 
-
   private val handleWorkerFiber = Ref.make[Option[Fiber.Runtime[_, _]]](None).runNow
   private val curHandleFiber    = Ref.make[Option[Fiber.Runtime[_, _]]](None).runNow
 
-  private val context       = Ref.make[Option[SessionContext]](None).runNow
-  private val createContext = SessionContext.buildContext(sessionId, remoteFs)(_)
+  // The executor context for executing the native Flink TableEnvironment api, since
+  // TableEnvironment is not thread-safe and can only function properly in a single thread,
+  // especially for parsing statement operations.
+  private val flinkTableEnvEc                    = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+  private val context                            = Ref.make[Option[SessionContext]](None).runNow
+  private def createContext(sessDef: SessionDef) = SessionContext.buildContext(sessionId, remoteFs, sessDef).onExecutionContext(flinkTableEnvEc)
 
   sealed private trait HandleSign
   private case class ExecuteSqlCmd(handleId: String, sql: String, promise: Promise[ExecuteSqlErr, SqlResult]) extends HandleSign
@@ -102,8 +105,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   override def stop: UIO[Unit] = {
     for {
       _ <- logInfo(s"Stop serial sql handle worker: $sessionId")
-      _ <- cancel
-      _ <- handleQueue.shutdown
+      _ <- cancel *> handleQueue.shutdown // cancel all handle frame and reply "BeCancelled" to their promise
       _ <- handleWorkerFiber.get.flatMap {
              case None        => unit
              case Some(fiber) => fiber.interrupt *> handleWorkerFiber.set(None)
@@ -122,9 +124,9 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
    */
   override def cancel: UIO[Unit] = {
     for {
-      // cancel remaining handle frames
+      // cancel the remaining handle frames
       _     <- cancelRemainingHandleFrames
-      // cancel current handle frame
+      // cancel the current handle frame
       fiber <- curHandleFiber.get
       _     <- (fiber.get.interrupt *> curHandleFiber.set(None)).when(fiber.isDefined)
     } yield ()
@@ -169,8 +171,8 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       .onInterrupt { _ =>
         ZIO.logInfo(s"Serial sql handle worker is interrupted, sessionId=$sessionId.") *> cancel
       }
-      // ensure Flink TableEnvironment work on the same Thread
-      .onExecutionContext(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
+    // ensure Flink TableEnvironment work on the same Thread
+//      .onExecutionContext(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
   } @@ annotated("sessionId" -> sessionId)
 
   /**
@@ -179,7 +181,9 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   private def handleCompleteSqlCmd(sql: String, position: Int, promise: Promise[Nothing, List[String]]): UIO[Unit] = {
     val proc = for {
       ctx   <- context.get.someOrElseZIO(createContext(sessionDef).tap(e => context.set(Some(e))))
-      hints <- attempt(ctx.parser.getCompletionHints(sql, position)).map(arr => arr.toSeq.toList)
+      hints <- attempt(ctx.parser.getCompletionHints(sql, position))
+                 .map(arr => arr.toSeq.toList)
+                 .onExecutionContext(flinkTableEnvEc)
       _     <- promise.succeed(hints)
     } yield ()
     proc
@@ -198,7 +202,9 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       bandSinkOp = ctx.sessDef.allowSinkOperation
 
       // parse and execute sql
-      operation  <- attempt(ctx.parser.parse(sql).get(0)).mapError(ParseSqlErr(sql, _))
+      operation  <- attempt(ctx.parser.parse(sql).get(0))
+                      .mapError(ParseSqlErr(sql, _))
+                      .onExecutionContext(flinkTableEnvEc)
       resultDesc <-
         operation match {
           case op: SetOperation                      => executeSetOperation(ctx, handleId, op)
@@ -220,10 +226,12 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
           case QueryRsDesc(rs, jobId, collect) =>
             for {
               _           <- handleStack.updateWith(handleId, _.copy(jobId = jobId, status = Run, result = Some(rs)))
-              watchStream <- collect.broadcastDynamic(2)
+              streamChunk <- collect.broadcast(2, 2048)
+              workStream   = streamChunk(0)
+              watchStream  = streamChunk(1)
               _           <- promise.succeed(QuerySqlRs(rs, watchStream)) // reply result
               _           <- lastQueryRsStore.bindHandleId(handleId) *> lastQueryRsStore.clear
-              _           <- collect.runDrain
+              _           <- workStream.runDrain
               _           <- handleStack.updateWith(handleId, _.copy(status = Finish))
             } yield ()
         }
@@ -249,7 +257,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   private def executeOperation(ctx: SessionContext, handleId: String, operation: Operation): ZIO[Scope, ExecOperationErr, OpRsDesc] = {
     for {
       // execute operation
-      tableResult <- attempt(ctx.tEnv.executeInternal(operation))
+      tableResult <- attempt(ctx.tEnv.executeInternal(operation)).onExecutionContext(flinkTableEnvEc)
       jobId        = tableResult.getJobClient.toScala.map(_.getJobID.toHexString)
       kind         = tableResult.getResultKind
       schema       = tableResult.getResolvedSchema
@@ -259,12 +267,13 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       resultIter  <- ZIO
                        .acquireRelease(attempt(tableResult.collectInternal()))(iter => attempt(iter.close()).ignore)
                        .map(_.asScala)
+                       .onExecutionContext(flinkTableEnvEc)
       rsDesc      <-
         operation match {
           case _: QueryOperation =>
             succeed {
               ZStream
-                .fromIterator(resultIter)
+                .fromIterator(resultIter, maxChunkSize = 1)
                 .mapZIO(rawRow => attempt(rsConverter.convertRow(rawRow))) // convert row format
                 .tap(row => lastQueryRsStore.collect(row))                 // collect result
                 .mapError(ExecOperationErr(operation.getClass.getName, _))
@@ -279,7 +288,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
             }
           case _                 =>
             ZStream
-              .fromIteratorZIO(attempt(tableResult.collectInternal().asScala))
+              .fromIterator(resultIter)
               .mapZIO(rawRow => attempt(rsConverter.convertRow(rawRow))) // convert row format
               .runCollect                                                // collect all rows synchronously
               .map(rows => PlainSqlRs(handleId, kind, colsMeta, rows.toList))

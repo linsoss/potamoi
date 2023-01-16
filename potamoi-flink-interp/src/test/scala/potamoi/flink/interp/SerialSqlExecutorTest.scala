@@ -17,7 +17,7 @@ import potamoi.syntax.toPrettyStr
 import potamoi.zios.*
 import potamoi.PotaErr
 import potamoi.flink.interp.FlinkInterpErr.BeCancelled
-import zio.{durationInt, IO, Scope, Task, ZIO}
+import zio.{durationInt, IO, Schedule, Scope, Task, ZIO}
 import zio.Console.printLine
 import zio.ZIO.{executor, logErrorCause, logInfo, sleep}
 
@@ -55,7 +55,8 @@ class SerialSqlExecutorTest extends AnyWordSpec:
                                  |    mset        MULTISET<STRING>,
                                  |    order_time   TIMESTAMP(3)
                                  |) WITH (
-                                 |  'connector' = 'datagen'
+                                 |  'connector' = 'datagen',
+                                 |  'rows-per-second'='2'
                                  |)
                                  |""".stripMargin
 
@@ -78,7 +79,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
       _                 <- executor.submitSql("explain select * from Orders").debugPretty
       _                 <- executor.submitSql("show catalogs").debugPretty
       _                 <- executor.submitSql("show tables").debugPretty
-      desc              <- executor.submitSql("select * from Orders").debugPretty.map { case r: QuerySqlRs => r.handleId -> r.dataStream }
+      desc              <- executor.submitSql("select * from Orders").debugPretty.map { case r: QuerySqlRs => r.handleId -> r.dataWatchStream }
       _                 <- printLine("receive result stream")
       (handleId, stream) = desc
       _                 <- stream.foreach(row => printLine(row.show))
@@ -99,7 +100,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
       _                 <- executor.submitSql("explain select * from Orders").debugPretty
       _                 <- executor.submitSql("show catalogs").debugPretty
       _                 <- executor.submitSql("show tables").debugPretty
-      desc              <- executor.submitSql("select * from Orders").debugPretty.map { case r: QuerySqlRs => r.handleId -> r.dataStream }
+      desc              <- executor.submitSql("select * from Orders").debugPretty.map { case r: QuerySqlRs => r.handleId -> r.dataWatchStream }
       _                 <- printLine("receive result stream")
       (handleId, stream) = desc
       _                 <- stream.foreach(row => printLine(row.show))
@@ -124,7 +125,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     )) { executor =>
     for {
       _      <- executor.submitSql(dataFakerTableSql).debugPretty
-      stream <- executor.submitSql("select * from Heros").debugPretty.map { case r: QuerySqlRs => r.dataStream }
+      stream <- executor.submitSql("select * from Heros").debugPretty.map { case r: QuerySqlRs => r.dataWatchStream }
       _      <- stream.foreach(row => printLine(row.show))
     } yield ()
   }
@@ -139,7 +140,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     )) { executor =>
     for {
       _      <- executor.submitSql(dataFakerTableSql).debugPretty
-      stream <- executor.submitSql("select * from Heros").debugPretty.map { case r: QuerySqlRs => r.dataStream }
+      stream <- executor.submitSql("select * from Heros").debugPretty.map { case r: QuerySqlRs => r.dataWatchStream }
       _      <- stream.foreach(row => printLine(row.show))
     } yield ()
   }
@@ -154,7 +155,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
       _ <- executor
              .submitSql("select * from Heros;")
              .debugPretty
-             .map { case r: QuerySqlRs => r.dataStream }
+             .map { case r: QuerySqlRs => r.dataWatchStream }
              .flatMap { stream =>
                stream.foreach(row => printLine(row.show))
              }
@@ -174,7 +175,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
       _ <- executor
              .submitSql("select * from Heros;")
              .debugPretty
-             .map { case r: QuerySqlRs => r.dataStream }
+             .map { case r: QuerySqlRs => r.dataWatchStream }
              .flatMap { stream =>
                stream.foreach(row => printLine(row.show))
              }
@@ -187,25 +188,56 @@ class SerialSqlExecutorTest extends AnyWordSpec:
       _ <- executor
              .submitSql("select * from Orders")
              .debugPretty
-             .map { case r: QuerySqlRs => r.dataStream }
+             .map { case r: QuerySqlRs => r.dataWatchStream }
              .flatMap { stream =>
-               stream.foreach(e => printLine(e.kind))
+               stream.foreach(e => printLine("collect row: " + e.kind.shortString()))
              }
              .fork
       _ <- executor
              .submitSql("show tables")
              .debugPretty
              .fork
-//      _ <- (printLine("cancel executor!") *> executor.cancel).delay(10.seconds)
+      _ <- (printLine("cancel executor!") *> executor.cancel).delay(20.seconds)
       _ <- printLine("let me see:")
-//      _ <- executor.listHandleFrame.debugPretty
+      _ <- executor.listHandleFrame.debugPretty
     } yield ()
   }
-//
-//  "cancel handle on remote" in testing() {
-//
-//  }
 
-//  "execute some illegal sql" in testing() {
-//
-//  }
+  "cancel handle on remote" in testing(SessionDef.remote(execMode = Streaming, endpoint = "10.233.62.91" -> 8081)) { executor =>
+    for {
+      _ <- executor.submitSql(dataGenEndlessTableSql).debugPretty
+      _ <- executor
+             .submitSql("select * from Orders")
+             .debugPretty
+             .map { case r: QuerySqlRs => r.dataWatchStream }
+             .flatMap { stream =>
+               stream.foreach(e => printLine("collect row: " + e.kind.shortString()))
+             }
+             .fork
+      _ <- executor
+             .submitSql("show tables")
+             .debugPretty
+             .fork
+      _ <- (printLine("cancel executor!") *> executor.cancel).delay(20.seconds)
+      _ <- printLine("let me see:")
+      _ <- executor.listHandleFrame.debugPretty
+    } yield ()
+  }
+
+  "execute some illegal sql" in testing(SessionDef.local()) { executor =>
+    for {
+      f1 <- executor.submitSql(dataGenTableSql).fork
+      f2 <- executor.submitSql("explain select * from Orders").delay(1.millis).fork
+      f3 <- executor.submitSql("select * from ").delay(2.millis).fork
+      f4 <- executor.submitSql("show tables").delay(3.millis).fork
+      f5 <- executor.submitSql("show catalogs").delay(4.millis).fork
+      _  <- f1.join.ignore
+      _  <- f2.join.ignore
+      _  <- f3.join.ignore
+      _  <- f4.join.ignore
+      _  <- f5.join.ignore
+      _  <- printLine("====================  let me see ==================== ")
+      _  <- executor.listHandleFrame.debugPretty
+    } yield ()
+
+  }

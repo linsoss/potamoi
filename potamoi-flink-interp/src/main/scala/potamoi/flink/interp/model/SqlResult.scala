@@ -28,7 +28,7 @@ case class QuerySqlRs(
     handleId: String,
     kind: ResultKind,
     columns: List[FieldMeta] = List.empty,
-    dataStream: Stream[ExecOperationErr, RowValue])
+    dataWatchStream: Stream[ExecOperationErr, RowValue])
     extends SqlResult
 
 case class QuerySqlRsDescriptor(
