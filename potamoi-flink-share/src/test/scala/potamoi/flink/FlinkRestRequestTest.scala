@@ -1,22 +1,34 @@
 package potamoi.flink
 
-import potamoi.flink.FlinkRestRequestTest.url
+import org.scalatest.wordspec.AnyWordSpec
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.ZIO
 
-object FlinkRestRequestTest:
+class FlinkRestRequestTest extends AnyWordSpec:
 
   val url = "http://10.233.46.104:8081"
 
-  @main def testListJobsStatusInfo = flinkRest(url).listJobsStatusInfo.debugPretty.run
+  "listJobsStatusInfo" in {
+    flinkRest(url).listJobsStatusInfo.debugPretty.run
+  }
 
-  @main def testListJobOverviewInfo = flinkRest(url).listJobOverviewInfo.debugPretty.run
+  "listJobOverviewInfo" in {
+    flinkRest(url).listJobOverviewInfo.debugPretty.run
+  }
 
-  @main def testGetJobMetricsKeys = flinkRest(url).getJobMetricsKeys("e980c35c0b3da7c7b1c0a341979b20d5").debugPretty.run
+  "getJobMetricsKeys" in {
+    flinkRest(url).getJobMetricsKeys("e980c35c0b3da7c7b1c0a341979b20d5").debugPretty.run
+  }
 
-  @main def testGetJmMetrics = flinkRest(url).getJmMetricsKeys.debugPretty.run
+  "getJmMetrics" in {
+    flinkRest(url).getJmMetricsKeys.debugPretty.run
+  }
 
-  @main def testIsAvailable = flinkRest(url).isAvailable.debugPretty.run
+  "isAvailable" in {
+    flinkRest(url).isAvailable.debugPretty.run
+  }
 
-  @main def testGetDmDetail = flinkRest(url).getTaskManagerDetail("session-01-taskmanager-1-45").debugPretty.run
+  "getDmDetail" in {
+    flinkRest(url).getTaskManagerDetail("session-01-taskmanager-1-45").debugPretty.run
+  }
