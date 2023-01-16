@@ -16,9 +16,10 @@ import potamoi.logger.PotaLogger
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.*
 import potamoi.PotaErr
-import zio.{IO, Scope, Task, ZIO}
+import potamoi.flink.interp.FlinkInterpErr.BeCancelled
+import zio.{durationInt, IO, Scope, Task, ZIO}
 import zio.Console.printLine
-import zio.ZIO.{logErrorCause, logInfo, sleep}
+import zio.ZIO.{executor, logErrorCause, logInfo, sleep}
 
 //@Ignore
 class SerialSqlExecutorTest extends AnyWordSpec:
@@ -46,6 +47,17 @@ class SerialSqlExecutorTest extends AnyWordSpec:
                           |  'number-of-rows' = '20'
                           |)
                           |""".stripMargin
+
+  val dataGenEndlessTableSql = """CREATE TABLE Orders (
+                                 |    order_number BIGINT,
+                                 |    price        DECIMAL(32,2),
+                                 |    buyer        ROW<first_name STRING, last_name STRING>,
+                                 |    mset        MULTISET<STRING>,
+                                 |    order_time   TIMESTAMP(3)
+                                 |) WITH (
+                                 |  'connector' = 'datagen'
+                                 |)
+                                 |""".stripMargin
 
   val dataFakerTableSql = """CREATE TABLE Heros (
                             |  h_name STRING,
@@ -168,3 +180,32 @@ class SerialSqlExecutorTest extends AnyWordSpec:
              }
     } yield ()
   }
+
+  "cancel handle on local" in testing(SessionDef.local()) { executor =>
+    for {
+      _ <- executor.submitSql(dataGenEndlessTableSql).debugPretty
+      _ <- executor
+             .submitSql("select * from Orders")
+             .debugPretty
+             .map { case r: QuerySqlRs => r.dataStream }
+             .flatMap { stream =>
+               stream.foreach(e => printLine(e.kind))
+             }
+             .fork
+      _ <- executor
+             .submitSql("show tables")
+             .debugPretty
+             .fork
+//      _ <- (printLine("cancel executor!") *> executor.cancel).delay(10.seconds)
+      _ <- printLine("let me see:")
+//      _ <- executor.listHandleFrame.debugPretty
+    } yield ()
+  }
+//
+//  "cancel handle on remote" in testing() {
+//
+//  }
+
+//  "execute some illegal sql" in testing() {
+//
+//  }

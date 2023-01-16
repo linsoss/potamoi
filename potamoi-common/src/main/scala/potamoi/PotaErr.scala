@@ -12,6 +12,7 @@ trait PotaErr extends Throwable:
   override def fillInStackTrace: Throwable = this
   override def getMessage: String          = toPrettyString(this)
 
+
 object PotaErr:
 
   /**

@@ -37,6 +37,7 @@ trait SerialSqlExecutor:
 
   def start: URIO[Scope, Unit]
   def stop: UIO[Unit]
+  def cancel: UIO[Unit]
 
   def completeSql(sql: String, position: Int): UIO[List[String]]
   def completeSql(sql: String): UIO[List[String]]
@@ -45,8 +46,9 @@ trait SerialSqlExecutor:
 
   def listHandleId: UIO[List[String]]
   def listHandleStatus: UIO[List[HandleStatusView]]
-  def getHandleFrame(handleId: String): IO[HandleNotFound.type, HandleFrame]
+  def getHandleStatus(handleId: String): IO[HandleNotFound, HandleStatusView]
   def listHandleFrame: UIO[List[HandleFrame]]
+  def getHandleFrame(handleId: String): IO[HandleNotFound, HandleFrame]
 
 /**
  * Default implementation.
@@ -57,10 +59,13 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   private val queryRsLimit: Int                  = sessionDef.resultStore.capacity.contra { limit => if limit < 0 then Integer.MAX_VALUE else limit }
   private val queryRsDropStg: ResultDropStrategy = sessionDef.resultStore.dropStrategy
 
-  private val handleQueue       = Queue.bounded[HandleSign](500).runNow
-  private val handleStack       = Ref.make[mutable.Map[HandleId, HandleFrame]](mutable.Map.empty).runNow
-  private val lastQueryRsStore  = TableRowValueStore.make(queryRsLimit, queryRsDropStg).runNow
-  private val handleWorkerFiber = Ref.make[Option[Fiber.Runtime[Nothing, Unit]]](None).runNow
+  private val handleQueue      = Queue.bounded[HandleSign](500).runNow
+  private val handleStack      = Ref.make[mutable.Map[HandleId, HandleFrame]](mutable.Map.empty).runNow
+  private val lastQueryRsStore = TableRowValueStore.make(queryRsLimit, queryRsDropStg).runNow
+
+
+  private val handleWorkerFiber = Ref.make[Option[Fiber.Runtime[_, _]]](None).runNow
+  private val curHandleFiber    = Ref.make[Option[Fiber.Runtime[_, _]]](None).runNow
 
   private val context       = Ref.make[Option[SessionContext]](None).runNow
   private val createContext = SessionContext.buildContext(sessionId, remoteFs)(_)
@@ -92,40 +97,101 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   } @@ annotated("sessionId" -> sessionId)
 
   /**
+   * Stop sql handing worker.
+   */
+  override def stop: UIO[Unit] = {
+    for {
+      _ <- logInfo(s"Stop serial sql handle worker: $sessionId")
+      _ <- cancel
+      _ <- handleQueue.shutdown
+      _ <- handleWorkerFiber.get.flatMap {
+             case None        => unit
+             case Some(fiber) => fiber.interrupt *> handleWorkerFiber.set(None)
+           }
+      _ <- context.get.flatMap {
+             case None      => unit
+             case Some(ctx) => ctx.close *> context.set(None)
+           }
+      _ <- handleStack.set(mutable.Map.empty)
+      _ <- lastQueryRsStore.clear
+    } yield ()
+  } @@ annotated("sessionId" -> sessionId)
+
+  /**
+   * Cancel the current and remaining handle frame.
+   */
+  override def cancel: UIO[Unit] = {
+    for {
+      // cancel remaining handle frames
+      _     <- cancelRemainingHandleFrames
+      // cancel current handle frame
+      fiber <- curHandleFiber.get
+      _     <- (fiber.get.interrupt *> curHandleFiber.set(None)).when(fiber.isDefined)
+    } yield ()
+  } @@ annotated("sessionId" -> sessionId)
+
+  private def cancelRemainingHandleFrames = {
+    ZStream
+      .fromIterableZIO(handleQueue.takeAll)
+      .runForeach {
+        case CompleteSqlCmd(_, _, promise)       => promise.succeed(List.empty)
+        case ExecuteSqlCmd(handleId, _, promise) =>
+          promise.fail(BeCancelled(handleId)) *>
+          handleStack.updateWith(handleId, _.copy(status = Cancel))
+      }
+  }
+
+  /**
    * Flink sql executor bound to a single thread.
    */
   def handleWorker: URIO[Scope, Unit] = {
     handleQueue.take
-      .flatMap {
-        case CompleteSqlCmd(sql, position, promise) => handleCompleteSqlCmd(sql, position, promise)
-        case ExecuteSqlCmd(handleId, sql, promise)  =>
-          handleExecuteSqlCmd(handleId, sql, promise).flatMap {
-            case true  => unit
-            case false => handleQueue.takeAll.unit
-          }
+      .flatMap { sign =>
+        for {
+          fiber <- (sign match
+                     case CompleteSqlCmd(sql, position, promise) => handleCompleteSqlCmd(sql, position, promise)
+                     case ExecuteSqlCmd(handleId, sql, promise)  =>
+                       // When the current frame execution fails, all subsequent
+                       // execution plans that have been received would be cancelled.
+                       ZIO.scoped {
+                         handleExecuteSqlCmd(handleId, sql, promise).flatMap {
+                           case true  => unit
+                           case false => cancelRemainingHandleFrames
+                         }
+                       }
+                   ).forkScoped
+          _     <- curHandleFiber.set(Some(fiber))
+          _     <- fiber.join
+          _     <- curHandleFiber.set(None)
+        } yield ()
       }
       .forever
-      .onInterrupt(ZIO.logInfo(s"Serial sql handle worker is interrupted, sessionId=$sessionId."))
+      .onInterrupt { _ =>
+        ZIO.logInfo(s"Serial sql handle worker is interrupted, sessionId=$sessionId.") *> cancel
+      }
       // ensure Flink TableEnvironment work on the same Thread
-      .onExecutionContext(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())) @@ annotated("sessionId" -> sessionId)
-  }
+      .onExecutionContext(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
+  } @@ annotated("sessionId" -> sessionId)
 
   /**
    * Handle completing sql command.
    */
   private def handleCompleteSqlCmd(sql: String, position: Int, promise: Promise[Nothing, List[String]]): UIO[Unit] = {
-    for {
+    val proc = for {
       ctx   <- context.get.someOrElseZIO(createContext(sessionDef).tap(e => context.set(Some(e))))
       hints <- attempt(ctx.parser.getCompletionHints(sql, position)).map(arr => arr.toSeq.toList)
       _     <- promise.succeed(hints)
     } yield ()
-  }.catchAll(_ => promise.succeed(List.empty).unit)
+    proc
+      .catchAll(_ => promise.succeed(List.empty).unit)
+      .onInterrupt(_ => promise.succeed(List.empty).unit)
+  }
 
   /**
    * Handle executing sql command: initEnv -> parse sql -> execute sql -> reply result.
    */
   private def handleExecuteSqlCmd(handleId: String, sql: String, promise: Promise[ExecuteSqlErr, SqlResult]): URIO[Scope, ContinueRemaining] = {
-    val handleSqlEffect = for {
+    val proc = for {
       // ensure that table environment is initialized
       _         <- handleStack.updateWith(handleId, _.copy(status = Run))
       ctx       <- context.get.someOrElseZIO(createContext(sessionDef).tap(e => context.set(Some(e))))
@@ -154,7 +220,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
           case QueryRsDesc(rs, jobId, collect) =>
             for {
               _           <- handleStack.updateWith(handleId, _.copy(jobId = jobId, status = Run, result = Some(rs)))
-              watchStream <- collect.broadcastDynamic(1024)
+              watchStream <- collect.broadcastDynamic(2)
               _           <- promise.succeed(QuerySqlRs(rs, watchStream)) // reply result
               _           <- lastQueryRsStore.bindHandleId(handleId) *> lastQueryRsStore.clear
               _           <- collect.runDrain
@@ -163,19 +229,24 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
         }
     } yield ()
 
-    handleSqlEffect
+    proc
+      .as(true)
       .catchAllCause { cause =>
         handleStack.updateWith(handleId, _.copy(status = Fail, error = Some(cause))) *>
         promise.failCause(cause) *>
         succeed(false)
       }
-      .as(true) @@ annotated("handleId" -> handleId)
+      .onInterrupt { _ =>
+        handleStack.updateWith(handleId, _.copy(status = Cancel)) *>
+        promise.fail(BeCancelled(handleId))
+      }
+    @@ annotated ("handleId" -> handleId)
   }
 
   /**
    * Execute operation that supported by standard Table Environment.
    */
-  private def executeOperation(ctx: SessionContext, handleId: String, operation: Operation): IO[ExecOperationErr, OpRsDesc] = {
+  private def executeOperation(ctx: SessionContext, handleId: String, operation: Operation): ZIO[Scope, ExecOperationErr, OpRsDesc] = {
     for {
       // execute operation
       tableResult <- attempt(ctx.tEnv.executeInternal(operation))
@@ -185,12 +256,15 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       colsMeta    <- attempt(FlinkTableResolver.convertResolvedSchema(schema))
       rsConverter <- attempt(FlinkTableResolver.RowDataConverter(schema))
       // collect result
+      resultIter  <- ZIO
+                       .acquireRelease(attempt(tableResult.collectInternal()))(iter => attempt(iter.close()).ignore)
+                       .map(_.asScala)
       rsDesc      <-
         operation match {
           case _: QueryOperation =>
             succeed {
               ZStream
-                .fromIteratorZIO(attempt(tableResult.collectInternal().asScala))
+                .fromIterator(resultIter)
                 .mapZIO(rawRow => attempt(rsConverter.convertRow(rawRow))) // convert row format
                 .tap(row => lastQueryRsStore.collect(row))                 // collect result
                 .mapError(ExecOperationErr(operation.getClass.getName, _))
@@ -218,7 +292,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
    * Execute "add jar" sql command, replace the path of jar to local path.
    * See: https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/jar/
    */
-  private def executeAddJarOperation(ctx: SessionContext, handleId: String, operation: AddJarOperation): IO[ExecOperationErr, OpRsDesc] =
+  private def executeAddJarOperation(ctx: SessionContext, handleId: String, operation: AddJarOperation): ZIO[Scope, ExecOperationErr, OpRsDesc] =
     for {
       localPath          <- remoteFs.download(operation.getPath).mapBoth(ExecOperationErr(operation.getClass.getName, _), _.getAbsolutePath)
       actualJarOperation <- succeed(AddJarOperation(localPath))
@@ -306,26 +380,6 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   }
 
   /**
-   * Stop sql handing worker.
-   */
-  override def stop: UIO[Unit] = {
-    for {
-      _ <- logInfo(s"Stop serial sql handle worker: $sessionId")
-      _ <- handleQueue.takeAll.unit
-      _ <- handleWorkerFiber.get.flatMap {
-             case None        => unit
-             case Some(fiber) => fiber.interrupt *> handleWorkerFiber.set(None)
-           }
-      _ <- context.get.flatMap {
-             case None      => unit
-             case Some(ctx) => ctx.close *> context.set(None)
-           }
-      _ <- lastQueryRsStore.clear
-      _ <- handleStack.set(mutable.Map.empty)
-    } yield ()
-  }
-
-  /**
    * Submit sql statement and wait for the execution result.
    */
   override def submitSql(sql: String, handleId: String = uuids.genUUID16): IO[ExecuteSqlErr, SqlResult] = {
@@ -357,10 +411,10 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
    */
   override def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[RetrieveResultNothing, SqlResultPage] = {
     handleStack.get.map(_.get(handleId)).flatMap {
-      case None        => fail(HandleNotFound)
+      case None        => fail(HandleNotFound(handleId))
       case Some(frame) =>
         frame.result match
-          case None                           => fail(ResultNotFound)
+          case None                           => fail(ResultNotFound(handleId))
           case Some(rs: PlainSqlRs)           => succeed(SqlResultPage(1, 1, pageSize, rs))
           case Some(rs: QuerySqlRsDescriptor) =>
             defer {
@@ -398,12 +452,21 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   } @@ annotated("sessionId" -> sessionId)
 
   /**
+   * Get handle status of given handleId
+   */
+  override def getHandleStatus(handleId: HandleId): IO[HandleNotFound, HandleStatusView] = {
+    handleStack.get
+      .map(_.get(handleId).map(e => HandleStatusView(e.handleId, e.status, e.submitAt)))
+      .someOrFail(HandleNotFound(handleId))
+  } @@ annotated("sessionId" -> sessionId)
+
+  /**
    * Get HandleFrame of given handle id.
    */
-  override def getHandleFrame(handleId: String): IO[HandleNotFound.type, HandleFrame] = {
+  override def getHandleFrame(handleId: String): IO[HandleNotFound, HandleFrame] = {
     handleStack.get
       .map(_.get(handleId))
-      .someOrFail(HandleNotFound)
+      .someOrFail(HandleNotFound(handleId))
   } @@ annotated("sessionId" -> sessionId)
 
   /**
