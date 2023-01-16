@@ -3,6 +3,9 @@ lazy val scala213 = "2.13.10"
 lazy val scala212 = "2.12.17"
 lazy val javaVer  = "17"
 
+// Keep ZIO at 2.0.2, because the ZLayer macros of ZIO 2.0.3+ has some problems
+// with Scala3 compatibility, especially with sttp-client libs.
+// see: https://github.com/zio/zio/issues/7506
 lazy val zioVer        = "2.0.2"
 lazy val zioLoggingVer = "2.1.5"
 lazy val zioConfig     = "3.0.2"
