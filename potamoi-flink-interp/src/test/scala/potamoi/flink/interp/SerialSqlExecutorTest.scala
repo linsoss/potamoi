@@ -3,7 +3,7 @@ package potamoi.flink.interp
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Ignore
 import potamoi.common.ZIOExtension.zioRun
-import potamoi.flink.interp.model.{QuerySqlRs, RemoteClusterEndpoint, ResultStoreConf, SessionDef}
+import potamoi.flink.interp.model.*
 import potamoi.flink.interp.model.RemoteClusterEndpoint.given
 import potamoi.flink.interp.model.ResultDropStrategy.DropTail
 import potamoi.flink.model.FlinkRuntimeMode.{Batch, Streaming}
@@ -248,5 +248,35 @@ class SerialSqlExecutorTest extends AnyWordSpec:
       _  <- f5.join.ignore
       _  <- printLine("====================  let me see ==================== ")
       _  <- executor.listHandleFrame.debugPretty
+    } yield ()
+  }
+
+  "submit sql script" in testing(SessionDef.local()) { executor =>
+    val script: String =
+      """CREATE TABLE Orders (
+        |    order_number BIGINT,
+        |    price        DECIMAL(32,2),
+        |    buyer        ROW<first_name STRING, last_name STRING>,
+        |    mset        MULTISET<STRING>,
+        |    order_time   TIMESTAMP(3)
+        |) WITH (
+        |  'connector' = 'datagen',
+        |  'number-of-rows' = '10'
+        |);
+        |SHOW TABLES;
+        |select * from Orders;
+        |""".stripMargin
+    for {
+      rs         <- executor.submitSqlScript(script)
+      handles     = rs.handles
+      watchStream = rs.rsWatchStream
+      _          <- printLine("handle list:\n" + handles.toPrettyStr)
+      _          <- printLine("watch result:")
+      _          <- watchStream.mapZIO {
+                      case r: PlainSqlRs => printLine(r.toPrettyStr)
+                      case r: QuerySqlRs => printLine(r) *> r.dataWatchStream.foreach(row => printLine(row.show))
+                    }.runDrain
+      _          <- printLine("tap history")
+      _          <- executor.listHandleStatus.debugPretty
     } yield ()
   }

@@ -18,3 +18,5 @@ object FlinkInterpErr:
   case class BannedOperation(opClzName: String)                    extends ExecuteSqlErr
   case class ExecOperationErr(opClzName: String, cause: Throwable) extends ExecuteSqlErr
   case class BeCancelled(handleId: String)                         extends ExecuteSqlErr
+
+  case class SplitSqlScriptErr(cause: Throwable) extends FlinkInterpErr

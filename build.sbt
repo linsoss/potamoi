@@ -175,10 +175,12 @@ lazy val potaFlinkInterp = (project in file("potamoi-flink-interp"))
   .settings(
     name := "potamoi-flink-interp",
     libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-clients"              % flink116Ver,
-      "org.apache.flink" % "flink-table-planner-loader" % flink116Ver,
-      "org.apache.flink" % "flink-table-runtime"        % flink116Ver,
-      "org.apache.flink" % "flink-json"                 % flink116Ver
+      "org.apache.flink"   % "flink-clients"              % flink116Ver,
+      "org.apache.flink"   % "flink-table-planner-loader" % flink116Ver,
+      "org.apache.flink"   % "flink-table-runtime"        % flink116Ver,
+      "org.apache.flink"   % "flink-json"                 % flink116Ver,
+      "org.apache.flink"   % "flink-sql-parser"           % flink116Ver exclude ("org.slf4j", "slf4j-api") exclude ("commons-logging", "commons-logging"),
+      "org.apache.calcite" % "calcite-linq4j"             % "1.26.0" // Keep consistent with flink-sql-parser
     )
   )
 

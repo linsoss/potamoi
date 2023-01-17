@@ -1,31 +1,32 @@
 package potamoi.flink.interp
 
+import org.apache.calcite.config.Lex
+import org.apache.calcite.sql.parser.SqlParser
+import org.apache.calcite.sql.pretty.SqlPrettyWriter
+import org.apache.flink.sql.parser.impl.FlinkSqlParserImpl
+import zio.{Task, ZIO}
+
 import scala.collection.mutable.ArrayBuffer
+import scala.jdk.CollectionConverters.*
 
 object FlinkSqlTool:
 
   /**
-   *  Split flink sql script into multiple sql statements.
+   * Create flink sql calcite parser.
    */
-  def splitSqlScript(scripts: String): Array[String] = {
-    scripts
-      .concat("\n")
-      .split(";\\s*\n")
-      .map(_.trim)
-      .filter(!_.isBlank)
-      .foldLeft[(ArrayBuffer[String], Option[String])](ArrayBuffer.empty -> None) { case ((result, buff), sql) =>
-        sql.toUpperCase match
-          case s if s.startsWith("EXECUTE STATEMENT SET") => result                                                   -> Some(sql)
-          case "END"                                      => (result :+ buff.getOrElse("").concat(";\n").concat(sql)) -> None
-          case _ =>
-            buff match
-              case Some(b) => result          -> Some(b.concat(";\n").concat(sql))
-              case None    => (result :+ sql) -> buff
-      }
-      ._1
-      .toArray
+  private[flink] def createParser(expr: String): SqlParser = {
+    val parserConfig = SqlParser.config
+      .withParserFactory(FlinkSqlParserImpl.FACTORY)
+      .withLex(Lex.JAVA)
+      .withIdentifierMaxLength(256)
+    SqlParser.create(expr, parserConfig)
   }
 
-
-
-
+  /**
+   * Split flink sql script into multiple sql statements.
+   */
+  def splitSqlScript(sqlScript: String): Task[List[String]] = ZIO.attempt {
+    val parser = createParser(sqlScript)
+    val stmts  = parser.parseStmtList().asScala.map(_.toString).toList
+    stmts
+  }

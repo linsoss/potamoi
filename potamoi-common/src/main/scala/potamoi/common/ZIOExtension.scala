@@ -13,7 +13,9 @@ import scala.reflect.ClassTag
 object ZIOExtension {
 
   extension [E, A](zio: IO[E, A]) {
-    inline def run: Exit[E, A]                                      = zioRun(zio)
+    inline def run: Exit[E, A] = zioRun(zio)
+    inline def runUnsafe: A    = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(zio).getOrThrowFiberFailure() }
+
     inline def distPollStream(spaced: Duration): ZStream[Any, E, A] =
       for {
         ref    <- ZStream.fromZIO(Ref.make[Option[A]](None))
