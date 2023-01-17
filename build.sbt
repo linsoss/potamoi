@@ -31,7 +31,7 @@ lazy val munitVer       = "1.0.0-M7"
 lazy val jodaTimeVer    = "2.12.2"
 lazy val tikaVer        = "2.6.0"
 lazy val commonCodecVer = "1.15"
-lazy val minioVer       = "8.4.6"
+lazy val minioVer       = "8.5.1"
 lazy val quillVer       = "4.6.0"
 lazy val postgresVer    = "42.5.1"
 
@@ -75,7 +75,7 @@ lazy val commonSettings = Seq(
 
 lazy val root = (project in file("."))
   .settings(name := "potamoi")
-  .aggregate(potaLogger, potaCommon, potaFs, potaKubernetes, potaFlink, potaFlinkShare, potaFlinkInterpreter, potaServer)
+  .aggregate(potaLogger, potaCommon, potaFilesystem, potaKubernetes, potaFlink, potaFlinkShare, potaFlinkInterpreter, potaServer)
 
 lazy val potaLogger = (project in file("potamoi-logger"))
   .settings(commonSettings)
@@ -122,7 +122,7 @@ lazy val potaKubernetes = (project in file("potamoi-kubernetes"))
     )
   )
 
-lazy val potaFs = (project in file("potamoi-fs"))
+lazy val potaFilesystem = (project in file("potamoi-filesystem"))
   .dependsOn(potaCommon)
   .settings(commonSettings)
   .settings(
@@ -148,29 +148,39 @@ lazy val potaCluster = (project in file("potamoi-cluster"))
     )
   )
 
+lazy val potaServer = (project in file("potamoi-server"))
+  .dependsOn(potaCommon, potaKubernetes, potaFilesystem)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-server",
+    libraryDependencies ++= Seq(
+    )
+  )
+
 lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
-  .dependsOn(potaCommon, potaFs, potaKubernetes)
+  .dependsOn(potaCommon, potaFilesystem, potaKubernetes)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink-share",
     libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-core" % flinkVer % Provided
-    )
+      "org.apache.flink" % "flink-table-api-java" % flinkVer % Provided
+    ).map(flinkLibExcludes)
   )
 
 lazy val potaFlink = (project in file("potamoi-flink"))
-  .dependsOn(potaCommon, potaKubernetes, potaFs, potaCluster, potaFlinkShare)
+  .dependsOn(potaCommon, potaKubernetes, potaFilesystem, potaCluster, potaFlinkShare)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink",
     libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-clients"    % flinkVer,
-      "org.apache.flink" % "flink-kubernetes" % flinkVer
-    )
+      "org.apache.flink" % "flink-clients"        % flinkVer,
+      "org.apache.flink" % "flink-kubernetes"     % flinkVer,
+      "org.apache.flink" % "flink-table-api-java" % flinkVer
+    ).map(flinkLibExcludes)
   )
 
 lazy val potaFlinkInterpreter = (project in file("potamoi-flink-interpreter"))
-  .dependsOn(potaCommon, potaFs, potaCluster, potaFlinkShare)
+  .dependsOn(potaCommon, potaFilesystem, potaCluster, potaFlinkShare)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink-interp",
@@ -179,16 +189,11 @@ lazy val potaFlinkInterpreter = (project in file("potamoi-flink-interpreter"))
       "org.apache.flink"   % "flink-table-planner-loader" % flink116Ver,
       "org.apache.flink"   % "flink-table-runtime"        % flink116Ver,
       "org.apache.flink"   % "flink-json"                 % flink116Ver,
-      "org.apache.flink"   % "flink-sql-parser"           % flink116Ver exclude ("org.slf4j", "slf4j-api") exclude ("commons-logging", "commons-logging"),
+      "org.apache.flink"   % "flink-sql-parser"           % flink116Ver,
       "org.apache.calcite" % "calcite-linq4j"             % "1.26.0" // Keep consistent with flink-sql-parser
-    )
+    ).map(flinkLibExcludes)
   )
 
-lazy val potaServer = (project in file("potamoi-server"))
-  .dependsOn(potaCommon, potaKubernetes, potaFs)
-  .settings(commonSettings)
-  .settings(
-    name := "potamoi-server",
-    libraryDependencies ++= Seq(
-    )
-  )
+def flinkLibExcludes(moduleId: ModuleID) = moduleId
+  .exclude("org.slf4j", "slf4j-api")
+  .exclude("commons-logging", "commons-logging")
