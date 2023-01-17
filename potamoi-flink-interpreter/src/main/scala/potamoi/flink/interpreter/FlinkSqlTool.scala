@@ -1,4 +1,4 @@
-package potamoi.flink.interp
+package potamoi.flink.interpreter
 
 import org.apache.calcite.config.Lex
 import org.apache.calcite.sql.parser.SqlParser

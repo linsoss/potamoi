@@ -75,7 +75,7 @@ lazy val commonSettings = Seq(
 
 lazy val root = (project in file("."))
   .settings(name := "potamoi")
-  .aggregate(potaLogger, potaCommon, potaFs, potaKubernetes, potaFlink, potaFlinkShare, potaFlinkInterp, potaServer)
+  .aggregate(potaLogger, potaCommon, potaFs, potaKubernetes, potaFlink, potaFlinkShare, potaFlinkInterpreter, potaServer)
 
 lazy val potaLogger = (project in file("potamoi-logger"))
   .settings(commonSettings)
@@ -169,7 +169,7 @@ lazy val potaFlink = (project in file("potamoi-flink"))
     )
   )
 
-lazy val potaFlinkInterp = (project in file("potamoi-flink-interp"))
+lazy val potaFlinkInterpreter = (project in file("potamoi-flink-interpreter"))
   .dependsOn(potaCommon, potaFs, potaCluster, potaFlinkShare)
   .settings(commonSettings)
   .settings(

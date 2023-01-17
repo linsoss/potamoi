@@ -1,7 +1,7 @@
-package potamoi.flink.interp
+package potamoi.flink.interpreter
 
-import potamoi.flink.interp.model.{ResultDropStrategy, ResultStoreConf, RowValue}
-import potamoi.flink.interp.model.ResultDropStrategy.*
+import potamoi.flink.interpreter.model.{ResultDropStrategy, ResultStoreConf, RowValue}
+import potamoi.flink.interpreter.model.ResultDropStrategy.*
 import zio.{Ref, UIO, ZIO}
 import potamoi.zios.runNow
 import potamoi.syntax.tap

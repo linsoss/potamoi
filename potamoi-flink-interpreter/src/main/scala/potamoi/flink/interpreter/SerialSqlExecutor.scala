@@ -1,4 +1,4 @@
-package potamoi.flink.interp
+package potamoi.flink.interpreter
 
 import com.softwaremill.quicklens.modify
 import io.circe.Json
@@ -10,10 +10,10 @@ import org.apache.flink.types.RowKind
 import potamoi.{collects, uuids}
 import potamoi.collects.updateWith
 import potamoi.flink.flinkRest
-import potamoi.flink.interp.FlinkInterpErr.*
-import potamoi.flink.interp.model.*
-import potamoi.flink.interp.model.HandleStatus.*
-import potamoi.flink.interp.model.ResultDropStrategy.*
+import potamoi.flink.interpreter.FlinkInterpErr.*
+import potamoi.flink.interpreter.model.*
+import potamoi.flink.interpreter.model.HandleStatus.*
+import potamoi.flink.interpreter.model.ResultDropStrategy.*
 import potamoi.flink.model.FlinkTargetType
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.contra

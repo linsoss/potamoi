@@ -1,4 +1,4 @@
-package potamoi.flink.interp
+package potamoi.flink.interpreter
 
 import org.scalatest.wordspec.AnyWordSpec
 import potamoi.zios.runUnsafe

@@ -1,10 +1,10 @@
-package potamoi.flink.interp.model
+package potamoi.flink.interpreter.model
 
 import io.circe.Json
 import org.apache.flink.table.api.ResultKind
 import org.apache.flink.table.types.logical.LogicalTypeRoot
 import org.apache.flink.types.RowKind
-import potamoi.flink.interp.FlinkInterpErr.ExecOperationErr
+import potamoi.flink.interpreter.FlinkInterpErr.ExecOperationErr
 import zio.stream.Stream
 import potamoi.syntax.toPrettyStr
 

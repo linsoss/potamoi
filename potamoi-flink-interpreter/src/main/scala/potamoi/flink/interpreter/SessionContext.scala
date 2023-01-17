@@ -1,4 +1,4 @@
-package potamoi.flink.interp
+package potamoi.flink.interpreter
 
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
@@ -6,9 +6,9 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment
 import org.apache.flink.table.api.internal.TableEnvironmentInternal
 import org.apache.flink.table.api.EnvironmentSettings
 import org.apache.flink.table.delegation.Parser
-import potamoi.flink.interp.model.{RemoteClusterEndpoint, SessionDef}
+import potamoi.flink.interpreter.model.{RemoteClusterEndpoint, SessionDef}
 import potamoi.flink.FlinkConfigurationTool.safeSet
-import potamoi.flink.interp.FlinkInterpErr.CreateTableEnvironmentErr
+import potamoi.flink.interpreter.FlinkInterpErr.CreateTableEnvironmentErr
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.{tap, toPrettyStr}
 import zio.{IO, UIO, ZIO}
@@ -32,7 +32,7 @@ object SessionContext:
   /**
    * Create and initialize SessionContext.
    */
-  private[interp] def buildContext(
+  private[interpreter] def buildContext(
       sessionId: String,
       remoteFs: RemoteFsOperator,
       sessDef: SessionDef): IO[CreateTableEnvironmentErr, SessionContext] = {

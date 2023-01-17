@@ -1,11 +1,11 @@
-package potamoi.flink.interp
+package potamoi.flink.interpreter
 
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Ignore
 import potamoi.common.ZIOExtension.zioRun
-import potamoi.flink.interp.model.*
-import potamoi.flink.interp.model.RemoteClusterEndpoint.given
-import potamoi.flink.interp.model.ResultDropStrategy.DropTail
+import potamoi.flink.interpreter.model.*
+import potamoi.flink.interpreter.model.RemoteClusterEndpoint.given
+import potamoi.flink.interpreter.model.ResultDropStrategy.DropTail
 import potamoi.flink.model.FlinkRuntimeMode.{Batch, Streaming}
 import potamoi.flink.model.FlinkTargetType
 import potamoi.flink.model.FlinkTargetType.{Local, Remote}
@@ -16,7 +16,7 @@ import potamoi.logger.PotaLogger
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.*
 import potamoi.PotaErr
-import potamoi.flink.interp.FlinkInterpErr.BeCancelled
+import potamoi.flink.interpreter.FlinkInterpErr.BeCancelled
 import zio.{durationInt, IO, Schedule, Scope, Task, ZIO}
 import zio.Console.printLine
 import zio.ZIO.{executor, logErrorCause, logInfo, sleep}

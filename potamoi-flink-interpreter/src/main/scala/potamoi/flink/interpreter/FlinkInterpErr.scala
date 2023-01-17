@@ -1,8 +1,8 @@
-package potamoi.flink.interp
+package potamoi.flink.interpreter
 
 import potamoi.PotaErr
 import potamoi.common.Syntax.toPrettyString
-import potamoi.flink.interp.FlinkInterpErr.ExecuteSqlErr
+import potamoi.flink.interpreter.FlinkInterpErr.ExecuteSqlErr
 
 sealed trait FlinkInterpErr extends PotaErr
 

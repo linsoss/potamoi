@@ -1,6 +1,6 @@
-package potamoi.flink.interp.model
+package potamoi.flink.interpreter.model
 
-import potamoi.flink.interp.FlinkInterpErr.ExecuteSqlErr
+import potamoi.flink.interpreter.FlinkInterpErr.ExecuteSqlErr
 import zio.stream.Stream
 
 /**

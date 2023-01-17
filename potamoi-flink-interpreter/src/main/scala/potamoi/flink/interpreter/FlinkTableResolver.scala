@@ -1,4 +1,4 @@
-package potamoi.flink.interp
+package potamoi.flink.interpreter
 
 import io.circe
 import io.circe.Json
@@ -10,7 +10,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.Json
 import org.apache.flink.table.catalog.{Column, ResolvedSchema}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.types.logical.LogicalType
-import potamoi.flink.interp.model.{FieldMeta, RowValue}
+import potamoi.flink.interpreter.model.{FieldMeta, RowValue}
 
 import java.math.BigDecimal as JBigDecimal
 import scala.jdk.CollectionConverters.*
