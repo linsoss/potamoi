@@ -15,7 +15,6 @@ import scala.concurrent.duration.{Duration, DurationInt}
 case class ShardManagerConf(
     numberOfShards: Int = 300,
     port: Int = 3300,
-    rebalanceInterval: Duration = 20.seconds,
     rebalanceRetryInterval: Duration = 10.seconds,
     pingTimeout: Duration = 3.seconds,
     persistRetryInterval: Duration = 3.seconds,
@@ -27,7 +26,7 @@ case class ShardManagerConf(
   def toManagerConfig: ManagerConfig = ManagerConfig(
     apiPort = port,
     numberOfShards = numberOfShards,
-    rebalanceInterval = rebalanceInterval,
+    rebalanceInterval = zio.Duration.Infinity,
     rebalanceRetryInterval = rebalanceRetryInterval,
     pingTimeout = pingTimeout,
     persistRetryInterval = persistRetryInterval,
