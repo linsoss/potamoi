@@ -1,12 +1,13 @@
-package potamoi.flink.interpreter.model
+package potamoi.flink.model.interact
 
 import io.circe.Json
 import org.apache.flink.table.api.ResultKind
 import org.apache.flink.table.types.logical.LogicalTypeRoot
 import org.apache.flink.types.RowKind
-import potamoi.flink.interpreter.FlinkInterpErr.ExecOperationErr
-import zio.stream.Stream
+import potamoi.{curNanoTs, curTs}
+import potamoi.flink.error.FlinkInterpErr.ExecOperationErr
 import potamoi.syntax.toPrettyStr
+import zio.stream.Stream
 
 /**
  * Flink table execution result.
@@ -36,12 +37,6 @@ case class QuerySqlRsDescriptor(
     kind: ResultKind,
     columns: List[FieldMeta] = List.empty)
     extends SqlResultView
-
-case class SqlResultPage(
-    totalPage: Int,
-    pageIndex: Int,
-    pageSize: Int,
-    payload: PlainSqlRs)
 
 object PlainSqlRs:
 
@@ -75,7 +70,7 @@ case class FieldMeta(
  * The row data will be encoded as a json structure, for the corresponding mapping
  * refer to: [[ https://nightlies.apache.org/flink/flink-docs-master/docs/connectors/table/formats/json/#data-type-mapping ]]
  */
-case class RowValue(kind: RowKind, fields: Json):
+case class RowValue(kind: RowKind, fields: Json, nanoTs: Long = curNanoTs):
   def show: String = RowView(kind.shortString, fields.spaces2).toPrettyStr
 
 private case class RowView(kind: String, fields: String)

@@ -1,10 +1,10 @@
-package potamoi.flink.interpreter.model
+package potamoi.flink.model.interact
 
 import potamoi.codecs
 import potamoi.common.ScalaVersion
-import potamoi.flink.interpreter.model.ResultDropStrategies.given
-import potamoi.flink.interpreter.model.ResultDropStrategy.*
 import potamoi.flink.model.{FlinkRuntimeMode, FlinkTargetType, InterpSupport}
+import potamoi.flink.model.interact.ResultDropStrategies.given
+import potamoi.flink.model.interact.ResultDropStrategy.*
 import potamoi.flink.model.FlinkRuntimeModes.given
 import potamoi.flink.model.InterpFlinkTargetTypes.given
 import zio.json.JsonCodec

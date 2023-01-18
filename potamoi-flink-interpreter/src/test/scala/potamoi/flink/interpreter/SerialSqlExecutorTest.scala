@@ -3,9 +3,8 @@ package potamoi.flink.interpreter
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Ignore
 import potamoi.common.ZIOExtension.zioRun
-import potamoi.flink.interpreter.model.*
-import potamoi.flink.interpreter.model.RemoteClusterEndpoint.given
-import potamoi.flink.interpreter.model.ResultDropStrategy.DropTail
+import potamoi.flink.model.interact.RemoteClusterEndpoint.given
+import potamoi.flink.model.interact.ResultDropStrategy.DropTail
 import potamoi.flink.model.FlinkRuntimeMode.{Batch, Streaming}
 import potamoi.flink.model.FlinkTargetType
 import potamoi.flink.model.FlinkTargetType.{Local, Remote}
@@ -16,10 +15,12 @@ import potamoi.logger.PotaLogger
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.*
 import potamoi.PotaErr
-import potamoi.flink.interpreter.FlinkInterpErr.BeCancelled
+import potamoi.flink.error.FlinkInterpErr.BeCancelled
+import potamoi.flink.model.interact.{PlainSqlRs, QuerySqlRs, ResultStoreConf, SessionDef}
 import zio.{durationInt, IO, Schedule, Scope, Task, ZIO}
 import zio.Console.printLine
 import zio.ZIO.{executor, logErrorCause, logInfo, sleep}
+import zio.stream.ZStream
 
 //@Ignore
 class SerialSqlExecutorTest extends AnyWordSpec:
@@ -278,5 +279,60 @@ class SerialSqlExecutorTest extends AnyWordSpec:
                     }.runDrain
       _          <- printLine("tap history")
       _          <- executor.listHandleStatus.debugPretty
+    } yield ()
+  }
+
+  "retrieveResultPage" in testing(SessionDef.local()) { executor =>
+    for {
+      _        <- executor
+                    .submitSql("""CREATE TABLE Orders (
+                          |    order_number BIGINT
+                          |) WITH (
+                          |  'connector' = 'datagen',
+                          |  'rows-per-second'='10',
+                          |  'number-of-rows' = '100'
+                          |)
+                          |""".stripMargin)
+                    .debugPretty
+      handleId <- executor
+                    .submitSql("select * from Orders")
+                    .debugPretty
+                    .map(_.handleId)
+      _        <- {
+        def retrievePage(page: Int): Task[Unit] = executor.retrieveResultPage(handleId, page, 10).flatMap { rs =>
+          val next =
+            if rs.hasNextRowThisPage then retrievePage(page).delay(1.second)
+            else if rs.hasNextPage then retrievePage(page + 1).delay(1.second)
+            else ZIO.unit
+          printLine(rs.toPrettyStr) *> next
+        }
+        retrievePage(1)
+      }
+    } yield ()
+  }
+
+  "retrieveResultOffset" in testing(SessionDef.local()) { executor =>
+    for {
+      _        <- executor
+                    .submitSql("""CREATE TABLE Orders (
+                          |    order_number BIGINT
+                          |) WITH (
+                          |  'connector' = 'datagen',
+                          |  'rows-per-second'='10',
+                          |  'number-of-rows' = '100'
+                          |)
+                          |""".stripMargin)
+                    .debugPretty
+      handleId <- executor
+                    .submitSql("select * from Orders")
+                    .debugPretty
+                    .map(_.handleId)
+      _        <- {
+        def retrieveOffset(offset: Long): Task[Unit] = executor.retrieveResultOffset(handleId, offset, 10).flatMap { rs =>
+          val next = if rs.hasNextRow then retrieveOffset(rs.lastOffset).delay(100.millis) else ZIO.unit
+          ZIO.foreach(rs.payload.data)(row => printLine(row.show)) *> next
+        }
+        retrieveOffset(-1)
+      }
     } yield ()
   }

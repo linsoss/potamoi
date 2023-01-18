@@ -10,7 +10,8 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.Json
 import org.apache.flink.table.catalog.{Column, ResolvedSchema}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.types.logical.LogicalType
-import potamoi.flink.interpreter.model.{FieldMeta, RowValue}
+import potamoi.flink.model.interact.{FieldMeta, RowValue}
+import potamoi.flink.model.interact
 
 import java.math.BigDecimal as JBigDecimal
 import scala.jdk.CollectionConverters.*
@@ -23,7 +24,7 @@ object FlinkTableResolver:
    */
   def convertResolvedSchema(schema: ResolvedSchema): List[FieldMeta] =
     schema.getColumns.asScala.map { col =>
-      FieldMeta(
+      interact.FieldMeta(
         name = col.getName,
         typeRoot = col.getDataType.getLogicalType.getTypeRoot,
         typeDesc = col.getDataType.getLogicalType.asSummaryString(),

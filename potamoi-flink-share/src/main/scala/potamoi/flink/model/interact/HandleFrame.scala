@@ -1,8 +1,7 @@
-package potamoi.flink.interpreter.model
+package potamoi.flink.model.interact
 
 import potamoi.curTs
-import potamoi.flink.interpreter.model.HandleStatus
-import potamoi.flink.interpreter.FlinkInterpErr
+import potamoi.flink.error.FlinkInterpErr
 import zio.Cause
 
 /**

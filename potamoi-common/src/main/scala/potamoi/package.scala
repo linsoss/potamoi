@@ -12,4 +12,5 @@ package object potamoi:
   val uuids    = Uuid
   val collects = CollectionExtension
 
-  def curTs: Long = System.currentTimeMillis
+  def curTs: Long   = System.currentTimeMillis
+  def curNanoTs: Long = System.nanoTime

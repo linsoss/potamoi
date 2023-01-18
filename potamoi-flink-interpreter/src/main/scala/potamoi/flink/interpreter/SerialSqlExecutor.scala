@@ -7,20 +7,19 @@ import org.apache.flink.table.operations.{Operation, QueryOperation, SinkModifyO
 import org.apache.flink.table.operations.command.{AddJarOperation, ResetOperation, SetOperation}
 import org.apache.flink.table.types.logical.{LogicalTypeRoot, VarCharType}
 import org.apache.flink.types.RowKind
-import potamoi.{collects, uuids}
 import potamoi.collects.updateWith
+import potamoi.{collects, curTs, uuids}
+import potamoi.flink.error.FlinkInterpErr.*
 import potamoi.flink.flinkRest
-import potamoi.flink.interpreter.FlinkInterpErr.*
-import potamoi.flink.interpreter.model.*
-import potamoi.flink.interpreter.model.HandleStatus.*
-import potamoi.flink.interpreter.model.ResultDropStrategy.*
+import potamoi.flink.model.interact.HandleStatus.*
+import potamoi.flink.model.interact.ResultDropStrategy.*
 import potamoi.flink.model.FlinkTargetType
+import potamoi.flink.model.interact.*
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.contra
 import potamoi.zios.runNow
 import zio.{Fiber, IO, Promise, Queue, Ref, Scope, UIO, URIO, ZIO}
 import zio.ZIO.{attempt, attemptBlocking, attemptBlockingInterrupt, blocking, fail, logInfo, succeed, unit}
-
 import zio.ZIOAspect.annotated
 import zio.direct.*
 import zio.stream.{Stream, ZStream}
@@ -47,7 +46,8 @@ trait SerialSqlExecutor:
 
   def submitSql(sql: String, handleId: String = uuids.genUUID16): IO[ExecuteSqlErr, SqlResult]
   def submitSqlScript(sqlScript: String): IO[SplitSqlScriptErr, SqlScriptResult]
-  def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[RetrieveResultNothing, SqlResultPage]
+  def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[RetrieveResultNothing, SqlResultPageView]
+  def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[RetrieveResultNothing, SqlResultOffsetView]
 
   def listHandleId: UIO[List[String]]
   def listHandleStatus: UIO[List[HandleStatusView]]
@@ -453,27 +453,57 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   override def completeSql(sql: HandleId): UIO[List[HandleId]] = completeSql(sql, sql.length)
 
   /**
-   * Returns the sql results in a paged manner.
+   * Returns sql results in a paged manner.
    *
    * @param page is from 1 on.
    */
-  override def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[RetrieveResultNothing, SqlResultPage] = {
+  override def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[RetrieveResultNothing, SqlResultPageView] = {
     handleStack.get.map(_.get(handleId)).flatMap {
       case None        => fail(HandleNotFound(handleId))
       case Some(frame) =>
         frame.result match
           case None                           => fail(ResultNotFound(handleId))
-          case Some(rs: PlainSqlRs)           => succeed(SqlResultPage(1, 1, pageSize, rs))
+          case Some(rs: PlainSqlRs)           => succeed(SqlResultPageView(rs))
           case Some(rs: QuerySqlRsDescriptor) =>
             defer {
-              val lastQHid = lastQueryRsStore.handleId.run
-              if lastQHid != rs.handleId then succeed(SqlResultPage(1, 1, pageSize, PlainSqlRs(rs, List.empty))).run
+              val lastQueryHandleId = lastQueryRsStore.handleId.run
+              if lastQueryHandleId != rs.handleId then succeed(SqlResultPageView(PlainSqlRs(rs, List.empty))).run
+              else {
+                val rowsSnapshot       = lastQueryRsStore.snapshot.run
+                val totalPage          = (rowsSnapshot.size / pageSize.toDouble).ceil.toInt
+                val offset             = pageSize * (page - 1)
+                val rows               = rowsSnapshot.slice(offset, pageSize)
+                val hasNextPage        = if page < totalPage then true else frame.status == Run
+                val hasNextRowThisPage = if page < totalPage then false else frame.status == Run
+                succeed(SqlResultPageView(totalPage, page, hasNextPage, hasNextRowThisPage, PlainSqlRs(rs, rows))).run
+              }
+            }
+    }
+  } @@ annotated("sessionId" -> sessionId, "handleId" -> handleId)
+
+  /**
+   * Return sql results as row minimum timestamp offset.
+   */
+  override def retrieveResultOffset(handleId: HandleId, offset: Long, chunkSize: Int): IO[RetrieveResultNothing, SqlResultOffsetView] = {
+    handleStack.get.map(_.get(handleId)).flatMap {
+      case None        => fail(HandleNotFound(handleId))
+      case Some(frame) =>
+        frame.result match
+          case None                           => fail(ResultNotFound(handleId))
+          case Some(rs: PlainSqlRs)           => succeed(SqlResultOffsetView(rs.data.lastOption.map(_.nanoTs).getOrElse(curTs), false, rs))
+          case Some(rs: QuerySqlRsDescriptor) =>
+            defer {
+              val lastQueryHandleId = lastQueryRsStore.handleId.run
+              if lastQueryHandleId != rs.handleId then succeed(SqlResultOffsetView(PlainSqlRs(rs, List.empty))).run
               else {
                 val rowsSnapshot = lastQueryRsStore.snapshot.run
-                val totalPage    = (rowsSnapshot.size / pageSize.toDouble).ceil.toInt
-                val offset       = pageSize * (page - 1)
-                val rows         = rowsSnapshot.slice(offset, pageSize)
-                succeed(SqlResultPage(totalPage, page, pageSize, PlainSqlRs(rs, rows))).run
+                val rows         = rowsSnapshot.filter(_.nanoTs > offset).take(chunkSize)
+                succeed(
+                  SqlResultOffsetView(
+                    lastOffset = rows.lastOption.map(_.nanoTs).getOrElse(offset),
+                    hasNextRow = frame.status == Run,
+                    payload = PlainSqlRs(rs, rows)
+                  )).run
               }
             }
     }
