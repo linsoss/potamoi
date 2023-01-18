@@ -34,7 +34,7 @@ case class ShardManagerConf(
     persistRetryCount = persistRetryCount,
     rebalanceRate = rebalanceRate
   )
-  def toGrpcConfig: GrpcConfig = GrpcConfig(maxInboundMessageSize = grpcMaxInbound)
+  def toGrpcConfig: GrpcConfig       = GrpcConfig(maxInboundMessageSize = grpcMaxInbound)
 
 object ShardManagerConf:
   val test = ShardManagerConf()
@@ -59,7 +59,7 @@ case class ShardingConf(
     grpcMaxInbound: Int = 32 * 1024 * 1024)
     derives JsonCodec:
 
-  def toConfig: Config = Config(
+  def toConfig: Config         = Config(
     numberOfShards = numberOfShards,
     selfHost = selfHost,
     shardingPort = selfPort,
@@ -75,4 +75,4 @@ case class ShardingConf(
   def toGrpcConfig: GrpcConfig = GrpcConfig(maxInboundMessageSize = grpcMaxInbound)
 
 object ShardingConf:
-  val test = ShardingConf()
+  val test = ShardingConf(simulateRemotePods = true)
