@@ -7,8 +7,8 @@ import org.apache.flink.table.operations.{Operation, QueryOperation, SinkModifyO
 import org.apache.flink.table.operations.command.{AddJarOperation, ResetOperation, SetOperation}
 import org.apache.flink.table.types.logical.{LogicalTypeRoot, VarCharType}
 import org.apache.flink.types.RowKind
-import potamoi.collects.updateWith
 import potamoi.{collects, curTs, uuids}
+import potamoi.collects.updateWith
 import potamoi.flink.error.FlinkInterpErr.*
 import potamoi.flink.flinkRest
 import potamoi.flink.model.interact.HandleStatus.*
@@ -46,6 +46,10 @@ trait SerialSqlExecutor:
 
   def submitSql(sql: String, handleId: String = uuids.genUUID16): IO[ExecuteSqlErr, SqlResult]
   def submitSqlScript(sqlScript: String): IO[SplitSqlScriptErr, SqlScriptResult]
+
+  def submitSqlAsync(sql: String, handleId: String = uuids.genUUID16): UIO[Promise[ExecuteSqlErr, SqlResult]]
+  def submitSqlScriptAsync(sqlScript: String): IO[SplitSqlScriptErr, List[(ScripSqlSign, Promise[ExecuteSqlErr, SqlResult])]]
+
   def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[RetrieveResultNothing, SqlResultPageView]
   def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[RetrieveResultNothing, SqlResultOffsetView]
 
@@ -412,12 +416,15 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
    */
   override def submitSql(sql: String, handleId: String = uuids.genUUID16): IO[ExecuteSqlErr, SqlResult] = {
     for {
-      promise <- submitSqlInternal(sql, handleId)
+      promise <- submitSqlAsync(sql, handleId)
       reply   <- blocking(promise.await)
     } yield reply
   } @@ annotated("sessionId" -> sessionId)
 
-  private def submitSqlInternal(sql: String, handleId: String): UIO[Promise[ExecuteSqlErr, SqlResult]] = {
+  /**
+   * Submit sql statement.
+   */
+  override def submitSqlAsync(sql: HandleId, handleId: HandleId): UIO[Promise[ExecuteSqlErr, SqlResult]] = {
     for {
       promise <- Promise.make[ExecuteSqlErr, SqlResult]
       _       <- handleStack.update(_ += handleId -> HandleFrame(handleId, sql, status = Wait))
@@ -426,17 +433,29 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   } @@ annotated("handleId" -> handleId)
 
   /**
-   * Submit sql statement and
+   * Submit sql script and wait for the execution result.
    */
   override def submitSqlScript(sqlScript: HandleId): IO[SplitSqlScriptErr, SqlScriptResult] = {
     for {
-      sqls       <- FlinkSqlTool.splitSqlScript(sqlScript).mapError(SplitSqlScriptErr.apply)
-      sqlSigns    = sqls.map(sql => ScripSqlSign(uuids.genUUID16, sql))
-      promises   <- ZIO.foreach(sqlSigns)(sign => submitSqlInternal(sign.sql, sign.handleId))
+      asyncSigns <- submitSqlScriptAsync(sqlScript)
+      signs       = asyncSigns.map(_._1)
+      promises    = asyncSigns.map(_._2)
       watchStream = ZStream
                       .fromIterable(promises)
                       .mapZIO(promise => blocking(promise.await))
-    } yield SqlScriptResult(sqlSigns, watchStream)
+    } yield SqlScriptResult(signs, watchStream)
+  } @@ annotated("sessionId" -> sessionId)
+
+  /**
+   * Submit sql script.
+   */
+  override def submitSqlScriptAsync(sqlScript: HandleId): IO[SplitSqlScriptErr, List[(ScripSqlSign, Promise[ExecuteSqlErr, SqlResult])]] = {
+    for {
+      sqls     <- FlinkSqlTool.splitSqlScript(sqlScript).mapError(SplitSqlScriptErr.apply)
+      sqlSigns  = sqls.map(sql => ScripSqlSign(uuids.genUUID16, sql))
+      promises <- ZIO.foreach(sqlSigns)(sign => submitSqlAsync(sign.sql, sign.handleId))
+      rs        = sqlSigns.zip(promises).map { case (sign, promise) => sign -> promise }
+    } yield rs
   } @@ annotated("sessionId" -> sessionId)
 
   /**
