@@ -3,6 +3,7 @@ package potamoi.sharding
 import com.devsisters.shardcake.*
 import com.devsisters.shardcake.interfaces.*
 import potamoi.kubernetes.K8sConf
+import potamoi.sharding.store.StorageMemory
 import zio.*
 
 /**
@@ -11,13 +12,13 @@ import zio.*
 //noinspection DuplicatedCode
 object ShardManagers:
 
-  lazy val test = memStgLocalPod
-  lazy val live = redisStgK8sPod
+  lazy val test = memStoreLocalPod
+  lazy val live = redisStoreK8sPod
 
   /**
    * storage: memory, pod-health: local
    */
-  lazy val memStgLocalPod: ZLayer[ShardManagerConf, Throwable, ShardManager with ManagerConfig] = {
+  lazy val memStoreLocalPod: ZLayer[ShardManagerConf, Throwable, ShardManager with ManagerConfig] = {
     val managerConfig = ZLayer.service[ShardManagerConf].project(_.toManagerConfig)
     val grpcConfig    = ZLayer.service[ShardManagerConf].project(_.toGrpcConfig)
     val grpcPods      = grpcConfig >>> GrpcPods.live
@@ -29,7 +30,7 @@ object ShardManagers:
   /**
    * storage: redis, pod-health: local
    */
-  lazy val redisStgLocalPod: ZLayer[ShardManagerConf with ShardRedisStgConf, Throwable, ShardManager with ManagerConfig] = {
+  lazy val redisStoreLocalPod: ZLayer[ShardManagerConf with ShardRedisStgConf, Throwable, ShardManager with ManagerConfig] = {
     val managerConfig = ZLayer.service[ShardManagerConf].project(_.toManagerConfig)
     val grpcConfig    = ZLayer.service[ShardManagerConf].project(_.toGrpcConfig)
     val grpcPods      = grpcConfig >>> GrpcPods.live
@@ -41,7 +42,7 @@ object ShardManagers:
   /**
    * storage: redis, pod-health: k8s-api
    */
-  lazy val redisStgK8sPod: ZLayer[ShardManagerConf with ShardRedisStgConf with K8sConf, Throwable, ShardManager with ManagerConfig] = {
+  lazy val redisStoreK8sPod: ZLayer[ShardManagerConf with ShardRedisStgConf with K8sConf, Throwable, ShardManager with ManagerConfig] = {
     val managerConfig = ZLayer.service[ShardManagerConf].project(_.toManagerConfig)
     val grpcConfig    = ZLayer.service[ShardManagerConf].project(_.toGrpcConfig)
     val grpcPods      = grpcConfig >>> GrpcPods.live
@@ -56,22 +57,22 @@ object ShardManagers:
 //noinspection DuplicatedCode
 object Shardings:
 
-  lazy val test = memStg
-  lazy val live = redisStg
+  lazy val test = memStore
+  lazy val live = redisSore
 
-  lazy val memStg: ZLayer[ShardingConf, Throwable, Sharding] = {
+  lazy val memStore: ZLayer[ShardingConf, Throwable, Sharding] = {
     val config        = ZLayer.service[ShardingConf].project(_.toConfig)
     val grpcConfig    = ZLayer.service[ShardingConf].project(_.toGrpcConfig)
     val grpcPods      = grpcConfig >>> GrpcPods.live
     val managerClient = config >>> ShardManagerClient.liveWithSttp
     val serializer    = KryoSerialization.live
-    val storage       = Storage.memory
+    val storage       = managerClient >>> StorageMemory.live
     val sharding      = config ++ grpcPods ++ managerClient ++ storage ++ serializer >>> Sharding.live
     val grpcShardSvc  = config ++ sharding >>> GrpcShardingService.live
     sharding ++ grpcShardSvc
   }
 
-  lazy val redisStg: ZLayer[ShardingConf with ShardRedisStgConf, Throwable, Sharding] = {
+  lazy val redisSore: ZLayer[ShardingConf with ShardRedisStgConf, Throwable, Sharding] = {
     val config        = ZLayer.service[ShardingConf].project(_.toConfig)
     val grpcConfig    = ZLayer.service[ShardingConf].project(_.toGrpcConfig)
     val grpcPods      = grpcConfig >>> GrpcPods.live
