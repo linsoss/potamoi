@@ -19,7 +19,7 @@ class RpcClient[Msg](messenger: Messenger[Msg], retry: Option[Int]):
       .retryN(retry.getOrElse(1))
   }
 
-  def tell[Res](msg: Msg): UIO[Unit] = {
+  def tell(msg: Msg): UIO[Unit] = {
     Random.nextUUID.flatMap(uuid => messenger.sendDiscard(uuid.toString)(msg))
   }
 
