@@ -80,6 +80,7 @@ class TestTrackerManager extends AnyWordSpec:
     obr.manager.listTrackersStatus(3).runCollect.watchPretty
   }
 
+// @Ignore
 class TestFlinkRestEndpointQuery extends AnyWordSpec:
 
   "retrieve endpoint" in testing { obr =>
@@ -96,6 +97,7 @@ class TestFlinkRestEndpointQuery extends AnyWordSpec:
     obr.restEndpoint.get(fcid1).watchPretty
   }
 
+// @Ignore
 class TestFlinkClusterQuery extends AnyWordSpec:
 
   "view overview" in testing { obr =>
@@ -120,6 +122,7 @@ class TestFlinkClusterQuery extends AnyWordSpec:
     obr.cluster.tmMetrics.list(fcid1).watch
   }
 
+// @Ignore
 class TestFlinkJobQuery extends AnyWordSpec:
 
   "view job overview" in testing { obr =>
@@ -135,6 +138,7 @@ class TestFlinkJobQuery extends AnyWordSpec:
     obr.job.metrics.list(fcid1).watchPretty
   }
 
+// @Ignore
 class TestFlinkK8sRefQuery extends AnyWordSpec:
 
   "view K8sRefSnap" in testing { obr =>
