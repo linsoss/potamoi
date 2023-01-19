@@ -2,7 +2,7 @@ package potamoi.flink.operator
 
 import potamoi.flink.FlinkConf
 import potamoi.flink.observer.FlinkObserver
-import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.fs.{S3Conf, S3Operator}
 import potamoi.kubernetes.K8sOperator
 import zio.{ZIO, ZLayer}
@@ -24,7 +24,7 @@ object FlinkOperator {
       flinkConf     <- ZIO.service[FlinkConf]
       s3Conf        <- ZIO.service[S3Conf]
       flinkObserver <- ZIO.service[FlinkObserver]
-      snapStorage   <- ZIO.service[FlinkSnapshotStorage]
+      snapStorage   <- ZIO.service[FlinkDataStorage]
       s3Operator    <- ZIO.service[S3Operator]
       k8sOperator   <- ZIO.service[K8sOperator]
     } yield new FlinkOperator:

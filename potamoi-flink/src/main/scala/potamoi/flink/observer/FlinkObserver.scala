@@ -7,7 +7,7 @@ import potamoi.flink.{FlinkConf, FlinkErr, FlinkRestEndpointRetrieverLive}
 import potamoi.flink.model.{Fcid, Fjid, FlinkRestSvcEndpoint, FlinkSptTriggerStatus}
 import potamoi.flink.observer.query.*
 import potamoi.flink.observer.tracker.{TrackerManager, TrackManager}
-import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.kubernetes.K8sOperator
 import zio.{IO, URIO, ZIO, ZLayer}
@@ -28,11 +28,11 @@ trait FlinkObserver {
 
 object FlinkObserver {
 
-  val live: ZLayer[Sharding with FlinkSnapshotStorage with K8sOperator with FlinkConf, Nothing, FlinkObserver] = ZLayer {
+  val live: ZLayer[Sharding with FlinkDataStorage with K8sOperator with FlinkConf, Nothing, FlinkObserver] = ZLayer {
     for {
       flinkConf   <- ZIO.service[FlinkConf]
       k8sOperator <- ZIO.service[K8sOperator]
-      snapStorage <- ZIO.service[FlinkSnapshotStorage]
+      snapStorage <- ZIO.service[FlinkDataStorage]
       k8sClient   <- k8sOperator.client
       eptRetriever      = FlinkRestEndpointRetrieverLive(k8sClient)
       restEndpointQuery = FlinkRestEndpointQueryLive(snapStorage.restEndpoint, eptRetriever)

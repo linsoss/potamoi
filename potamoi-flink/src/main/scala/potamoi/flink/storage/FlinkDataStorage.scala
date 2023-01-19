@@ -7,16 +7,17 @@ import zio.{IO, ZLayer}
 import zio.stream.Stream
 
 /**
- * Flink snapshot information storage.
+ * Flink data storage.
  */
-trait FlinkSnapshotStorage:
-  self =>
+trait FlinkDataStorage:
+
   def trackedList: TrackedFcidStorage
   def restEndpoint: RestEndpointStorage
   def restProxy: RestProxyFcidStorage
   def cluster: ClusterSnapStorage
   def job: JobSnapStorage
   def k8sRef: K8sRefSnapStorage
+  def interactSession: InteractSessionStorage
 
   /**
    * Remove all current snapshot data belongs to Fcid.
@@ -29,11 +30,12 @@ trait FlinkSnapshotStorage:
     k8sRef.rmSnapData(fcid)
   }
 
-object FlinkSnapshotStorage:
+object FlinkDataStorage:
+
   lazy val test = memory
 
   // pure in local memory implementation
-  lazy val memory: ZLayer[Any, Nothing, FlinkSnapshotStorage] = ZLayer {
+  lazy val memory: ZLayer[Any, Nothing, FlinkDataStorage] = ZLayer {
     for {
       trackedLists  <- TrackedFcidMemoryStorage.instance
       restEndpoints <- RestEndpointMemoryStorage.instance
@@ -41,11 +43,13 @@ object FlinkSnapshotStorage:
       clusters      <- ClusterSnapMemoryStorage.instance
       jobs          <- JobSnapMemoryStorage.instance
       k8sRefs       <- K8sRefSnapMemoryStorage.instance
-    } yield new FlinkSnapshotStorage:
-      lazy val trackedList  = trackedLists
-      lazy val restEndpoint = restEndpoints
-      lazy val restProxy    = restProxies
-      lazy val cluster      = clusters
-      lazy val job          = jobs
-      lazy val k8sRef       = k8sRefs
+      interactSess  <- InteractSessionMemoryStorage.instance
+    } yield new FlinkDataStorage:
+      lazy val trackedList     = trackedLists
+      lazy val restEndpoint    = restEndpoints
+      lazy val restProxy       = restProxies
+      lazy val cluster         = clusters
+      lazy val job             = jobs
+      lazy val k8sRef          = k8sRefs
+      lazy val interactSession = interactSess
   }

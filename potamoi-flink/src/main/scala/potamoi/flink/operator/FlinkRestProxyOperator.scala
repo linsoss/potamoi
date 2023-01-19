@@ -2,7 +2,7 @@ package potamoi.flink.operator
 
 import potamoi.flink.{DataStoreErr, FlinkErr}
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
-import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.flink.FlinkErr.ClusterIsNotYetTracked
 import zio.{IO, ZIO}
 import zio.stream.Stream
@@ -36,7 +36,7 @@ trait FlinkRestProxyOperator {
 /**
  * Default implementation.
  */
-class FlinkRestProxyOperatorLive(snapStg: FlinkSnapshotStorage) extends FlinkRestProxyOperator {
+class FlinkRestProxyOperatorLive(snapStg: FlinkDataStorage) extends FlinkRestProxyOperator {
 
 
   // local cache

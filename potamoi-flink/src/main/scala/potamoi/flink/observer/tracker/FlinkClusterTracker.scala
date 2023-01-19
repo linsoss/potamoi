@@ -4,12 +4,12 @@ import com.devsisters.shardcake.*
 import potamoi.flink.{flinkRest, FlinkConf, FlinkRestEndpointRetriever, FlinkRestEndpointType}
 import potamoi.flink.model.*
 import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExecModeKey}
-import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.flink.FlinkErr.ClusterNotFound
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.syntax.toPrettyStr
 import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
-import zio.{Ref, *}
+import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced}
 import zio.ZIO.{logErrorCause, logInfo}
@@ -60,7 +60,7 @@ object FlinkClusterTracker {
       } yield TrackerState(isStarted, launchFiberRef, trackTaskFibersRef, flinkEptCache)
 }
 
-class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkSnapshotStorage, eptRetriever: FlinkRestEndpointRetriever) {
+class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, eptRetriever: FlinkRestEndpointRetriever) {
 
   import FlinkClusterTracker.*
   private given FlinkRestEndpointType  = flinkConf.restEndpointTypeInternal

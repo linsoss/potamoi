@@ -3,7 +3,7 @@ package potamoi.flink.observer.tracker
 import com.devsisters.shardcake.{Messenger, Sharding}
 import potamoi.flink.{DataStoreErr, FlinkConf, FlinkErr, FlinkRestEndpointRetriever}
 import potamoi.flink.model.Fcid
-import potamoi.flink.storage.{FlinkSnapshotStorage, TrackedFcidStorage}
+import potamoi.flink.storage.{FlinkDataStorage, TrackedFcidStorage}
 import potamoi.flink.FlinkErr.FailToConnectShardEntity
 import potamoi.kubernetes.K8sOperator
 import potamoi.sharding.ShardRegister
@@ -55,10 +55,10 @@ private val K8sRefTrk  = FlinkK8sRefTracker
 
 object TrackerManager {
   def instance(
-      flinkConf: FlinkConf,
-      snapStorage: FlinkSnapshotStorage,
-      eptRetriever: FlinkRestEndpointRetriever,
-      k8sOperator: K8sOperator): URIO[Sharding, TrackManagerLive] =
+                flinkConf: FlinkConf,
+                snapStorage: FlinkDataStorage,
+                eptRetriever: FlinkRestEndpointRetriever,
+                k8sOperator: K8sOperator): URIO[Sharding, TrackManagerLive] =
     for {
       _ <- ZIO.unit
       clusterTracker = FlinkClusterTracker(flinkConf, snapStorage, eptRetriever)
@@ -72,11 +72,11 @@ object TrackerManager {
  * Default implementation.
  */
 class TrackManagerLive(
-    snapStorage: FlinkSnapshotStorage,
-    clusterTracker: FlinkClusterTracker,
-    k8sRefTracker: FlinkK8sRefTracker,
-    clusterTrkEnvelope: Messenger[ClusterTrk.Cmd],
-    k8sRefTrkEnvelope: Messenger[K8sRefTrk.Cmd])
+                        snapStorage: FlinkDataStorage,
+                        clusterTracker: FlinkClusterTracker,
+                        k8sRefTracker: FlinkK8sRefTracker,
+                        clusterTrkEnvelope: Messenger[ClusterTrk.Cmd],
+                        k8sRefTrkEnvelope: Messenger[K8sRefTrk.Cmd])
     extends TrackManager {
 
   override private[potamoi] def registerEntities: URIO[Sharding with Scope, Unit] = {

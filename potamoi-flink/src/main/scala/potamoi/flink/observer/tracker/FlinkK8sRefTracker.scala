@@ -7,7 +7,7 @@ import potamoi.common.Syntax.toPrettyString
 import potamoi.flink.FlinkConf
 import potamoi.flink.model.{Fcid, FlinkK8sPodMetrics, FlinkK8sServiceSnap, FlinkRestSvcEndpoint}
 import potamoi.flink.observer.tracker.K8sEntityConverter.*
-import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.{K8sClient, K8sOperator}
 import potamoi.kubernetes.K8sErr.PodNotFound
 import potamoi.syntax.valueToSome
@@ -51,7 +51,7 @@ object FlinkK8sRefTracker {
       } yield TrackerState(isStarted, trackTaskFibersRef)
 }
 
-class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkSnapshotStorage, k8sOperator: K8sOperator) {
+class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sOperator: K8sOperator) {
 
   import FlinkK8sRefTracker.*
   private val watchEffectRecoverInterval = 1.seconds
