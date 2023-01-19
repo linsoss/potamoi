@@ -5,15 +5,9 @@ import potamoi.fs.{S3AccessStyle, S3Conf}
 import potamoi.kubernetes.K8sConf
 import zio.{durationInt, IO, ZIO}
 import zio.Schedule.spaced
+import zio.stream.ZStream
 
 package object flink:
-
-  extension [E, A](io: IO[E, A]) {
-    def watch: IO[E, Unit]                       = io.debug.repeat(spaced(1.seconds)).unit
-    def watchTag(tag: String): IO[E, Unit]       = io.debug(tag).repeat(spaced(1.seconds)).unit
-    def watchPretty: IO[E, Unit]                 = io.map(toPrettyString(_)).debug.repeat(spaced(1.seconds)).unit
-    def watchPrettyTag(tag: String): IO[E, Unit] = io.map(toPrettyString(_)).debug(tag).repeat(spaced(1.seconds)).unit
-  }
 
   val FlinkConfTest = FlinkConf.test.resolve("var/potamoi")
 

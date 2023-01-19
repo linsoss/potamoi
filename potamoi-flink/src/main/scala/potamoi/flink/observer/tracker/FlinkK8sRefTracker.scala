@@ -24,19 +24,36 @@ import scala.collection.mutable
  * Flink kubernetes ref resource snapshot tracker.
  */
 object FlinkK8sRefTracker {
+
+  object Entity extends EntityType[Cmd]("flinkK8sRefTracker")
+
   sealed trait Cmd
   case class Start(replier: Replier[Ack.type])    extends Cmd
   case class Stop(replier: Replier[Ack.type])     extends Cmd
   case object Terminate                           extends Cmd
   case class IsStarted(replier: Replier[Boolean]) extends Cmd
 
-  object Entity extends EntityType[Cmd]("flinkK8sRefTracker")
+  // noinspection DuplicatedCode
+  private case class TrackerState(isStarted: Ref[Boolean], trackTaskFibersRef: Ref[Set[Fiber.Runtime[_, _]]]):
+    def reset: UIO[Unit] =
+      for {
+        _ <- trackTaskFibersRef.getAndSet(Set.empty).flatMap { fibers =>
+               ZIO.foreachPar(fibers)(_.interrupt)
+             }
+        _ <- isStarted.set(false)
+      } yield ()
+
+  private object TrackerState:
+    def make: UIO[TrackerState] =
+      for {
+        isStarted          <- Ref.make[Boolean](false)
+        trackTaskFibersRef <- Ref.make[Set[Fiber.Runtime[_, _]]](Set.empty)
+      } yield TrackerState(isStarted, trackTaskFibersRef)
 }
 
-class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8sOperator: K8sOperator) {
-  import FlinkK8sRefTracker.*
+class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkSnapshotStorage, k8sOperator: K8sOperator) {
 
-  private type TrackTaskFiber = Fiber.Runtime[Nothing, Unit]
+  import FlinkK8sRefTracker.*
   private val watchEffectRecoverInterval = 1.seconds
   private val watchEffectClock           = ZLayer.succeed(Clock.ClockLive)
 
@@ -45,175 +62,53 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
    */
   def behavior(entityId: String, messages: Dequeue[Cmd]): RIO[Sharding with Scope, Nothing] =
     for {
-      isStarted         <- Ref.make(false)
-      trackTaskFiberRef <- Ref.make(mutable.Set.empty[TrackTaskFiber])
       fcid   <- ZIO.attempt(unmarshallFcid(entityId)).tapErrorCause(cause => ZIO.logErrorCause(s"Fail to unmarshall Fcid: entityId", cause))
-      effect <- messages.take.flatMap(handleMessage(fcid, _, isStarted, trackTaskFiberRef)).forever
+      state  <- TrackerState.make
+      // start tracking automatically if needs.
+      _      <- snapStore.trackedList
+                  .exists(fcid)
+                  .catchAll(_ => ZIO.succeed(false))
+                  .flatMap { shouldAutoStart =>
+                    if shouldAutoStart then start(fcid, state) else ZIO.unit
+                  }
+                  .forkScoped
+      effect <- messages.take.flatMap(handleMessage(fcid, _, state)).forever
     } yield effect
 
-  private def handleMessage(
-      fcid: Fcid,
-      message: Cmd,
-      isStarted: Ref[Boolean],
-      trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]): RIO[Sharding with Scope, Unit] = {
+  private def handleMessage(fcid: Fcid, message: Cmd, state: TrackerState): RIO[Sharding with Scope, Unit] = {
     message match {
-      case Start(replier) =>
-        isStarted.get.flatMap {
-          case true => ZIO.unit
-          case false =>
-            for {
-              _                   <- logInfo(s"Flink k8s refs tracker started: ${fcid.show}")
-              _                   <- clearTrackTaskFibers(trackTaskFiberRef)
-              watchDeployFiber    <- watchDeployments(fcid).forkScoped
-              watchSvcFiber       <- watchServices(fcid).forkScoped
-              watchPodFiber       <- watchPods(fcid).forkScoped
-              watchConfigmapFiber <- watchConfigmapNames(fcid).forkScoped
-              pollPodMetricsFiber <- pollPodMetrics(fcid).forkScoped
-              _ <- trackTaskFiberRef.update(_ ++= Set(watchDeployFiber, watchSvcFiber, watchPodFiber, watchConfigmapFiber, pollPodMetricsFiber))
-              _ <- isStarted.set(true)
-              _ <- replier.reply(Ack)
-            } yield ()
-        }
-      case Stop(replier) =>
-        logInfo(s"Flink k8s refs tracker stopped: ${fcid.show}") *>
-        stop(isStarted, trackTaskFiberRef) *>
-        replier.reply(Ack)
-
-      case Terminate =>
-        logInfo(s"Flink k8s refs tracker terminated: ${fcid.show}") *>
-        stop(isStarted, trackTaskFiberRef)
-
-      case IsStarted(replier) => isStarted.get.flatMap(replier.reply)
+      case Start(replier)     => start(fcid, state) *> replier.reply(Ack)
+      case Stop(replier)      => logInfo(s"Flink k8s refs tracker stopped: ${fcid.show}") *> state.reset *> replier.reply(Ack)
+      case Terminate          => logInfo(s"Flink k8s refs tracker terminated: ${fcid.show}") *> state.reset
+      case IsStarted(replier) => state.isStarted.get.flatMap(replier.reply)
     }
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
-  // noinspection DuplicatedCode
-  private def clearTrackTaskFibers(pollFibers: Ref[mutable.Set[TrackTaskFiber]]) =
-    for {
-      fibers <- pollFibers.get
-      _      <- ZIO.foreachDiscard(fibers)(_.interrupt)
-      _      <- pollFibers.set(mutable.Set.empty)
-    } yield ()
-
-  private def stop(isStarted: Ref[Boolean], trackTaskFiberRef: Ref[mutable.Set[TrackTaskFiber]]) = {
-    clearTrackTaskFibers(trackTaskFiberRef) *>
-    isStarted.set(false)
+  private def start(fcid: Fcid, state: TrackerState) = {
+    state.isStarted.get.flatMap {
+      case true  => ZIO.unit
+      case false =>
+        for {
+          _                   <- logInfo(s"Flink k8s refs tracker started: ${fcid.show}")
+          _                   <- state.reset
+          watchDeployFiber    <- watchDeployments(fcid).forkScoped
+          watchSvcFiber       <- watchServices(fcid).forkScoped
+          watchPodFiber       <- watchPods(fcid).forkScoped
+          watchConfigmapFiber <- watchConfigmapNames(fcid).forkScoped
+          pollPodMetricsFiber <- pollPodMetrics(fcid).forkScoped
+          _                   <- state.trackTaskFibersRef.set(Set(watchDeployFiber, watchSvcFiber, watchPodFiber, watchConfigmapFiber, pollPodMetricsFiber))
+          _                   <- state.isStarted.set(true)
+        } yield ()
+    }
   }
 
   private def appSelector(fcid: Fcid) = label("app") === fcid.clusterId && label("type") === "flink-native-kubernetes"
 
   /**
-   * Watch k8s deployments api.
-   */
-  def watchDeployments(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
-    client.deployments
-      .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
-      .runForeach {
-        case Reseted()        => snapStg.k8sRef.deployment.rm(fcid)
-        case Added(deploy)    => toDeploymentSnap(deploy).flatMap(snapStg.k8sRef.deployment.put)
-        case Modified(deploy) => toDeploymentSnap(deploy).flatMap(snapStg.k8sRef.deployment.put)
-        case Deleted(deploy)  => toDeploymentSnap(deploy).flatMap(e => snapStg.k8sRef.deployment.rm(e.fcid, e.name))
-      }
-      .autoRetry
-  }
-
-  /**
-   * Watch k8s services api.
-   */
-  def watchServices(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
-    client.services
-      .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
-      .runForeach {
-        case Reseted()     => snapStg.k8sRef.service.rm(fcid)
-        case Added(svc)    => toServiceSnap(svc).flatMap(e => snapStg.k8sRef.service.put(e) <&> saveRestEndpoint(e))
-        case Modified(svc) => toServiceSnap(svc).flatMap(e => snapStg.k8sRef.service.put(e) <&> saveRestEndpoint(e))
-        case Deleted(svc)  => toServiceSnap(svc).flatMap(e => snapStg.k8sRef.service.rm(e.fcid, e.name) <&> rmRestEndpoint(e))
-      }
-      .autoRetry
-  }
-
-  private def saveRestEndpoint(svc: FlinkK8sServiceSnap) =
-    ZIO
-      .succeed(svc)
-      .flatMap { e =>
-        FlinkRestSvcEndpoint.of(e) match
-          case None      => ZIO.unit
-          case Some(ept) => snapStg.restEndpoint.put(e.fcid, ept)
-      }
-      .unit
-      .when(svc.isFlinkRestSvc)
-
-  private def rmRestEndpoint(svc: FlinkK8sServiceSnap) = snapStg.restEndpoint.rm(svc.fcid).when(svc.isFlinkRestSvc)
-
-  /**
-   * Watch k8s pods api.
-   */
-  def watchPods(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
-    client.pods
-      .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
-      .runForeach {
-        case Reseted()     => snapStg.k8sRef.pod.rm(fcid)
-        case Added(pod)    => toPodSnap(pod).flatMap(snapStg.k8sRef.pod.put)
-        case Modified(pod) => toPodSnap(pod).flatMap(snapStg.k8sRef.pod.put)
-        case Deleted(pod)  => toPodSnap(pod).flatMap(e => snapStg.k8sRef.pod.rm(e.fcid, e.name))
-      }
-      .autoRetry
-  }
-
-  /**
-   * Watch k8s configmap api.
-   */
-  def watchConfigmapNames(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
-    client.configMaps
-      .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
-      .runForeach {
-        case Reseted()           => snapStg.k8sRef.configmap.rm(fcid)
-        case Added(configMap)    => configMap.getName.flatMap(snapStg.k8sRef.configmap.put(fcid, _))
-        case Modified(configMap) => configMap.getName.flatMap(snapStg.k8sRef.configmap.put(fcid, _))
-        case Deleted(configMap)  => configMap.getName.flatMap(snapStg.k8sRef.configmap.rm(fcid, _))
-      }
-      .autoRetry
-  }
-
-  /**
-   * Poll k8s pod metrics api.
-   */
-  def pollPodMetrics(fcid: Fcid): UIO[Unit] = {
-
-    def watchPodNames(podNames: Ref[mutable.HashSet[String]]) = k8sOperator.client.flatMap { client =>
-      client.pods
-        .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
-        .runForeach {
-          case Reseted()     => podNames.set(mutable.HashSet.empty) *> snapStg.k8sRef.podMetrics.rm(fcid).ignore
-          case Added(pod)    => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ += n))
-          case Modified(pod) => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ += n))
-          case Deleted(pod)  => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ -= n) *> snapStg.k8sRef.podMetrics.rm(fcid, n))
-        }
-        .autoRetry
-    }
-
-    def pollingMetricsApi(podNames: Ref[mutable.HashSet[String]]) = ZStream
-      .fromIterableZIO(podNames.get)
-      .mapZIOParUnordered(5) { name =>
-        k8sOperator
-          .getPodMetrics(name, fcid.namespace)
-          .map(metrics => Some(FlinkK8sPodMetrics(fcid.clusterId, fcid.namespace, name, metrics.copy())))
-          .catchSome { case PodNotFound(_, _) => ZIO.succeed(None) }
-      }
-      .runForeach(m => snapStg.k8sRef.podMetrics.put(m.get).when(m.isDefined))
-
-    for {
-      podNames <- Ref.make(mutable.HashSet.empty[String])
-      _        <- watchPodNames(podNames).fork
-      pollProc <- loopTrigger(flinkConf.tracking.k8sPodMetricsPolling, pollingMetricsApi(podNames))(using flinkConf.tracking.logTrackersFailedInfo)
-    } yield pollProc
-  }
-
-  /**
    * Auto retry k8s watching effect when it fails, and log the first different error.
    */
   extension [E](k8sWatchEffect: ZIO[Clock, E, Unit])
-    def autoRetry: UIO[Unit] = Ref.make[Option[E]](None).flatMap { errState =>
+    inline def autoRetry: UIO[Unit] = Ref.make[Option[E]](None).flatMap { errState =>
       k8sWatchEffect
         .tapError { err =>
           errState.get.flatMap { pre =>
@@ -227,5 +122,112 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStg: FlinkSnapshotStorage, k8
         .ignore
         .provide(watchEffectClock)
     }
+
+  /**
+   * Watch k8s deployments api.
+   */
+  def watchDeployments(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
+    client.deployments
+      .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
+      .runForeach {
+        case Reseted()        => snapStore.k8sRef.deployment.rm(fcid)
+        case Added(deploy)    => toDeploymentSnap(deploy).flatMap(snapStore.k8sRef.deployment.put)
+        case Modified(deploy) => toDeploymentSnap(deploy).flatMap(snapStore.k8sRef.deployment.put)
+        case Deleted(deploy)  => toDeploymentSnap(deploy).flatMap(e => snapStore.k8sRef.deployment.rm(e.fcid, e.name))
+      }
+      .autoRetry
+  }
+
+  /**
+   * Watch k8s services api.
+   */
+  def watchServices(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
+    client.services
+      .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
+      .runForeach {
+        case Reseted()     => snapStore.k8sRef.service.rm(fcid)
+        case Added(svc)    => toServiceSnap(svc).flatMap(e => snapStore.k8sRef.service.put(e) <&> saveRestEndpoint(e))
+        case Modified(svc) => toServiceSnap(svc).flatMap(e => snapStore.k8sRef.service.put(e) <&> saveRestEndpoint(e))
+        case Deleted(svc)  => toServiceSnap(svc).flatMap(e => snapStore.k8sRef.service.rm(e.fcid, e.name) <&> rmRestEndpoint(e))
+      }
+      .autoRetry
+  }
+
+  private def saveRestEndpoint(svc: FlinkK8sServiceSnap) =
+    ZIO
+      .succeed(svc)
+      .flatMap { e =>
+        FlinkRestSvcEndpoint.of(e) match
+          case None      => ZIO.unit
+          case Some(ept) => snapStore.restEndpoint.put(e.fcid, ept)
+      }
+      .unit
+      .when(svc.isFlinkRestSvc)
+
+  private def rmRestEndpoint(svc: FlinkK8sServiceSnap) = snapStore.restEndpoint.rm(svc.fcid).when(svc.isFlinkRestSvc)
+
+  /**
+   * Watch k8s pods api.
+   */
+  def watchPods(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
+    client.pods
+      .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
+      .runForeach {
+        case Reseted()     => snapStore.k8sRef.pod.rm(fcid)
+        case Added(pod)    => toPodSnap(pod).flatMap(snapStore.k8sRef.pod.put)
+        case Modified(pod) => toPodSnap(pod).flatMap(snapStore.k8sRef.pod.put)
+        case Deleted(pod)  => toPodSnap(pod).flatMap(e => snapStore.k8sRef.pod.rm(e.fcid, e.name))
+      }
+      .autoRetry
+  }
+
+  /**
+   * Watch k8s configmap api.
+   */
+  def watchConfigmapNames(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
+    client.configMaps
+      .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
+      .runForeach {
+        case Reseted()           => snapStore.k8sRef.configmap.rm(fcid)
+        case Added(configMap)    => configMap.getName.flatMap(snapStore.k8sRef.configmap.put(fcid, _))
+        case Modified(configMap) => configMap.getName.flatMap(snapStore.k8sRef.configmap.put(fcid, _))
+        case Deleted(configMap)  => configMap.getName.flatMap(snapStore.k8sRef.configmap.rm(fcid, _))
+      }
+      .autoRetry
+  }
+
+  /**
+   * Poll k8s pod metrics api.
+   */
+  def pollPodMetrics(fcid: Fcid): UIO[Unit] = {
+
+    def watchPodNames(podNames: Ref[mutable.HashSet[String]]) = k8sOperator.client.flatMap { client =>
+      client.pods
+        .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
+        .runForeach {
+          case Reseted()     => podNames.set(mutable.HashSet.empty) *> snapStore.k8sRef.podMetrics.rm(fcid).ignore
+          case Added(pod)    => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ += n))
+          case Modified(pod) => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ += n))
+          case Deleted(pod)  => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ -= n) *> snapStore.k8sRef.podMetrics.rm(fcid, n))
+        }
+        .autoRetry
+    }
+
+    def pollingMetricsApi(podNames: Ref[mutable.HashSet[String]]) = ZStream
+      .fromIterableZIO(podNames.get)
+      .mapZIOParUnordered(5) { name =>
+        k8sOperator
+          .getPodMetrics(name, fcid.namespace)
+          .map(metrics => Some(FlinkK8sPodMetrics(fcid.clusterId, fcid.namespace, name, metrics.copy())))
+          .catchSome { case PodNotFound(_, _) => ZIO.succeed(None) }
+      }
+      .runForeach(m => snapStore.k8sRef.podMetrics.put(m.get).when(m.isDefined))
+
+    for {
+      podNames <- Ref.make(mutable.HashSet.empty[String])
+      _        <- watchPodNames(podNames).fork
+      pollProc <- loopTrigger(flinkConf.tracking.k8sPodMetricsPolling, pollingMetricsApi(podNames))(using flinkConf.tracking.logTrackersFailedInfo)
+    } yield pollProc
+  }
 
 }

@@ -1,8 +1,10 @@
 package potamoi.flink.observer
 
 import com.devsisters.shardcake.Sharding
+import org.scalatest.wordspec.AnyWordSpec
 import potamoi.common.Syntax.toPrettyString
 import potamoi.PotaErr
+import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.model.FlK8sComponentName.jobmanager
@@ -17,7 +19,7 @@ import zio.{durationInt, IO, ZIO}
 import zio.Console.printLine
 import zio.Schedule.spaced
 
-object FlinkObserverTest {
+object FlinkObserverTest:
 
   def testing[E, A](effect: FlinkObserver => IO[E, A]): Unit = {
     val program = ZIO
@@ -27,7 +29,6 @@ object FlinkObserverTest {
         effect(obr)
       }
       .tapErrorCause(cause => ZIO.logErrorCause(cause))
-
     ZIO
       .scoped(program)
       .provide(
@@ -48,16 +49,16 @@ object FlinkObserverTest {
   val fcid1: Fcid = "app-t1"     -> "fdev"
   val fcid2: Fcid = "app-t2"     -> "fdev"
   val fcid3: Fcid = "session-01" -> "fdev"
-}
 
 import potamoi.flink.observer.FlinkObserver.*
 import potamoi.flink.observer.FlinkObserverTest.*
 
 // ------------------------------- test start -------------------------------------
 
-object TestTrackerManager:
+// @Ignore
+class TestTrackerManager extends AnyWordSpec:
 
-  @main def trackAndUnTrack = testing { obr =>
+  "track and untrack" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.manager.track(fcid2) *>
     obr.manager.isBeTracked(fcid1).map(println) *>
@@ -67,61 +68,61 @@ object TestTrackerManager:
     obr.manager.listTrackedClusters.runCollect.map(println)
   }
 
-  @main def viewTrackerStatus = testing { obr =>
+  "view tracker status" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.manager.getTrackersStatus(fcid1).watchPretty
   }
 
-  @main def streamViewTackerStatus = testing { obr =>
+  "watch tacker status" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.manager.track(fcid2) *>
     obr.manager.track(fcid3) *>
     obr.manager.listTrackersStatus(3).runCollect.watchPretty
   }
 
-object TestFlinkRestEndpointQuery:
+class TestFlinkRestEndpointQuery extends AnyWordSpec:
 
-  @main def testRetrieve = testing { obr =>
+  "retrieve endpoint" in testing { obr =>
     obr.restEndpoint.retrieve(fcid1).map(_.map(_.toPrettyStr)).debug
   }
 
-  @main def testGetEnsure = testing { obr =>
+  "getEnsure endpoint" in testing { obr =>
     obr.restEndpoint.getEnsure(fcid1).map(_.map(_.toPrettyStr)).debug *>
     obr.restEndpoint.getEnsure(fcid1).map(_.map(_.toPrettyStr)).debug
   }
 
-  @main def testGet = testing { obr =>
+  "get endpoint" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.restEndpoint.get(fcid1).watchPretty
   }
 
-object TestFlinkClusterQuery:
+class TestFlinkClusterQuery extends AnyWordSpec:
 
-  @main def testViewOverview = testing { obr =>
+  "view overview" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.cluster.overview.get(fcid1).watchPretty
   }
 
-  @main def testViewTmDetail = testing { obr =>
+  "view taskmanager detail" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.cluster.tmDetail.list(fcid1).watchPrettyTag("tm-detail").fork *>
     obr.cluster.tmDetail.listTmId(fcid1).watchPrettyTag("tm-id").fork *>
     ZIO.never
   }
 
-  @main def testViewJmMetrics = testing { obr =>
+  "view jobmanager metrics" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.cluster.jmMetrics.get(fcid1).watchPretty
   }
 
-  @main def testViewTmMetrics = testing { obr =>
+  "view taskmanager metrics" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.cluster.tmMetrics.list(fcid1).watch
   }
 
-object TestFlinkJobQuery:
+class TestFlinkJobQuery extends AnyWordSpec:
 
-  @main def testViewJobOverview = testing { obr =>
+  "view job overview" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.job.overview.list(fcid1).watchPrettyTag("overview").fork *>
     obr.job.overview.listJobId(fcid1).watchPrettyTag("job-id").fork *>
@@ -129,21 +130,21 @@ object TestFlinkJobQuery:
     ZIO.never
   }
 
-  @main def testViewJobMetrics = testing { obr =>
+  "view job metrics" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.job.metrics.list(fcid1).watchPretty
   }
 
-object TestFlinkK8sRefQuery:
+class TestFlinkK8sRefQuery extends AnyWordSpec:
 
-  @main def testViewRefSnap = testing { obr =>
+  "view K8sRefSnap" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.k8s.getRef(fcid1).watchPretty.fork *>
     obr.k8s.getRefSnap(fcid1).watchPretty.fork *>
     ZIO.never
   }
 
-  @main def testViewSpec = testing { obr =>
+  "view K8sSpec" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.k8s
       .getRef(fcid1)
@@ -158,16 +159,16 @@ object TestFlinkK8sRefQuery:
       }
   }
 
-  @main def testViewPodMetrics = testing { obr =>
+  "view PodMetrics" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.k8s.podMetrics.list(fcid1).watchPretty
   }
 
-  @main def testScanK8sNamespace = testing { obr =>
+  "scan K8s namespace" in testing { obr =>
     obr.k8s.scanK8sNamespace("fdev").runForeach(fcid => printLine(fcid.toPrettyStr)).ignore
   }
 
-  @main def testViewLog = testing { obr =>
+  "view k8s pod log" in testing { obr =>
     obr.manager.track(fcid1) *>
     obr.k8s.pod
       .list(fcid1)
