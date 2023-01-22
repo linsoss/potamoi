@@ -5,7 +5,7 @@ import org.apache.flink.table.api.ResultKind
 import org.apache.flink.table.types.logical.LogicalTypeRoot
 import org.apache.flink.types.RowKind
 import potamoi.{curNanoTs, curTs}
-import potamoi.flink.error.FlinkInterpErr.ExecOperationErr
+import potamoi.flink.FlinkInterpreterErr.ExecOperationErr
 import potamoi.syntax.toPrettyStr
 import zio.stream.Stream
 
@@ -38,8 +38,12 @@ case class QuerySqlRsDescriptor(
     columns: List[FieldMeta] = List.empty)
     extends SqlResultView
 
-object PlainSqlRs:
+object SqlResult:
+  def toView(rs: SqlResult): SqlResultView = rs match
+    case r: PlainSqlRs => r
+    case r: QuerySqlRs => QuerySqlRsDescriptor(r)
 
+object PlainSqlRs:
   def apply(rs: QuerySqlRsDescriptor, data: List[RowValue]): PlainSqlRs =
     PlainSqlRs(handleId = rs.handleId, kind = rs.kind, columns = rs.columns, data = data)
 
@@ -51,9 +55,11 @@ object PlainSqlRs:
   )
 
 object QuerySqlRs:
-
   def apply(rs: QuerySqlRsDescriptor, dataStream: Stream[ExecOperationErr, RowValue]): QuerySqlRs =
     QuerySqlRs(rs.handleId, rs.kind, rs.columns, dataStream)
+
+object QuerySqlRsDescriptor:
+  def apply(rs: QuerySqlRs): QuerySqlRsDescriptor = QuerySqlRsDescriptor(rs.handleId, rs.kind, rs.columns)
 
 /**
  * See [[org.apache.flink.table.catalog.Column]]

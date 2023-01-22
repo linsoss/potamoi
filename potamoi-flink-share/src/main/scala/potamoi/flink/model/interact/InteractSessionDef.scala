@@ -1,21 +1,16 @@
 package potamoi.flink.model.interact
 
-import potamoi.codecs
-import potamoi.common.ScalaVersion
-import potamoi.flink.model.{FlinkRuntimeMode, FlinkTargetType, InteractSupport}
-import potamoi.flink.model.interact.ResultDropStrategies.given
-import potamoi.flink.model.interact.ResultDropStrategy.*
-import potamoi.flink.model.FlinkRuntimeModes.given
-import potamoi.flink.model.InterpFlinkTargetTypes.given
-import zio.json.JsonCodec
+import potamoi.flink.model.{Fcid, FlinkRuntimeMode, FlinkTargetType, InteractSupport}
+import potamoi.flink.model.FlinkRuntimeMode.*
+import zio.ZIO
 
 /**
- * Behavior definition configuration for the flink sql executor.
+ * Behavior definition configuration for the flink interactive session.
  */
-case class SessionDef(
+case class InteractSessionDef(
     execType: FlinkTargetType with InteractSupport,
-    execMode: FlinkRuntimeMode = FlinkRuntimeMode.Streaming,
-    remoteEndpoint: Option[RemoteClusterEndpoint] = None,
+    execMode: FlinkRuntimeMode = Streaming,
+    remoteCluster: Option[Fcid] = None,
     jobName: Option[String] = None,
     localJars: List[String] = List.empty,
     clusterJars: List[String] = List.empty,
@@ -23,13 +18,12 @@ case class SessionDef(
     extraProps: Map[String, String] = Map.empty,
     resultStore: ResultStoreConf = ResultStoreConf(),
     allowSinkOperation: Boolean = false)
-    derives JsonCodec
 
-object SessionDef:
+object InteractSessionDef:
 
   /**
    * Local target plan.
-   * - remoteEndpoint is unnecessary;
+   * - remoteCluster is unnecessary;
    * - localJars should be equal to clusterJars;
    */
   def local(
@@ -39,8 +33,8 @@ object SessionDef:
       parallelism: Int = 1,
       extraProps: Map[String, String] = Map.empty,
       resultStore: ResultStoreConf = ResultStoreConf(),
-      allowSinkOperation: Boolean = false): SessionDef =
-    SessionDef(
+      allowSinkOperation: Boolean = false): InteractSessionDef =
+    InteractSessionDef(
       execType = FlinkTargetType.Local,
       execMode = execMode,
       jobName = jobName,
@@ -54,10 +48,10 @@ object SessionDef:
 
   /**
    * Remote target plan.
-   * - remoteEndpoint is required.
+   * - remoteCluster is required.
    */
   def remote(
-      endpoint: RemoteClusterEndpoint,
+      remoteCluster: Fcid,
       execMode: FlinkRuntimeMode = FlinkRuntimeMode.Streaming,
       jobName: Option[String] = None,
       localJars: List[String] = List.empty,
@@ -65,11 +59,11 @@ object SessionDef:
       parallelism: Int = 1,
       extraProps: Map[String, String] = Map.empty,
       resultStore: ResultStoreConf = ResultStoreConf(),
-      allowSinkOperation: Boolean = false): SessionDef =
-    SessionDef(
+      allowSinkOperation: Boolean = false): InteractSessionDef =
+    InteractSessionDef(
       execType = FlinkTargetType.Remote,
       execMode = execMode,
-      remoteEndpoint = Some(endpoint),
+      remoteCluster = Some(remoteCluster),
       jobName = jobName,
       localJars = localJars,
       clusterJars = clusterJars,
@@ -78,26 +72,3 @@ object SessionDef:
       resultStore = resultStore,
       allowSinkOperation = allowSinkOperation
     )
-
-  lazy val nonAllowedOverviewConfigKeys = Vector(
-    "execution.target",
-    "execution.attached",
-    "execution.shutdown-on-attached-exit",
-    "pipeline.jars"
-  )
-  def defaultJobName(sessionId: String) = s"potamoi-interp@$sessionId"
-
-case class RemoteClusterEndpoint(address: String, port: Int) derives JsonCodec
-
-object RemoteClusterEndpoint:
-  given Conversion[(String, Int), RemoteClusterEndpoint] = tuple => RemoteClusterEndpoint(tuple._1, tuple._2)
-
-case class ResultStoreConf(capacity: Int = 1024, dropStrategy: ResultDropStrategy = DropHead) derives JsonCodec:
-  lazy val limitless: Boolean = capacity < 0
-
-enum ResultDropStrategy:
-  case DropHead
-  case DropTail
-
-object ResultDropStrategies:
-  given JsonCodec[ResultDropStrategy] = codecs.simpleEnumJsonCodec(ResultDropStrategy.values)

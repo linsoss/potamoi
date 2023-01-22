@@ -1,6 +1,6 @@
 package potamoi.flink.operator.resolver
 
-import potamoi.flink.ResolveClusterDefErr.ResolveLogConfigErr
+import potamoi.flink.ResolveFlinkClusterDefErr.ResolveLogConfigErr
 import potamoi.fs.{lfs, LocalFsErr}
 import potamoi.fs.LocalFsErr.IOErr
 import zio.*

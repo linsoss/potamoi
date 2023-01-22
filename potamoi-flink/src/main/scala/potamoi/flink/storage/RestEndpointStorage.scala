@@ -1,6 +1,6 @@
 package potamoi.flink.storage
 
-import potamoi.flink.DataStoreErr
+import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import zio.IO
 import zio.stream.Stream
@@ -12,10 +12,10 @@ trait RestEndpointStorage extends RestEndpointStorage.Modify with RestEndpointSt
 
 object RestEndpointStorage {
   trait Modify:
-    def put(fcid: Fcid, endpoint: FlinkRestSvcEndpoint): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def put(fcid: Fcid, endpoint: FlinkRestSvcEndpoint): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   trait Query:
-    def get(fcid: Fcid): IO[DataStoreErr, Option[FlinkRestSvcEndpoint]]
-    def list: Stream[DataStoreErr, FlinkRestSvcEndpoint]
+    def get(fcid: Fcid): IO[FlinkDataStoreErr, Option[FlinkRestSvcEndpoint]]
+    def list: Stream[FlinkDataStoreErr, FlinkRestSvcEndpoint]
 }

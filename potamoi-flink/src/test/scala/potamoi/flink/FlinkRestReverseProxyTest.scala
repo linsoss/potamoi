@@ -4,7 +4,7 @@ import com.devsisters.shardcake
 import com.devsisters.shardcake.Sharding
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.FlinkOperator
-import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.fs.S3Operator
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.PotaLogger
@@ -38,7 +38,7 @@ object FlinkRestReverseProxyTestApp extends ZIOAppDefault:
       K8sConfTest.asLayer,
       S3Operator.live,
       K8sOperator.live,
-      FlinkSnapshotStorage.test,
+      FlinkDataStorage.test,
       ShardingConf.test.asLayer,
       Shardings.test,
       FlinkObserver.live,

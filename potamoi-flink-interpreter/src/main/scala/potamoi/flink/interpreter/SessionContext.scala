@@ -7,7 +7,7 @@ import org.apache.flink.table.api.internal.TableEnvironmentInternal
 import org.apache.flink.table.api.EnvironmentSettings
 import org.apache.flink.table.delegation.Parser
 import potamoi.flink.FlinkConfigurationTool.safeSet
-import potamoi.flink.error.FlinkInterpErr.CreateTableEnvironmentErr
+import potamoi.flink.FlinkInterpreterErr.CreateTableEnvironmentErr
 import potamoi.flink.model.interact.{RemoteClusterEndpoint, SessionDef}
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.{tap, toPrettyStr}

@@ -1,6 +1,6 @@
 package potamoi.flink.operator
 
-import potamoi.flink.{DataStoreErr, FlinkErr}
+import potamoi.flink.{FlinkDataStoreErr, FlinkErr}
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.flink.FlinkErr.ClusterIsNotYetTracked
@@ -40,17 +40,17 @@ class FlinkRestProxyOperatorLive(snapStg: FlinkDataStorage) extends FlinkRestPro
 
 
   // local cache
-  override def enable(fcid: Fcid): IO[ClusterIsNotYetTracked | DataStoreErr | FlinkErr, Unit] =
+  override def enable(fcid: Fcid): IO[ClusterIsNotYetTracked | FlinkDataStoreErr | FlinkErr, Unit] =
     snapStg.trackedList.exists(fcid).flatMap {
       case false => ZIO.fail(ClusterIsNotYetTracked(fcid))
       case true  => snapStg.restProxy.put(fcid)
     }
 
-  override def disable(fcid: Fcid): IO[DataStoreErr, Unit] = snapStg.restProxy.rm(fcid)
+  override def disable(fcid: Fcid): IO[FlinkDataStoreErr, Unit] = snapStg.restProxy.rm(fcid)
 
-  override def list: Stream[DataStoreErr, Fcid] = snapStg.restProxy.list
+  override def list: Stream[FlinkDataStoreErr, Fcid] = snapStg.restProxy.list
 
-  override def listReverseEndpoint: Stream[DataStoreErr, (Fcid, Option[FlinkRestSvcEndpoint])] =
+  override def listReverseEndpoint: Stream[FlinkDataStoreErr, (Fcid, Option[FlinkRestSvcEndpoint])] =
     snapStg.restProxy.list
       .mapZIO(fcid => snapStg.restEndpoint.get(fcid).map(fcid -> _))
 }

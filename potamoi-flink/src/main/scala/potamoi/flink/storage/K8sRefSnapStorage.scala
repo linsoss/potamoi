@@ -1,6 +1,6 @@
 package potamoi.flink.storage
 
-import potamoi.flink.{DataStoreErr, JobId}
+import potamoi.flink.{FlinkDataStoreErr, JobId}
 import potamoi.flink.model.*
 import zio.{IO, ZIO}
 import zio.stream.Stream
@@ -15,7 +15,7 @@ trait K8sRefSnapStorage:
   def podMetrics: K8sPodMetricsStorage
   def configmap: K8sConfigmapNamesStorage
 
-  def rmSnapData(fcid: Fcid): IO[DataStoreErr, Unit] = {
+  def rmSnapData(fcid: Fcid): IO[FlinkDataStoreErr, Unit] = {
     deployment.rm(fcid) <&>
     service.rm(fcid) <&>
     pod.rm(fcid) <&>
@@ -30,14 +30,14 @@ trait K8sDeploymentSnapStorage extends K8sDeploymentSnapStorage.Modify with K8sD
 
 object K8sDeploymentSnapStorage {
   trait Modify:
-    def put(snap: FlinkK8sDeploymentSnap): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid, deployName: String): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def put(snap: FlinkK8sDeploymentSnap): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid, deployName: String): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   trait Query:
-    def get(fcid: Fcid, deployName: String): IO[DataStoreErr, Option[FlinkK8sDeploymentSnap]]
-    def list(fcid: Fcid): IO[DataStoreErr, List[FlinkK8sDeploymentSnap]]
-    def listName(fcid: Fcid): IO[DataStoreErr, List[String]]
+    def get(fcid: Fcid, deployName: String): IO[FlinkDataStoreErr, Option[FlinkK8sDeploymentSnap]]
+    def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkK8sDeploymentSnap]]
+    def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]]
 }
 
 /**
@@ -47,14 +47,14 @@ trait K8sServiceSnapStorage extends K8sServiceSnapStorage.Modify with K8sService
 
 object K8sServiceSnapStorage {
   trait Modify:
-    def put(snap: FlinkK8sServiceSnap): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid, svcName: String): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def put(snap: FlinkK8sServiceSnap): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid, svcName: String): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   trait Query:
-    def get(fcid: Fcid, svcName: String): IO[DataStoreErr, Option[FlinkK8sServiceSnap]]
-    def list(fcid: Fcid): IO[DataStoreErr, List[FlinkK8sServiceSnap]]
-    def listName(fcid: Fcid): IO[DataStoreErr, List[String]]
+    def get(fcid: Fcid, svcName: String): IO[FlinkDataStoreErr, Option[FlinkK8sServiceSnap]]
+    def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkK8sServiceSnap]]
+    def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]]
 }
 
 /**
@@ -64,14 +64,14 @@ trait K8sPodSnapStorage extends K8sPodSnapStorage.Modify with K8sPodSnapStorage.
 
 object K8sPodSnapStorage {
   trait Modify:
-    def put(snap: FlinkK8sPodSnap): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid, podName: String): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def put(snap: FlinkK8sPodSnap): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid, podName: String): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   trait Query:
-    def get(fcid: Fcid, podName: String): IO[DataStoreErr, Option[FlinkK8sPodSnap]]
-    def list(fcid: Fcid): IO[DataStoreErr, List[FlinkK8sPodSnap]]
-    def listName(fcid: Fcid): IO[DataStoreErr, List[String]]
+    def get(fcid: Fcid, podName: String): IO[FlinkDataStoreErr, Option[FlinkK8sPodSnap]]
+    def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkK8sPodSnap]]
+    def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]]
 }
 
 /**
@@ -81,14 +81,14 @@ trait K8sPodMetricsStorage extends K8sPodMetricsStorage.Modify with K8sPodMetric
 
 object K8sPodMetricsStorage {
   trait Modify:
-    def put(snap: FlinkK8sPodMetrics): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid, podName: String): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def put(snap: FlinkK8sPodMetrics): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid, podName: String): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   trait Query:
-    def get(fcid: Fcid, podName: String): IO[DataStoreErr, Option[FlinkK8sPodMetrics]]
-    def list(fcid: Fcid): IO[DataStoreErr, List[FlinkK8sPodMetrics]]
-    def listName(fcid: Fcid): IO[DataStoreErr, List[String]]
+    def get(fcid: Fcid, podName: String): IO[FlinkDataStoreErr, Option[FlinkK8sPodMetrics]]
+    def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkK8sPodMetrics]]
+    def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]]
 }
 
 /**
@@ -98,10 +98,10 @@ trait K8sConfigmapNamesStorage extends K8sConfigmapNamesStorage.Modify with K8sC
 
 object K8sConfigmapNamesStorage {
   trait Modify:
-    def put(fcid: Fcid, configmapName: String): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid, configmapName: String): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def put(fcid: Fcid, configmapName: String): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid, configmapName: String): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   trait Query:
-    def listName(fcid: Fcid): IO[DataStoreErr, List[String]]
+    def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]]
 }

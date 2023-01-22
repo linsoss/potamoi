@@ -158,7 +158,7 @@ lazy val potaServer = (project in file("potamoi-server"))
   )
 
 lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
-  .dependsOn(potaCommon, potaFilesystem, potaKubernetes)
+  .dependsOn(potaCommon, potaFilesystem, potaKubernetes, potaCluster)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink-share",

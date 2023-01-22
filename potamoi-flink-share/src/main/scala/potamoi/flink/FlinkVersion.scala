@@ -6,6 +6,7 @@ import potamoi.common.ScalaVersions.given_JsonCodec_ScalaVersion
 import potamoi.flink.FlinkVersion.extractMajorVer
 import potamoi.flink.FlinkVersion
 import potamoi.syntax.contra
+import potamoi.codecs
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 /**
@@ -22,3 +23,13 @@ object FlinkVersion:
     if (part.length < 2) flinkVer
     else part(0) + "." + part(1)
   }
+
+/**
+ * Flink Major version.
+ */
+enum FlinkMajorVer(val value: String):
+  case V116 extends FlinkMajorVer("1.16")
+  case V115 extends FlinkMajorVer("1.15")
+
+object FlinkMajorVers:
+  given JsonCodec[FlinkMajorVer] = codecs.stringBasedJsonCodec(e => e.value, s => FlinkMajorVer.values.find(_.value == s))

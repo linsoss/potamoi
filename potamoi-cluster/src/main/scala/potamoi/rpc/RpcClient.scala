@@ -31,3 +31,8 @@ object Rpc:
       retry: Option[Int] = None): URIO[Sharding, RpcClient[Msg]] = {
     Sharding.messenger(entityType, callTimeout).map(messenger => RpcClient(messenger, retry))
   }
+
+  def narrowRpcErr[Res](sendMsgIO: Task[Res]): IO[RpcErr, Res] = sendMsgIO.mapError {
+    case err: SendTimeoutException[_] => RpcErr.CallRpcTimeout(err)
+    case err                          => RpcErr.CallRpcFailure(err)
+  }

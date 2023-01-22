@@ -89,7 +89,7 @@ class FlinkClusterUnifyOperatorLive(flinkConf: FlinkConf, k8sOperator: K8sOperat
   /**
    * Terminate the flink cluster and reclaim all associated k8s resources.
    */
-  override def killCluster(fcid: Fcid): IO[DataStoreErr | FailToConnectShardEntity | ClusterNotFound | K8sFailure | FlinkErr, Unit] = {
+  override def killCluster(fcid: Fcid): IO[FlinkDataStoreErr | FailToConnectShardEntity | ClusterNotFound | K8sFailure | FlinkErr, Unit] = {
     // untrack cluster
     observer.manager.untrack(fcid) *>
     // delete kubernetes resources
@@ -97,7 +97,7 @@ class FlinkClusterUnifyOperatorLive(flinkConf: FlinkConf, k8sOperator: K8sOperat
     logInfo(s"Delete flink cluster successfully.")
   } @@ annotated(fcid.toAnno: _*)
 
-  protected def internalKillCluster(fcid: Fcid, wait: Boolean): IO[DataStoreErr | FailToConnectShardEntity | ClusterNotFound | K8sFailure | FlinkErr, Unit] =
+  protected def internalKillCluster(fcid: Fcid, wait: Boolean): IO[FlinkDataStoreErr | FailToConnectShardEntity | ClusterNotFound | K8sFailure | FlinkErr, Unit] =
     k8sOperator.client.flatMap { client =>
       if (wait)
         client.deployments

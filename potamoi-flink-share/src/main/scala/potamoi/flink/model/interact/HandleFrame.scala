@@ -1,7 +1,7 @@
 package potamoi.flink.model.interact
 
 import potamoi.curTs
-import potamoi.flink.error.FlinkInterpErr
+import potamoi.flink.FlinkInterpreterErr
 import zio.Cause
 
 /**
@@ -16,7 +16,9 @@ case class HandleFrame(
     submitAt: Long = curTs,
     jobId: Option[String] = None,
     result: Option[SqlResultView] = None,
-    error: Option[Cause[FlinkInterpErr]] = None)
+    error: Option[HandleErr] = None)
+
+case class HandleErr(err: FlinkInterpreterErr, stack: String)
 
 case class HandleStatusView(handleId: String, status: HandleStatus, submitAt: Long)
 
@@ -26,3 +28,8 @@ enum HandleStatus:
   case Finish
   case Fail
   case Cancel
+
+object HandleStatuses:
+  import HandleStatus.*
+  private val endStatuses                  = Set(Finish, Fail, Cancel)
+  def isEnd(status: HandleStatus): Boolean = endStatuses.contains(status)

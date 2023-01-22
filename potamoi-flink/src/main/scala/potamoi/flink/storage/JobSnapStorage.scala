@@ -1,6 +1,6 @@
 package potamoi.flink.storage
 
-import potamoi.flink.{DataStoreErr, JobId}
+import potamoi.flink.{FlinkDataStoreErr, JobId}
 import potamoi.flink.model.*
 import zio.IO
 import zio.stream.Stream
@@ -12,7 +12,7 @@ trait JobSnapStorage:
   def overview: JobOverviewStorage
   def metrics: JobMetricsStorage
 
-  def rmSnapData(fcid: Fcid): IO[DataStoreErr, Unit] = {
+  def rmSnapData(fcid: Fcid): IO[FlinkDataStoreErr, Unit] = {
     overview.rm(fcid) <&>
     metrics.rm(fcid)
   }
@@ -24,21 +24,21 @@ trait JobOverviewStorage extends JobOverviewStorage.Modify with JobOverviewStora
 
 object JobOverviewStorage {
   trait Modify:
-    def put(ov: FlinkJobOverview): IO[DataStoreErr, Unit]
-    def putAll(ovs: List[FlinkJobOverview]): IO[DataStoreErr, Unit]
-    def rm(fjid: Fjid): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def put(ov: FlinkJobOverview): IO[FlinkDataStoreErr, Unit]
+    def putAll(ovs: List[FlinkJobOverview]): IO[FlinkDataStoreErr, Unit]
+    def rm(fjid: Fjid): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   trait Query:
-    def get(fjid: Fjid): IO[DataStoreErr, Option[FlinkJobOverview]]
-    def list(fcid: Fcid): IO[DataStoreErr, List[FlinkJobOverview]]
-    def listAll: Stream[DataStoreErr, FlinkJobOverview]
+    def get(fjid: Fjid): IO[FlinkDataStoreErr, Option[FlinkJobOverview]]
+    def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkJobOverview]]
+    def listAll: Stream[FlinkDataStoreErr, FlinkJobOverview]
 
-    def listJobId(fcid: Fcid): IO[DataStoreErr, List[Fjid]]
-    def listAllJobId: Stream[DataStoreErr, Fjid]
+    def listJobId(fcid: Fcid): IO[FlinkDataStoreErr, List[Fjid]]
+    def listAllJobId: Stream[FlinkDataStoreErr, Fjid]
 
-    def getJobState(fjid: Fjid): IO[DataStoreErr, Option[JobState]]
-    def listJobState(fcid: Fcid): IO[DataStoreErr, Map[JobId, JobState]]
+    def getJobState(fjid: Fjid): IO[FlinkDataStoreErr, Option[JobState]]
+    def listJobState(fcid: Fcid): IO[FlinkDataStoreErr, Map[JobId, JobState]]
 }
 
 /**
@@ -48,12 +48,12 @@ trait JobMetricsStorage extends JobMetricsStorage.Modify with JobMetricsStorage.
 
 object JobMetricsStorage {
   trait Modify:
-    def put(metric: FlinkJobMetrics): IO[DataStoreErr, Unit]
-    def rm(fjid: Fjid): IO[DataStoreErr, Unit]
-    def rm(fcid: Fcid): IO[DataStoreErr, Unit]
+    def put(metric: FlinkJobMetrics): IO[FlinkDataStoreErr, Unit]
+    def rm(fjid: Fjid): IO[FlinkDataStoreErr, Unit]
+    def rm(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   trait Query:
-    def get(fjid: Fjid): IO[DataStoreErr, Option[FlinkJobMetrics]]
-    def list(fcid: Fcid): IO[DataStoreErr, List[FlinkJobMetrics]]
-    def listJobId(fcid: Fcid): IO[DataStoreErr, List[Fjid]]
+    def get(fjid: Fjid): IO[FlinkDataStoreErr, Option[FlinkJobMetrics]]
+    def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkJobMetrics]]
+    def listJobId(fcid: Fcid): IO[FlinkDataStoreErr, List[Fjid]]
 }

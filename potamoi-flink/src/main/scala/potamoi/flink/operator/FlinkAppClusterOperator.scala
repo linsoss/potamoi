@@ -67,7 +67,7 @@ case class FlinkAppClusterOperatorLive(
    * Deploy Flink session cluster.
    */
 
-  override def deployCluster(clusterDef: FlinkAppClusterDef): IO[JobAlreadyExist | ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
+  override def deployCluster(clusterDef: FlinkAppClusterDef): IO[JobAlreadyExist | ResolveFlinkClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
     for {
       _ <- ensureRemoteEnvReady(clusterDef.fcid)
       _ <- internalDeployCluster(clusterDef)
@@ -101,7 +101,7 @@ case class FlinkAppClusterOperatorLive(
   }
 
   // noinspection DuplicatedCode
-  private def internalDeployCluster(clusterDef: FlinkAppClusterDef): IO[ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] =
+  private def internalDeployCluster(clusterDef: FlinkAppClusterDef): IO[ResolveFlinkClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] =
     for {
       clusterDef          <- ClusterDefResolver.application.revise(clusterDef)
       // resolve flink pod template and log config

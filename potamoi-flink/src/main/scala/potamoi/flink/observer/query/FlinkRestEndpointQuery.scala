@@ -1,6 +1,6 @@
 package potamoi.flink.observer.query
 
-import potamoi.flink.{DataStoreErr, FlinkErr, FlinkRestEndpointRetriever}
+import potamoi.flink.{FlinkDataStoreErr, FlinkErr, FlinkRestEndpointRetriever}
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.RestEndpointStorage
 import potamoi.flink.FlinkErr.K8sFailure
@@ -32,12 +32,12 @@ trait FlinkRestEndpointQuery extends RestEndpointStorage.Query {
  */
 case class FlinkRestEndpointQueryLive(storage: RestEndpointStorage, retriever: FlinkRestEndpointRetriever) extends FlinkRestEndpointQuery {
 
-  override def get(fcid: Fcid): IO[DataStoreErr, Option[FlinkRestSvcEndpoint]]             = storage.get(fcid)
-  override def list: Stream[DataStoreErr, FlinkRestSvcEndpoint]                            = storage.list
+  override def get(fcid: Fcid): IO[FlinkDataStoreErr, Option[FlinkRestSvcEndpoint]]             = storage.get(fcid)
+  override def list: Stream[FlinkDataStoreErr, FlinkRestSvcEndpoint]                            = storage.list
   override def retrieve(fcid: Fcid): IO[FlinkErr.K8sFailure, Option[FlinkRestSvcEndpoint]] =
     retriever.retrieve(fcid).mapError(FlinkErr.K8sFailure.apply)
 
-  override def getEnsure(fcid: Fcid): IO[FlinkErr.K8sFailure | DataStoreErr, Option[FlinkRestSvcEndpoint]] =
+  override def getEnsure(fcid: Fcid): IO[FlinkErr.K8sFailure | FlinkDataStoreErr, Option[FlinkRestSvcEndpoint]] =
     get(fcid)
       .flatMap {
         case Some(value) => ZIO.succeed(Some(value))

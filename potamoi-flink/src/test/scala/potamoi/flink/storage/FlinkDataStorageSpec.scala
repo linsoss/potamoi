@@ -5,16 +5,16 @@ import zio.{Scope, ZIO, ZLayer}
 import zio.test.*
 import zio.test.Assertion.*
 
-object FlinkSnapshotStorageSpec extends ZIOSpecDefault:
+object FlinkDataStorageSpec extends ZIOSpecDefault:
 
   val spec = suite("FlinkSnapshotStorage")(
     suite("storage interface")(
       test("call api normally") {
         for {
-          stg <- ZIO.service[FlinkSnapshotStorage]
+          stg <- ZIO.service[FlinkDataStorage]
           _   <- stg.trackedList.put(Fcid("a", "b"))
           r   <- stg.trackedList.exists(Fcid("a", "b"))
         } yield assertTrue(r)
       }
-    ).provide(FlinkSnapshotStorage.memory),
+    ).provide(FlinkDataStorage.memory),
   )

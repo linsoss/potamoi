@@ -9,7 +9,7 @@ import org.apache.flink.table.types.logical.{LogicalTypeRoot, VarCharType}
 import org.apache.flink.types.RowKind
 import potamoi.{collects, curTs, uuids}
 import potamoi.collects.updateWith
-import potamoi.flink.error.FlinkInterpErr.*
+import potamoi.flink.FlinkInterpreterErr.*
 import potamoi.flink.flinkRest
 import potamoi.flink.model.interact.HandleStatus.*
 import potamoi.flink.model.interact.ResultDropStrategy.*
@@ -35,11 +35,17 @@ import scala.jdk.OptionConverters.RichOptional
  * Flink sql executor based on client-side execution plan parsing.
  * It would execute all received statements serially.
  */
+object SerialSqlExecutor:
+  def create(sessionId: String, sessionDef: SessionDef, remoteFs: RemoteFsOperator): UIO[SerialSqlExecutor] =
+    ZIO.succeed(SerialSqlExecutorImpl(sessionId, sessionDef, remoteFs))
+
 trait SerialSqlExecutor:
 
   def start: URIO[Scope, Unit]
   def stop: UIO[Unit]
   def cancel: UIO[Unit]
+  def isStarted: UIO[Boolean]
+  def isBusy: UIO[Boolean]
 
   def completeSql(sql: String, position: Int): UIO[List[String]]
   def completeSql(sql: String): UIO[List[String]]
@@ -152,6 +158,9 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       }
   }
 
+  override def isStarted: UIO[Boolean] = handleWorkerFiber.get.map(_.isDefined)
+  override def isBusy: UIO[Boolean]    = curHandleFiber.get.map(_.isDefined)
+
   /**
    * Flink sql executor bound to a single thread.
    */
@@ -250,7 +259,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       .as(true)
       .catchAllCause { cause =>
         // mark status of frame to "Fail" when execution fails.
-        handleStack.updateWith(handleId, _.copy(status = Fail, error = Some(cause))) *>
+        handleStack.updateWith(handleId, _.copy(status = Fail, error = Some(HandleErr(cause.failures.head, cause.prettyPrint)))) *>
         promise.failCause(cause) *>
         succeed(false)
       }

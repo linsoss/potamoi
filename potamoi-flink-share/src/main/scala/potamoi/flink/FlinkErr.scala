@@ -2,12 +2,15 @@ package potamoi.flink
 
 import potamoi.PotaErr
 import potamoi.flink.model.*
+import potamoi.flink.FlinkInterpreterErr.{RetrieveResultNothing, SplitSqlScriptErr}
 import potamoi.kubernetes.K8sErr
+import potamoi.rpc.RpcErr
 
 import scala.concurrent.duration.Duration
 
 /**
  * Flink error.
+ * todo split into multi files ?
  */
 sealed trait FlinkErr extends PotaErr
 
@@ -27,31 +30,31 @@ object FlinkErr:
 /**
  * Resolve flink cluster definition error.
  */
-sealed trait ResolveClusterDefErr extends FlinkErr
+sealed trait ResolveFlinkClusterDefErr extends FlinkErr
 
-object ResolveClusterDefErr:
-  case class ReviseClusterDefErr(cause: Throwable)                    extends ResolveClusterDefErr
-  case class ConvertToFlinkRawConfigErr(cause: Throwable)             extends ResolveClusterDefErr
-  case class ResolveLogConfigErr(message: String, cause: Throwable)   extends ResolveClusterDefErr
-  case class ResolvePodTemplateErr(message: String, cause: Throwable) extends ResolveClusterDefErr
+object ResolveFlinkClusterDefErr:
+  case class ReviseClusterDefErr(cause: Throwable)                    extends ResolveFlinkClusterDefErr
+  case class ConvertToFlinkRawConfigErr(cause: Throwable)             extends ResolveFlinkClusterDefErr
+  case class ResolveLogConfigErr(message: String, cause: Throwable)   extends ResolveFlinkClusterDefErr
+  case class ResolvePodTemplateErr(message: String, cause: Throwable) extends ResolveFlinkClusterDefErr
 
 /**
  * Resolve flink job definition error.
  */
-sealed trait ResolveJobDefErr extends FlinkErr
+sealed trait ResolveFlinkJobDefErr extends FlinkErr
 
-object ResolveJobDefErr:
+object ResolveFlinkJobDefErr:
   case class NotSupportJobJarPath(path: String)                            extends FlinkErr
   case class DownloadRemoteJobJarErr(remotePath: String, cause: Throwable) extends FlinkErr
 
 /**
  * Flink snapshot data storage operation err.
  */
-sealed trait DataStoreErr extends FlinkErr
+sealed trait FlinkDataStoreErr extends FlinkErr
 
-object DataStoreErr:
-  case class ReadDataErr(cause: Throwable)   extends DataStoreErr
-  case class UpdateDataErr(cause: Throwable) extends DataStoreErr
+object FlinkDataStoreErr:
+  case class ReadDataErr(cause: Throwable)   extends FlinkDataStoreErr
+  case class UpdateDataErr(cause: Throwable) extends FlinkDataStoreErr
 
 /**
  * Flink rest api error
@@ -80,3 +83,35 @@ object FlinkK8sEntityConvertErr:
 /**
  * Flink interactive operation error.
  */
+sealed trait FlinkInteractErr extends FlinkErr
+
+object FlinkInteractErr:
+  sealed trait AttachSessionErr      extends FlinkInteractErr
+  sealed trait AttachHandleErr       extends FlinkInteractErr
+  sealed trait CreateSessionReqErr   extends FlinkInteractErr
+  sealed trait SubmitSqlScriptReqErr extends FlinkInteractErr
+
+  case class RpcFailure(cause: RpcErr)                                      extends AttachSessionErr with AttachHandleErr with CreateSessionReqErr with SubmitSqlScriptReqErr
+  case class SessionNotYetStarted(sessionId: String)                        extends AttachSessionErr with AttachHandleErr with SubmitSqlScriptReqErr
+  case class SessionHandleNotFound(sessionId: String, handleId: String)     extends AttachHandleErr with SubmitSqlScriptReqErr
+  case class ResolveFlinkClusterEndpointErr(fcid: Fcid, reason: FlinkErr)   extends CreateSessionReqErr
+  case class FailToSplitSqlScript(reason: SplitSqlScriptErr, stack: String) extends SubmitSqlScriptReqErr
+
+/**
+ * Flink sql interpreter error.
+ */
+sealed trait FlinkInterpreterErr extends PotaErr
+
+object FlinkInterpreterErr:
+  case class SplitSqlScriptErr(cause: Throwable) extends FlinkInterpreterErr
+
+  sealed trait RetrieveResultNothing          extends FlinkInterpreterErr
+  case class HandleNotFound(handleId: String) extends RetrieveResultNothing
+  case class ResultNotFound(handleId: String) extends RetrieveResultNothing
+
+  sealed trait ExecuteSqlErr                                       extends FlinkInterpreterErr
+  case class CreateTableEnvironmentErr(cause: Throwable)           extends ExecuteSqlErr
+  case class ParseSqlErr(sql: String, cause: Throwable)            extends ExecuteSqlErr
+  case class BannedOperation(opClzName: String)                    extends ExecuteSqlErr
+  case class ExecOperationErr(opClzName: String, cause: Throwable) extends ExecuteSqlErr
+  case class BeCancelled(handleId: String)                         extends ExecuteSqlErr

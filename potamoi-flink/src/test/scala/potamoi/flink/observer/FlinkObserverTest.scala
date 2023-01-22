@@ -8,7 +8,7 @@ import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.model.FlK8sComponentName.jobmanager
-import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.PotaLogger
 import potamoi.sharding.{LocalShardManager, ShardingConf, Shardings}
@@ -35,7 +35,7 @@ object FlinkObserverTest:
         FlinkConfTest.asLayer,
         K8sConfTest.asLayer,
         K8sOperator.live,
-        FlinkSnapshotStorage.test,
+        FlinkDataStorage.test,
         ShardingConf.test.asLayer,
         Shardings.test,
         FlinkObserver.live

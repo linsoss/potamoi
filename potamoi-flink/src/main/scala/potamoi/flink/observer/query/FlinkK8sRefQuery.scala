@@ -3,7 +3,7 @@ package potamoi.flink.observer.query
 import com.coralogix.zio.k8s.client.model.{label, K8sNamespace}
 import com.coralogix.zio.k8s.model.apps.v1.DeploymentSpec
 import com.coralogix.zio.k8s.model.core.v1.{PodSpec, ServiceSpec}
-import potamoi.flink.{DataStoreErr, FlinkErr}
+import potamoi.flink.{FlinkDataStoreErr, FlinkErr}
 import potamoi.flink.model.*
 import potamoi.flink.storage.*
 import potamoi.kubernetes.K8sErr.*
@@ -26,12 +26,12 @@ trait FlinkK8sRefQuery {
   /**
    * Get k8s resource ref of the specified fcid.
    */
-  def getRef(fcid: Fcid): IO[DataStoreErr, FlinkK8sRef]
+  def getRef(fcid: Fcid): IO[FlinkDataStoreErr, FlinkK8sRef]
 
   /**
    * Get k8s resource snapshot info of the specified fcid.
    */
-  def getRefSnap(fcid: Fcid): IO[DataStoreErr, FlinkK8sRefSnap]
+  def getRefSnap(fcid: Fcid): IO[FlinkDataStoreErr, FlinkK8sRefSnap]
 
   /**
    * Scan for potential flink clusters on the specified kubernetes namespace.
@@ -51,28 +51,28 @@ trait FlinkK8sRefQuery {
 }
 
 trait FlinkK8sDeploymentQuery(stg: K8sDeploymentSnapStorage) extends K8sDeploymentSnapStorage.Query {
-  override def get(fcid: Fcid, deployName: String): IO[DataStoreErr, Option[FlinkK8sDeploymentSnap]] = stg.get(fcid, deployName)
-  override def list(fcid: Fcid): IO[DataStoreErr, List[FlinkK8sDeploymentSnap]]                      = stg.list(fcid)
-  override def listName(fcid: Fcid): IO[DataStoreErr, List[String]]                                  = stg.listName(fcid)
+  override def get(fcid: Fcid, deployName: String): IO[FlinkDataStoreErr, Option[FlinkK8sDeploymentSnap]] = stg.get(fcid, deployName)
+  override def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkK8sDeploymentSnap]]                      = stg.list(fcid)
+  override def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]]                                  = stg.listName(fcid)
   def getSpec(fcid: Fcid, deployName: String): IO[RequestK8sApiErr, Option[DeploymentSpec]]
 }
 
 trait FlinkK8sServiceQuery(stg: K8sServiceSnapStorage) extends K8sServiceSnapStorage.Query {
-  override def get(fcid: Fcid, svcName: String): IO[DataStoreErr, Option[FlinkK8sServiceSnap]] = stg.get(fcid, svcName)
-  override def list(fcid: Fcid): IO[DataStoreErr, List[FlinkK8sServiceSnap]]                   = stg.list(fcid)
-  override def listName(fcid: Fcid): IO[DataStoreErr, List[String]]                            = stg.listName(fcid)
+  override def get(fcid: Fcid, svcName: String): IO[FlinkDataStoreErr, Option[FlinkK8sServiceSnap]] = stg.get(fcid, svcName)
+  override def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkK8sServiceSnap]]                   = stg.list(fcid)
+  override def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]]                            = stg.listName(fcid)
   def getSpec(fcid: Fcid, serviceName: String): IO[RequestK8sApiErr, Option[ServiceSpec]]
 }
 
 trait FlinkK8sPodQuery(stg: K8sPodSnapStorage) extends K8sPodSnapStorage.Query {
-  override def get(fcid: Fcid, podName: String): IO[DataStoreErr, Option[FlinkK8sPodSnap]] = stg.get(fcid, podName)
-  override def list(fcid: Fcid): IO[DataStoreErr, List[FlinkK8sPodSnap]]                   = stg.list(fcid)
-  override def listName(fcid: Fcid): IO[DataStoreErr, List[String]]                        = stg.listName(fcid)
+  override def get(fcid: Fcid, podName: String): IO[FlinkDataStoreErr, Option[FlinkK8sPodSnap]] = stg.get(fcid, podName)
+  override def list(fcid: Fcid): IO[FlinkDataStoreErr, List[FlinkK8sPodSnap]]                   = stg.list(fcid)
+  override def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]]                        = stg.listName(fcid)
   def getSpec(fcid: Fcid, podName: String): IO[RequestK8sApiErr, Option[PodSpec]]
 }
 
 trait FlinkConfigmapQuery(stg: K8sConfigmapNamesStorage) extends K8sConfigmapNamesStorage.Query {
-  override def listName(fcid: Fcid): IO[DataStoreErr, List[String]] = stg.listName(fcid)
+  override def listName(fcid: Fcid): IO[FlinkDataStoreErr, List[String]] = stg.listName(fcid)
   def getData(fcid: Fcid, configmapName: String): IO[RequestK8sApiErr, Map[String, String]]
 }
 
@@ -128,7 +128,7 @@ case class FlinkK8sRefQueryLive(storage: K8sRefSnapStorage, k8sOperator: K8sOper
           .map(name => Fcid(name.get, namespace))
       }
 
-  override def getRef(fcid: Fcid): IO[DataStoreErr, FlinkK8sRef] = {
+  override def getRef(fcid: Fcid): IO[FlinkDataStoreErr, FlinkK8sRef] = {
     deployment.listName(fcid) <&>
     service.listName(fcid) <&>
     pod.listName(fcid) <&>
@@ -137,7 +137,7 @@ case class FlinkK8sRefQueryLive(storage: K8sRefSnapStorage, k8sOperator: K8sOper
     FlinkK8sRef(fcid.clusterId, fcid.namespace, deploys, services, pods, configmaps)
   }
 
-  override def getRefSnap(fcid: Fcid): IO[DataStoreErr, FlinkK8sRefSnap] = {
+  override def getRefSnap(fcid: Fcid): IO[FlinkDataStoreErr, FlinkK8sRefSnap] = {
     deployment.list(fcid) <&>
     service.list(fcid) <&>
     pod.list(fcid)

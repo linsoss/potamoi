@@ -1,6 +1,6 @@
 package potamoi.flink.storage
 
-import potamoi.flink.DataStoreErr
+import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.*
 import potamoi.flink.storage.mem.*
 import zio.{IO, ZLayer}
@@ -17,12 +17,11 @@ trait FlinkDataStorage:
   def cluster: ClusterSnapStorage
   def job: JobSnapStorage
   def k8sRef: K8sRefSnapStorage
-  def interactSession: InteractSessionStorage
 
   /**
    * Remove all current snapshot data belongs to Fcid.
    */
-  def rmSnapData(fcid: Fcid): IO[DataStoreErr, Unit] = {
+  def rmSnapData(fcid: Fcid): IO[FlinkDataStoreErr, Unit] = {
     restEndpoint.rm(fcid) <&>
     restProxy.rm(fcid) <&>
     cluster.rmSnapData(fcid) <&>
@@ -43,13 +42,11 @@ object FlinkDataStorage:
       clusters      <- ClusterSnapMemoryStorage.instance
       jobs          <- JobSnapMemoryStorage.instance
       k8sRefs       <- K8sRefSnapMemoryStorage.instance
-      interactSess  <- InteractSessionMemoryStorage.instance
     } yield new FlinkDataStorage:
-      lazy val trackedList     = trackedLists
-      lazy val restEndpoint    = restEndpoints
-      lazy val restProxy       = restProxies
-      lazy val cluster         = clusters
-      lazy val job             = jobs
-      lazy val k8sRef          = k8sRefs
-      lazy val interactSession = interactSess
+      lazy val trackedList  = trackedLists
+      lazy val restEndpoint = restEndpoints
+      lazy val restProxy    = restProxies
+      lazy val cluster      = clusters
+      lazy val job          = jobs
+      lazy val k8sRef       = k8sRefs
   }

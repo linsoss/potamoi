@@ -6,7 +6,7 @@ import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExe
 import potamoi.flink.FlinkErr.{ClusterAlreadyExist, ClusterNotFound, SubmitFlinkClusterFail}
 import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.FlinkRestRequest.{RunJobReq, StopJobSptReq, TriggerSptReq}
-import potamoi.flink.ResolveJobDefErr.{DownloadRemoteJobJarErr, NotSupportJobJarPath}
+import potamoi.flink.ResolveFlinkJobDefErr.{DownloadRemoteJobJarErr, NotSupportJobJarPath}
 import potamoi.flink.model.*
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.resolver.{ClusterDefResolver, LogConfigResolver, PodTemplateResolver}
@@ -52,7 +52,7 @@ class FlinkSessClusterOperatorLive(
    * Deploy Flink session cluster.
    */
   override def deployCluster(
-      clusterDef: FlinkSessClusterDef): IO[ClusterAlreadyExist | ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
+      clusterDef: FlinkSessClusterDef): IO[ClusterAlreadyExist | ResolveFlinkClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] = {
     for {
       _ <- existRemoteCluster(clusterDef.fcid).flatMap(ZIO.fail(ClusterAlreadyExist(clusterDef.fcid)).when(_))
       _ <- internalDeployCluster(clusterDef)
@@ -62,7 +62,7 @@ class FlinkSessClusterOperatorLive(
   } @@ annotated(clusterDef.fcid.toAnno: _*)
 
   // noinspection DuplicatedCode
-  private def internalDeployCluster(clusterDef: FlinkSessClusterDef): IO[ResolveClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] =
+  private def internalDeployCluster(clusterDef: FlinkSessClusterDef): IO[ResolveFlinkClusterDefErr | SubmitFlinkClusterFail | FlinkErr, Unit] =
     for {
       clusterDef          <- ClusterDefResolver.session.revise(clusterDef)
       // resolve flink pod template and log config
@@ -101,7 +101,7 @@ class FlinkSessClusterOperatorLive(
   /**
    * Submit job to Flink session cluster.
    */
-  override def submitJob(jobDef: FlinkSessJobDef): IO[ClusterNotFound | ResolveJobDefErr | FlinkRestErr | FlinkErr, JobId] = {
+  override def submitJob(jobDef: FlinkSessJobDef): IO[ClusterNotFound | ResolveFlinkJobDefErr | FlinkRestErr | FlinkErr, JobId] = {
     for {
       // get rest api url of session cluster
       restUrl <- observer.restEndpoint.getEnsure(jobDef.fcid).someOrFail(ClusterNotFound(jobDef.fcid)).map(_.chooseUrl)

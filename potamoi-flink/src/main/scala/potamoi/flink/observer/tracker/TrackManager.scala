@@ -1,7 +1,7 @@
 package potamoi.flink.observer.tracker
 
 import com.devsisters.shardcake.{Messenger, Sharding}
-import potamoi.flink.{DataStoreErr, FlinkConf, FlinkErr, FlinkRestEndpointRetriever}
+import potamoi.flink.{FlinkDataStoreErr, FlinkConf, FlinkErr, FlinkRestEndpointRetriever}
 import potamoi.flink.model.Fcid
 import potamoi.flink.storage.{FlinkDataStorage, TrackedFcidStorage}
 import potamoi.flink.FlinkErr.FailToConnectShardEntity
@@ -84,7 +84,7 @@ class TrackManagerLive(
     Sharding.registerEntity(K8sRefTrk.Entity, k8sRefTracker.behavior, _ => Some(K8sRefTrk.Terminate))
   }
 
-  override def track(fcid: Fcid): IO[DataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
+  override def track(fcid: Fcid): IO[FlinkDataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
     snapStorage.trackedList.put(fcid) *>
     clusterTrkEnvelope
       .send(marshallFcid(fcid))(ClusterTrk.Start.apply)
@@ -96,7 +96,7 @@ class TrackManagerLive(
       .unit
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
-  override def untrack(fcid: Fcid): IO[DataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
+  override def untrack(fcid: Fcid): IO[FlinkDataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
     snapStorage.trackedList.rm(fcid) *>
     clusterTrkEnvelope
       .send(marshallFcid(fcid))(ClusterTrk.Stop.apply)
@@ -110,15 +110,15 @@ class TrackManagerLive(
     snapStorage.rmSnapData(fcid)
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
-  override def isBeTracked(fcid: Fcid): IO[DataStoreErr, Boolean] = snapStorage.trackedList.exists(fcid)
-  override def listTrackedClusters: Stream[DataStoreErr, Fcid]    = snapStorage.trackedList.list
+  override def isBeTracked(fcid: Fcid): IO[FlinkDataStoreErr, Boolean] = snapStorage.trackedList.exists(fcid)
+  override def listTrackedClusters: Stream[FlinkDataStoreErr, Fcid]    = snapStorage.trackedList.list
 
   override def getTrackersStatus(fcid: Fcid): IO[Nothing, TrackersStatus] = {
     askStatus(clusterTrkEnvelope.send(marshallFcid(fcid))(ClusterTrk.IsStarted.apply)) <&>
     askStatus(k8sRefTrkEnvelope.send(marshallFcid(fcid))(K8sRefTrk.IsStarted.apply))
   } map { case (clusterTrk, k8sRefTrk) => TrackersStatus(fcid, clusterTrk, k8sRefTrk) }
 
-  override def listTrackersStatus(parallelism: Int): Stream[DataStoreErr, TrackersStatus] =
+  override def listTrackersStatus(parallelism: Int): Stream[FlinkDataStoreErr, TrackersStatus] =
     snapStorage.trackedList.list.mapZIOParUnordered(parallelism)(getTrackersStatus)
 
   private def askStatus(io: Task[Boolean]) =

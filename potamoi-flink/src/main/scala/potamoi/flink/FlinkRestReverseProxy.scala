@@ -2,7 +2,7 @@ package potamoi.flink
 
 import potamoi.PotaErr
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
-import potamoi.flink.storage.FlinkSnapshotStorage
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import zio.{durationInt, IO, ZIO, ZLayer}
 import zio.http.*
@@ -32,7 +32,7 @@ object FlinkRestProxyProvider {
   val live = ZLayer {
     for {
       flinkConf     <- ZIO.service[FlinkConf]
-      snapStorage   <- ZIO.service[FlinkSnapshotStorage]
+      snapStorage   <- ZIO.service[FlinkDataStorage]
       client        <- ZIO.service[Client]
       eptRouteTable <- Cache.make[Fcid, Any, Throwable, FlinkRestSvcEndpoint](
                          capacity = flinkConf.reverseProxy.routeTableCacheSize,
@@ -49,10 +49,10 @@ object FlinkRestProxyProvider {
   private case object EndpointNotFound extends PotaErr
 
   case class Live(
-      flinkConf: FlinkConf,
-      snapStg: FlinkSnapshotStorage,
-      zClient: Client,
-      eptRouteTable: Cache[Fcid, Throwable, FlinkRestSvcEndpoint])
+                   flinkConf: FlinkConf,
+                   snapStg: FlinkDataStorage,
+                   zClient: Client,
+                   eptRouteTable: Cache[Fcid, Throwable, FlinkRestSvcEndpoint])
       extends FlinkRestProxyProvider {
     private given FlinkRestEndpointType = flinkConf.restEndpointTypeInternal
 

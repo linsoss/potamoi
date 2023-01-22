@@ -21,7 +21,8 @@ case class FlinkConf(
     @name("rest-endpoint-internal") restEndpointTypeInternal: FlinkRestEndpointType = FlinkRestEndpointType.ClusterIP,
     @name("log-failed-deploy") logFailedDeployReason: Boolean = false,
     @name("tracking") tracking: FlinkTrackConf = FlinkTrackConf(),
-    @name("proxy") reverseProxy: FlinkReverseProxyConf = FlinkReverseProxyConf())
+    @name("proxy") reverseProxy: FlinkReverseProxyConf = FlinkReverseProxyConf(),
+    @name("interact") sqlInteract: FlinkSqlInteractorConf = FlinkSqlInteractorConf())
     derives JsonCodec:
 
   lazy val localTmpDeployDir = s"${localTmpDir}/deploy"
@@ -35,7 +36,7 @@ end FlinkConf
 
 object FlinkConf:
   val default = FlinkConf()
-  val test = FlinkConf()
+  val test    = FlinkConf()
     .modify(_.tracking.tmdDetailPolling)
     .setTo(500.millis)
     .modify(_.tracking.jmMetricsPolling)
@@ -70,6 +71,14 @@ case class FlinkTrackConf(
 case class FlinkReverseProxyConf(
     @name("route-table-cache-size") routeTableCacheSize: Int = 1000,
     @name("route-table-cache-ttl") routeTableCacheTtl: Duration = 45.seconds)
+    derives JsonCodec
+
+/**
+ * Flink sql interactor config.
+ */
+case class FlinkSqlInteractorConf(
+    @name("rpc-timeout") rpcTimeout: Duration = Duration.Inf,
+    @name("stream-poll-interval") streamPollingInterval: Duration = 500.millis)
     derives JsonCodec
 
 /**

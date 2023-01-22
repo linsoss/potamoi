@@ -33,15 +33,22 @@ object ZIOExtension {
   }
 
   extension [R, E, A](zio: ZIO[R, E, A]) {
-    inline def debugPretty: ZIO[R, E, A] =
+    inline def debugPretty: ZIO[R, E, A]                                              =
       zio
         .tap(value => ZIO.succeed(println(toPrettyString(value))))
         .tapErrorCause { case cause =>
           ZIO.succeed(println(s"<FAIL> ${cause.prettyPrint}"))
         }
-
     inline def repeatWhileWithSpaced(f: A => Boolean, spaced: Duration): ZIO[R, E, A] =
       zio.repeat(Schedule.recurWhile[A](f) && Schedule.spaced(spaced)).map(_._1)
+  }
+
+  extension [R, E, A](zio: ZIO[R, E, Option[A]]) {
+    inline def someOrUnit[R1 <: R, E1 >: E](f: A => ZIO[R1, E1, Unit]) =
+      zio.flatMap {
+        case None        => ZIO.unit
+        case Some(value) => f(value)
+      }
   }
 
   extension [A](uio: UIO[A]) {

@@ -15,7 +15,7 @@ import potamoi.logger.PotaLogger
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.*
 import potamoi.PotaErr
-import potamoi.flink.error.FlinkInterpErr.BeCancelled
+import potamoi.flink.FlinkInterpreterErr.BeCancelled
 import potamoi.flink.model.interact.{PlainSqlRs, QuerySqlRs, ResultStoreConf, SessionDef}
 import zio.{durationInt, IO, Schedule, Scope, Task, ZIO}
 import zio.Console.printLine

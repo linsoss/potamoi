@@ -5,7 +5,7 @@ import org.apache.flink.configuration.Configuration
 import potamoi.common.CollectionExtension.filterNotBlank
 import potamoi.flink.FlinkConf
 import potamoi.flink.FlinkConfigExtension.{ConfigurationPF, given}
-import potamoi.flink.ResolveClusterDefErr.*
+import potamoi.flink.ResolveFlinkClusterDefErr.*
 import potamoi.flink.model.*
 import potamoi.flink.model.FlinkPlugin.{S3Hadoop, S3Presto}
 import potamoi.flink.model.FlinkPlugins.S3aPlugins

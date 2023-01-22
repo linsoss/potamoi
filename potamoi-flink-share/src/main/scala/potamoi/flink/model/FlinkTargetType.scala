@@ -10,8 +10,8 @@ import zio.json.JsonCodec
  * https://nightlies.apache.org/flink/flink-docs-master/docs/deployment/config/#execution-target
  */
 enum FlinkTargetType(val rawValue: String):
-  case Local                                extends FlinkTargetType("local") with InterpSupport
-  case Remote                               extends FlinkTargetType("remote") with InterpSupport
+  case Local                                extends FlinkTargetType("local") with InteractSupport
+  case Remote                               extends FlinkTargetType("remote") with InteractSupport
   case Embedded                             extends FlinkTargetType("embedded")
   case K8sSession                           extends FlinkTargetType("kubernetes-session") with DeploySupport
   case K8sApplication                       extends FlinkTargetType("kubernetes-application") with DeploySupport
@@ -34,11 +34,11 @@ object FlinkTargetTypes:
 /**
  * Flink target types of interactive execution supported.
  */
-sealed trait InterpSupport
+sealed trait InteractSupport
 
 object InterpFlinkTargetTypes:
-  lazy val values: Array[FlinkTargetType with InterpSupport] = Array(Local, Remote)
-  given JsonCodec[FlinkTargetType with InterpSupport]        = codecs.simpleEnumJsonCodec(values)
+  lazy val values: Array[FlinkTargetType with InteractSupport] = Array(Local, Remote)
+  given JsonCodec[FlinkTargetType with InteractSupport]        = codecs.simpleEnumJsonCodec(values)
 
 /**
  * Flink target types of cluster deployment supported.
