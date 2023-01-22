@@ -1,7 +1,7 @@
 package potamoi.fs.refactor.backend
 
 import io.minio.StatObjectArgs
-import potamoi.fs.refactor.*
+import potamoi.fs.refactor.{S3FsBackendConf, *}
 import potamoi.fs.refactor.FsErr.{LfsErr, RfsErr}
 import potamoi.syntax.contra
 import potamoi.zios.runNow
@@ -22,21 +22,30 @@ object S3FsMirrorBackend:
 
   val live: ZLayer[S3FsBackendConf, Nothing, S3FsMirrorBackend] = ZLayer {
     for {
-      conf         <- ZIO.service[S3FsBackendConf]
-      s3Backend    <- S3FsBackend.instance(conf)
-      localBackend <- LocalFsBackend.instance(LocalFsBackendConf(conf.tmpDir))
-      _            <- logInfo(s"""Using S3FsMirrorBackend as RemoteFsOperator:
-                      |   endpoint = ${conf.endpoint},
-                      |   bucket = ${conf.bucket},
-                      |   accessKey = ${conf.accessKey},
-                      |   accessSecret = ***,
-                      |   accessStyle = ${conf.accessStyle},
-                      |   sslEnabled = ${conf.sslEnabled},
-                      |   localMirrorDir = ${conf.tmpDir},
-                      |   checkSumCacheCapacity = 500
-                      |""".stripMargin)
-    } yield S3FsMirrorBackend(s3Backend, localBackend)
+      conf    <- ZIO.service[S3FsBackendConf]
+      backend <- S3FsMirrorBackend.make(conf)
+      _       <- hintLog(conf)
+    } yield backend
   }
+
+  def hintLog(conf: S3FsBackendConf): UIO[Unit] = {
+    logInfo(s"""Using S3FsMirrorBackend as RemoteFsOperator:
+               |   endpoint = ${conf.endpoint},
+               |   bucket = ${conf.bucket},
+               |   accessKey = ${conf.accessKey},
+               |   accessSecret = ***,
+               |   accessStyle = ${conf.accessStyle},
+               |   sslEnabled = ${conf.sslEnabled},
+               |   localMirrorDir = ${conf.tmpDir},
+               |   checkSumCacheCapacity = 500
+               |""".stripMargin)
+  }
+
+  def make(conf: S3FsBackendConf): UIO[S3FsMirrorBackend] =
+    for {
+      s3Backend    <- S3FsBackend.make(conf)
+      localBackend <- LocalFsBackend.make(LocalFsBackendConf(conf.tmpDir))
+    } yield S3FsMirrorBackend(s3Backend, localBackend)
 
 /**
  * Default implementation.

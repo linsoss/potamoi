@@ -14,14 +14,21 @@ import java.io.File
  * Local file system storage implementation for testing.
  */
 object LocalFsBackend:
-  val live                                                                  = ZLayer {
+  val live = ZLayer {
     for {
       conf    <- ZIO.service[LocalFsBackendConf]
-      backend <- instance(conf)
-      _       <- logInfo(s"""Using LocalFsBackend as RemoteFsOperator: storeDir = ${conf.dir}""")
+      backend <- make(conf)
+      _       <- hintLog(conf)
     } yield backend
   }
-  def instance(conf: LocalFsBackendConf): ZIO[Any, Nothing, LocalFsBackend] = succeed(LocalFsBackend(conf))
+
+  def hintLog(conf: LocalFsBackendConf): UIO[Unit] = {
+    logInfo(s"""Using LocalFsBackend as RemoteFsOperator: storeDir = ${conf.dir}""")
+  }
+
+  def make(conf: LocalFsBackendConf): UIO[LocalFsBackend] = {
+    succeed(LocalFsBackend(conf))
+  }
 
 /**
  * Default implementation.

@@ -1,7 +1,10 @@
 package potamoi.fs.refactor
 
 import potamoi.fs.refactor.FsErr
-import zio.{IO, Scope, UIO, ZIO}
+import potamoi.fs.refactor.backend.{LocalFsBackend, S3FsBackend, S3FsMirrorBackend}
+import potamoi.syntax.contra
+import potamoi.BaseConf
+import zio.{IO, Scope, UIO, URIO, URLayer, ZIO, ZLayer}
 import zio.stream.{Stream, ZStream}
 
 import java.io.File
@@ -57,3 +60,22 @@ trait RemoteFsOperator:
    * Determine whether file exists on remote storage.
    */
   def exist(path: String): IO[FsErr, Boolean]
+
+object RemoteFsOperator:
+
+  val live: URLayer[FsBackendConf with BaseConf, RemoteFsOperator] = ZLayer {
+    for {
+      base     <- ZIO.service[BaseConf]
+      operator <- make(base.dataDir)
+    } yield operator
+  }
+
+  def make(rootDataDir: String): URIO[FsBackendConf, RemoteFsOperator] =
+    for {
+      conf        <- ZIO.service[FsBackendConf]
+      resolvedConf = conf.resolve(rootDataDir)
+      backend     <- resolvedConf match
+                       case c: LocalFsBackendConf                     => LocalFsBackend.make(c) <* LocalFsBackend.hintLog(c)
+                       case c: S3FsBackendConf if c.enableMirrorCache => S3FsMirrorBackend.make(c) <* S3FsMirrorBackend.hintLog(c)
+                       case c: S3FsBackendConf                        => S3FsBackend.make(c) <* S3FsBackend.hitLog(c)
+    } yield backend

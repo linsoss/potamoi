@@ -8,11 +8,14 @@ import S3AccessStyles.given_JsonCodec_S3AccessStyle
 /**
  * Remote file system backend configuration.
  */
-sealed trait FsBackendConf derives JsonCodec
+sealed trait FsBackendConf derives JsonCodec:
+  type This <: FsBackendConf
+  def resolve(rootDataDir: String): This
 
 /**
  * S3 file system backend configuration.
  */
+@name("s3")
 case class S3FsBackendConf(
     @name("endpoint") endpoint: String,
     @name("bucket") bucket: String,
@@ -20,8 +23,11 @@ case class S3FsBackendConf(
     @name("secret-key") secretKey: String,
     @name("access-style") accessStyle: S3AccessStyle = S3AccessStyle.PathStyle,
     @name("enable-ssl") sslEnabled: Boolean = false,
-    @name("tmp-dir") tmpDir: String = "s3-mirror")
+    @name("tmp-dir") tmpDir: String = "s3-mirror",
+    @name("enable-mirror-cache") enableMirrorCache: Boolean = true)
     extends FsBackendConf:
+
+  type This = S3FsBackendConf
 
   def resolve(rootDataDir: String): S3FsBackendConf =
     if tmpDir.startsWith(rootDataDir) then this
@@ -40,7 +46,11 @@ object S3AccessStyles:
 /**
  * Local file system backend configuration.
  */
-case class LocalFsBackendConf(dir: String = "storage") derives JsonCodec:
+@name("local")
+case class LocalFsBackendConf(dir: String = "storage") extends FsBackendConf derives JsonCodec:
+
+  type This = LocalFsBackendConf
+
   def resolve(rootDataDir: String): LocalFsBackendConf =
     if dir.startsWith(rootDataDir) then this
     else copy(dir = s"$rootDataDir/${paths.rmFirstSlash(dir)}")

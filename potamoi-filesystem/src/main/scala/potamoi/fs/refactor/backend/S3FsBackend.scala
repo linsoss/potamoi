@@ -6,7 +6,7 @@ import io.minio.messages.Tags
 import potamoi.fs.refactor.*
 import potamoi.fs.refactor.FsErr.{LfsErr, RfsErr}
 import potamoi.fs.S3Err.UploadObjErr
-import potamoi.fs.refactor.backend.S3FsBackend.instance
+import potamoi.fs.refactor.backend.S3FsBackend.make
 import potamoi.syntax.contra
 import zio.{durationInt, stream, IO, Scope, Task, UIO, ZIO, ZLayer}
 import zio.ZIO.{logInfo, succeed, unit}
@@ -24,20 +24,24 @@ object S3FsBackend:
   val live: ZLayer[S3FsBackendConf, Nothing, S3FsBackend] = ZLayer {
     for {
       conf <- ZIO.service[S3FsBackendConf]
-      inst <- instance(conf)
-      _    <- logInfo(s"""Using S3FsBackendConf as RemoteFsOperator:
-                      |   endpoint = ${conf.endpoint},
-                      |   bucket = ${conf.bucket},
-                      |   accessKey = ${conf.accessKey},
-                      |   accessSecret = ***,
-                      |   accessStyle = ${conf.accessStyle},
-                      |   sslEnabled = ${conf.sslEnabled},
-                      |   tmpDir = ${conf.tmpDir},
-                      |""".stripMargin)
+      inst <- make(conf)
+      _    <- hitLog(conf)
     } yield inst
   }
 
-  def instance(conf: S3FsBackendConf): ZIO[Any, Nothing, S3FsBackend] =
+  def hitLog(conf: S3FsBackendConf): UIO[Unit] = {
+    logInfo(s"""Using S3FsBackendConf as RemoteFsOperator:
+               |   endpoint = ${conf.endpoint},
+               |   bucket = ${conf.bucket},
+               |   accessKey = ${conf.accessKey},
+               |   accessSecret = ***,
+               |   accessStyle = ${conf.accessStyle},
+               |   sslEnabled = ${conf.sslEnabled},
+               |   tmpDir = ${conf.tmpDir},
+               |""".stripMargin)
+  }
+
+  def make(conf: S3FsBackendConf): UIO[S3FsBackend] =
     for {
       _          <- unit
       minioClient = MinioClient.builder
