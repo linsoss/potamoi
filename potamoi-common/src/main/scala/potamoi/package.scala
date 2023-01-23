@@ -12,6 +12,7 @@ package object potamoi:
   val codecs   = Codec
   val uuids    = Uuid
   val collects = CollectionExtension
+  val configs  = ConfigTool
 
   def curTs: Long     = System.currentTimeMillis
   def curNanoTs: Long = System.nanoTime

@@ -58,6 +58,9 @@ lazy val commonSettings = Seq(
     "dev.zio"       %% "zio-config"            % zioConfig,
     "dev.zio"       %% "zio-config-magnolia"   % zioConfig,
     "dev.zio"       %% "zio-config-typesafe"   % zioConfig,
+    "org.slf4j"      % "slf4j-api"             % slf4jVer,
+    "dev.zio"       %% "zio-logging"           % zioLoggingVer,
+    "dev.zio"       %% "zio-logging-slf4j"     % zioLoggingVer,
     "dev.zio"       %% "zio-json"              % zioJsonVer,
     "dev.zio"       %% "zio-schema"            % zioSchemaVer,
     "dev.zio"       %% "zio-schema-derivation" % zioSchemaVer,
@@ -75,21 +78,19 @@ lazy val commonSettings = Seq(
 
 lazy val root = (project in file("."))
   .settings(name := "potamoi")
-  .aggregate(potaLogger, potaCommon, potaFilesystem, potaKubernetes, potaFlink, potaFlinkShare, potaFlinkInterpreter, potaServer)
-
-lazy val potaLogger = (project in file("potamoi-logger"))
-  .settings(commonSettings)
-  .settings(
-    name := "potamoi-logger",
-    libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-api"         % slf4jVer,
-      "dev.zio"  %% "zio-logging"       % zioLoggingVer,
-      "dev.zio"  %% "zio-logging-slf4j" % zioLoggingVer,
-    )
+  .aggregate(
+    potaCommon,
+    potaFilesystem,
+    potaKubernetes,
+    potaServer,
+    potaFlink,
+    potaFlinkShare,
+    potaFlinkInterpreterBase,
+    potaFlinkInterpreterV116,
+    potaFlinkInterpreterV115
   )
 
 lazy val potaCommon = (project in file("potamoi-common"))
-  .dependsOn(potaLogger)
   .settings(commonSettings)
   .settings(
     name := "potamoi-common",
@@ -108,7 +109,7 @@ lazy val potaCommon = (project in file("potamoi-common"))
       "org.apache.tika"                % "tika-core"      % tikaVer exclude ("org.slf4j", "slf4j-api"),
       "commons-codec"                  % "commons-codec"  % commonCodecVer,
       "io.getquill"                   %% "quill-jdbc-zio" % quillVer exclude ("com.lihaoyi", "geny_2.13"),
-      "org.postgresql"                 % "postgresql"     % postgresVer
+      "org.postgresql"                 % "postgresql"     % postgresVer,
     )
   )
 
@@ -126,7 +127,7 @@ lazy val potaFilesystem = (project in file("potamoi-filesystem"))
   .dependsOn(potaCommon)
   .settings(commonSettings)
   .settings(
-    name := "potamoi-fs",
+    name := "potamoi-filesystem",
     libraryDependencies ++= Seq(
       "com.lihaoyi" %% "os-lib" % osLibVer,
       "io.minio"     % "minio"  % minioVer
@@ -179,20 +180,38 @@ lazy val potaFlink = (project in file("potamoi-flink"))
     ).map(flinkLibExcludes)
   )
 
-lazy val potaFlinkInterpreter = (project in file("potamoi-flink-interpreter"))
+lazy val potaFlinkInterpreterBase = (project in file("potamoi-flink-interpreter/flink-base"))
   .dependsOn(potaCommon, potaFilesystem, potaCluster, potaFlinkShare)
   .settings(commonSettings)
   .settings(
-    name := "potamoi-flink-interp",
-    libraryDependencies ++= Seq(
-      "org.apache.flink"   % "flink-clients"              % flink116Ver,
-      "org.apache.flink"   % "flink-table-planner-loader" % flink116Ver,
-      "org.apache.flink"   % "flink-table-runtime"        % flink116Ver,
-      "org.apache.flink"   % "flink-json"                 % flink116Ver,
-      "org.apache.flink"   % "flink-sql-parser"           % flink116Ver,
-      "org.apache.calcite" % "calcite-linq4j"             % "1.26.0" // Keep consistent with flink-sql-parser
-    ).map(flinkLibExcludes)
+    name := "potamoi-flink-interpreter-base",
+    libraryDependencies ++= flinkInterpreterDeps(flinkVer).map(_ % Provided).map(flinkLibExcludes)
   )
+
+lazy val potaFlinkInterpreterV116 = (project in file("potamoi-flink-interpreter/flink-v116"))
+  .dependsOn(potaFlinkInterpreterBase)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-flink-interpreter-v116",
+    libraryDependencies ++= flinkInterpreterDeps(flink116Ver).map(flinkLibExcludes)
+  )
+
+lazy val potaFlinkInterpreterV115 = (project in file("potamoi-flink-interpreter/flink-v115"))
+  .dependsOn(potaFlinkInterpreterBase)
+  .settings(commonSettings)
+  .settings(
+    name := "potamoi-flink-interpreter-v115",
+    libraryDependencies ++= flinkInterpreterDeps(flink115Ver).map(flinkLibExcludes)
+  )
+
+def flinkInterpreterDeps(version: String) = Seq(
+  "org.apache.flink"   % "flink-clients"              % version,
+  "org.apache.flink"   % "flink-table-planner-loader" % version,
+  "org.apache.flink"   % "flink-table-runtime"        % version,
+  "org.apache.flink"   % "flink-json"                 % version,
+  "org.apache.flink"   % "flink-sql-parser"           % version,
+  "org.apache.calcite" % "calcite-linq4j"             % "1.26.0" // Keep consistent with flink-sql-parser
+)
 
 def flinkLibExcludes(moduleId: ModuleID) = moduleId
   .exclude("org.slf4j", "slf4j-api")

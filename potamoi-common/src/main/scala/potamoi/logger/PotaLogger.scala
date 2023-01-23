@@ -13,8 +13,10 @@ import java.time.format.DateTimeFormatter
  */
 object PotaLogger {
 
-  lazy val live: URLayer[LogConf, Unit] = ZLayer.service[LogConf].flatMap(confLayer => layer(confLayer.get))
-  lazy val default: ULayer[Unit]        = layer(LogConf())
+  lazy val live: ZLayer[LogConf, Nothing, Unit]  = ZLayer.service[LogConf].flatMap(confLayer => layer(confLayer.get))
+  lazy val envLive: ZLayer[Any, Throwable, Unit] = LogConf.live >>> PotaLogger.live
+
+  lazy val default: ULayer[Unit] = layer(LogConf())
 
   /**
    * MDC keys that allowed to be received from non-zio Slf4j pipeline.
@@ -40,7 +42,7 @@ object PotaLogger {
       appendLf: Option[LogFormat] = None): ULayer[Unit] = {
     val logFormat = if (colored) stLogFormatColored(appendLf, inOneLine) else stLogFormat(appendLf, inOneLine)
     val logLevel  = level.zioLevel
-    val logLayer = style match {
+    val logLayer  = style match {
       case LogsStyle.Plain => console(logFormat, logLevel)
       case LogsStyle.Json  => consoleJson(logFormat, logLevel)
     }
@@ -89,7 +91,7 @@ object PotaLogger {
     def prettyLine(inOneLine: Boolean): LogFormat =
       LogFormat.make { (builder, _, _, _, line, _, _, _, _) =>
         Option(line()) match
-          case None => builder
+          case None        => builder
           case Some(lines) =>
             if (inOneLine) builder.appendText(lines.split('\n').map(_.trim).mkString(" "))
             else builder.appendText(lines.split('\n').mkString("\n" + fixedWidthSpaceStr))
@@ -107,9 +109,9 @@ object PotaLogger {
   private[potamoi] def sourceLoc: LogFormat = LogFormat.make { (builder, trace, _, _, _, _, _, _, annotations) =>
     (annotations.get("@loggerName"), trace) match
       // from slf4j
-      case (Some(loggerName), _) =>
+      case (Some(loggerName), _)               =>
         annotations.get("@threadName") match
-          case None => ()
+          case None             => ()
           case Some(threadName) =>
             builder.appendKeyValue("thread", threadName)
             builder.appendText(" ")
@@ -121,7 +123,7 @@ object PotaLogger {
         builder.appendKeyValue("file", file)
         builder.appendText(" ")
         builder.appendKeyValue("line", line.toString)
-      case _ => ()
+      case _                                   => ()
   }
 
   /**

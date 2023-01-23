@@ -1,7 +1,9 @@
 package potamoi.logger
 
-import zio.LogLevel
-import zio.config.magnolia.name
+import zio.{LogLevel, ZIO, ZLayer}
+import zio.config.magnolia.{descriptor, name}
+import zio.config.{read, ReadError}
+import potamoi.configs
 
 /**
  * Logging configuration.
@@ -11,6 +13,18 @@ case class LogConf(
     style: LogsStyle = LogsStyle.Plain,
     colored: Boolean = true,
     @name("in-one-line") inOneLine: Boolean = false)
+
+object LogConf:
+
+  def make: ZIO[Any, ReadError[String], LogConf] =
+    for {
+      _         <- ZIO.unit
+      source     = configs.hoconSource("potamoi.log")
+      configDesc = descriptor[LogConf].from(source)
+      config    <- read(configDesc)
+    } yield config
+
+  lazy val live = ZLayer.fromZIO(make)
 
 /**
  * Potamoi logging line style.
