@@ -13,10 +13,8 @@ import java.time.format.DateTimeFormatter
  */
 object PotaLogger {
 
-  lazy val live: ZLayer[LogConf, Nothing, Unit]  = ZLayer.service[LogConf].flatMap(confLayer => layer(confLayer.get))
-  lazy val envLive: ZLayer[Any, Throwable, Unit] = LogConf.live >>> PotaLogger.live
-
-  lazy val default: ULayer[Unit] = layer(LogConf())
+  lazy val live: ZLayer[LogConf, Nothing, Unit] = ZLayer.service[LogConf].flatMap(confLayer => layer(confLayer.get))
+  lazy val default: ULayer[Unit]                = layer(LogConf())
 
   /**
    * MDC keys that allowed to be received from non-zio Slf4j pipeline.
