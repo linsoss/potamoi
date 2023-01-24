@@ -29,17 +29,17 @@ object LocalShardManager:
   }
 
   private def runLocalDebuggingServer = Server.run
-    .provide(ShardManagerConf.test.asLayer, ShardManagers.test)
+    .provide(ShardManagerConf.test, ShardManagers.test)
     .provideLayer(PotaLogger.default)
 
   private def waitReady: IO[Throwable, Unit] = {
     val ef = for {
       mgrConf <- ZIO.service[ShardManagerConf]
-      _ <- Client
-        .request(s"http://127.0.0.1:${mgrConf.port}/health")
-        .map(_.status == Status.Ok)
-        .catchAll(_ => ZIO.succeed(false))
-        .repeatUntil(e => e)
+      _       <- Client
+                   .request(s"http://127.0.0.1:${mgrConf.port}/health")
+                   .map(_.status == Status.Ok)
+                   .catchAll(_ => ZIO.succeed(false))
+                   .repeatUntil(e => e)
     } yield ()
-    ef.provide(ShardManagerConf.test.asLayer, Client.default, Scope.default)
+    ef.provide(ShardManagerConf.test, Client.default, Scope.default)
   }

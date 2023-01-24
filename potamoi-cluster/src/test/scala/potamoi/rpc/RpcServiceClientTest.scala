@@ -2,11 +2,11 @@ package potamoi.rpc
 
 import com.devsisters.shardcake.{EntityType, Replier, Sharding}
 import potamoi.logger.PotaLogger
-import zio.{Console, UIO, URIO, ZIO, ZIOAppDefault}
-import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.sharding.{ShardingConf, Shardings}
+import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.uuids
 import potamoi.zios.asLayer
+import zio.{Console, UIO, URIO, ZIO, ZIOAppDefault}
 
 /**
  * Proto
@@ -41,7 +41,7 @@ object BotRpcServiceApp extends ZIOAppDefault:
       Sharding.registerScoped *>
       ZIO.never
     }
-    .provide(ShardingConf.test.copy(selfPort = 54323).asLayer, Shardings.test)
+    .provide(ShardingConf.test.project(_.copy(selfPort = 54323)), Shardings.test)
     .withLocalShardManager
     .provideLayer(PotaLogger.default)
 
@@ -61,4 +61,4 @@ object BotRpcClientApp extends ZIOAppDefault:
       _         <- bot.ask(BotProto.UnionTypeEither(10, _)).debug
     } yield ()
 
-  val run = effect.provide(ShardingConf.test.copy(selfPort = 54322).asLayer, Shardings.test)
+  val run = effect.provide(ShardingConf.test.project(_.copy(selfPort = 54322)), Shardings.test)

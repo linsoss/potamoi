@@ -6,7 +6,7 @@ import potamoi.zios.*
 
 class K8sOperatorTest extends AnyWordSpec:
 
-  val layer = K8sConf.default.asLayer >>> K8sOperator.live
+  val layer = K8sConf.default >>> K8sOperator.live
 
   "getPodMetrics" in zioRun {
     K8sOperator

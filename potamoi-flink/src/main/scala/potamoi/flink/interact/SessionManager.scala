@@ -1,7 +1,7 @@
 package potamoi.flink.interact
 
 import com.devsisters.shardcake.{Messenger, Sharding}
-import potamoi.flink.{FlinkConf, FlinkInteractErr, FlinkRestEndpointType}
+import potamoi.flink.{FlinkConf, FlinkInteractErr, FlinkMajorVer, FlinkRestEndpointType, FlinkVersion}
 import potamoi.flink.FlinkInterpreterErr.{ExecOperationErr, ExecuteSqlErr, RetrieveResultNothing}
 import potamoi.flink.model.interact.*
 import potamoi.flink.model.FlinkTargetType

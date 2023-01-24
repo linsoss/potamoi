@@ -63,19 +63,12 @@ trait RemoteFsOperator:
 
 object RemoteFsOperator:
 
-  val live: URLayer[FsBackendConf with BaseConf, RemoteFsOperator] = ZLayer {
+  val live: URLayer[FsBackendConf, RemoteFsOperator] = ZLayer {
     for {
-      base     <- ZIO.service[BaseConf]
-      operator <- make(base.dataDir)
-    } yield operator
-  }
-
-  def make(rootDataDir: String): URIO[FsBackendConf, RemoteFsOperator] =
-    for {
-      conf        <- ZIO.service[FsBackendConf]
-      resolvedConf = conf.resolve(rootDataDir)
-      backend     <- resolvedConf match
-                       case c: LocalFsBackendConf                     => LocalFsBackend.make(c) <* LocalFsBackend.hintLog(c)
-                       case c: S3FsBackendConf if c.enableMirrorCache => S3FsMirrorBackend.make(c) <* S3FsMirrorBackend.hintLog(c)
-                       case c: S3FsBackendConf                        => S3FsBackend.make(c) <* S3FsBackend.hitLog(c)
+      conf    <- ZIO.service[FsBackendConf]
+      backend <- conf match
+                   case c: LocalFsBackendConf                     => LocalFsBackend.make(c) <* LocalFsBackend.hintLog(c)
+                   case c: S3FsBackendConf if c.enableMirrorCache => S3FsMirrorBackend.make(c) <* S3FsMirrorBackend.hintLog(c)
+                   case c: S3FsBackendConf                        => S3FsBackend.make(c) <* S3FsBackend.hitLog(c)
     } yield backend
+  }

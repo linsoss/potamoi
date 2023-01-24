@@ -13,7 +13,7 @@ import zio.*
 object Shardings:
 
   lazy val test = memStore
-  lazy val live = redisSore
+  lazy val live = redisStore
 
   lazy val memStore: ZLayer[ShardingConf, Throwable, Sharding] = {
     val config        = ZLayer.service[ShardingConf].project(_.toConfig)
@@ -27,7 +27,7 @@ object Shardings:
     sharding ++ grpcShardSvc
   }
 
-  lazy val redisSore: ZLayer[ShardingConf with ShardRedisStgConf, Throwable, Sharding] = {
+  lazy val redisStore: ZLayer[ShardingConf with ShardRedisStoreConf, Throwable, Sharding] = {
     val config        = ZLayer.service[ShardingConf].project(_.toConfig)
     val grpcConfig    = ZLayer.service[ShardingConf].project(_.toGrpcConfig)
     val grpcPods      = grpcConfig >>> GrpcPods.live

@@ -3,7 +3,7 @@ package potamoi.flink.operator
 import com.devsisters.shardcake.Sharding
 import potamoi.common.ScalaVersion.Scala212
 import potamoi.common.Syntax.toPrettyString
-import potamoi.PotaErr
+import potamoi.{BaseConf, PotaErr}
 import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.*
@@ -41,13 +41,14 @@ object FlinkOperatorTest {
     ZIO
       .scoped(program)
       .provide(
-        FlinkConfTest.asLayer,
-        S3ConfTest.asLayer,
-        K8sConfTest.asLayer,
-        S3Operator.live,
+        S3ConfDev.asLayer, // todo remove
+        BaseConf.test,
+        FlinkConf.test,
+        K8sConf.default,
+        S3Operator.live,   // todo replace with RemoteFsOperator
         K8sOperator.live,
         FlinkDataStorage.test,
-        ShardingConf.test.asLayer,
+        ShardingConf.test,
         Shardings.test,
         FlinkObserver.live,
         FlinkOperator.live

@@ -1,13 +1,15 @@
 package potamoi.flink
 
 import com.softwaremill.quicklens.modify
-import potamoi.codecs
-import potamoi.common.Codec
+import potamoi.{codecs, BaseConf}
+import potamoi.common.{Codec, HoconConfig}
 import potamoi.common.Codec.scalaDurationJsonCodec
 import potamoi.flink.FlinkRestEndpointTypes.given
 import potamoi.fs.refactor.paths
-import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
+import zio.config.magnolia.{descriptor, name}
+import zio.config.read
+import zio.{ZIO, ZLayer}
 
 import scala.concurrent.duration.{Duration, DurationInt}
 
@@ -22,31 +24,44 @@ case class FlinkConf(
     @name("log-failed-deploy") logFailedDeployReason: Boolean = false,
     @name("tracking") tracking: FlinkTrackConf = FlinkTrackConf(),
     @name("proxy") reverseProxy: FlinkReverseProxyConf = FlinkReverseProxyConf(),
-    @name("interact") sqlInteract: FlinkSqlInteractorConf = FlinkSqlInteractorConf())
-    derives JsonCodec:
+    @name("interact") sqlInteract: FlinkSqlInteractorConf = FlinkSqlInteractorConf()):
 
   lazy val localTmpDeployDir = s"${localTmpDir}/deploy"
   lazy val localTmpInterpDir = s"${localTmpDir}/interp"
 
-  def resolve(rootDataDir: String): FlinkConf =
+  def resolve(rootDataDir: String): FlinkConf = {
     if localTmpDir.startsWith(rootDataDir) then this
     else copy(localTmpDir = s"$rootDataDir/${paths.rmFirstSlash(localTmpDir)}")
-
-end FlinkConf
+  }
 
 object FlinkConf:
-  val default = FlinkConf()
-  val test    = FlinkConf()
-    .modify(_.tracking.tmdDetailPolling)
-    .setTo(500.millis)
-    .modify(_.tracking.jmMetricsPolling)
-    .setTo(500.millis)
-    .modify(_.tracking.tmMetricsPolling)
-    .setTo(500.millis)
-    .modify(_.tracking.jobMetricsPolling)
-    .setTo(500.millis)
-    .modify(_.tracking.k8sPodMetricsPolling)
-    .setTo(500.millis)
+
+  val live: ZLayer[BaseConf, Throwable, FlinkConf] = ZLayer {
+    for {
+      baseConf      <- ZIO.service[BaseConf]
+      source        <- HoconConfig.directHoconSource("potamoi.flink")
+      config        <- read(descriptor[FlinkConf].from(source))
+      resolvedConfig = config.resolve(baseConf.dataDir)
+    } yield resolvedConfig
+  }
+
+  val test: ZLayer[BaseConf, Throwable, FlinkConf] = ZLayer {
+    for {
+      rootDataDir   <- ZIO.service[BaseConf].map(_.dataDir)
+      config         = FlinkConf()
+                         .modify(_.tracking.tmdDetailPolling)
+                         .setTo(500.millis)
+                         .modify(_.tracking.jmMetricsPolling)
+                         .setTo(500.millis)
+                         .modify(_.tracking.tmMetricsPolling)
+                         .setTo(500.millis)
+                         .modify(_.tracking.jobMetricsPolling)
+                         .setTo(500.millis)
+                         .modify(_.tracking.k8sPodMetricsPolling)
+                         .setTo(500.millis)
+      resolvedConfig = config.resolve(rootDataDir)
+    } yield resolvedConfig
+  }
 
 /**
  * Flink cluster tracking config.
@@ -63,7 +78,6 @@ case class FlinkTrackConf(
     @name("job-metrics-poll-interval") jobMetricsPolling: Duration = 2.seconds,
     @name("k8s-pod-metrics-poll-interval") k8sPodMetricsPolling: Duration = 4.seconds,
     @name("savepoint-trigger-poll-interval") savepointTriggerPolling: Duration = 100.millis)
-    derives JsonCodec
 
 /**
  * Flink ui reversed proxy config.
@@ -71,7 +85,6 @@ case class FlinkTrackConf(
 case class FlinkReverseProxyConf(
     @name("route-table-cache-size") routeTableCacheSize: Int = 1000,
     @name("route-table-cache-ttl") routeTableCacheTtl: Duration = 45.seconds)
-    derives JsonCodec
 
 /**
  * Flink sql interactor config.
@@ -79,7 +92,6 @@ case class FlinkReverseProxyConf(
 case class FlinkSqlInteractorConf(
     @name("rpc-timeout") rpcTimeout: Duration = Duration.Inf,
     @name("stream-poll-interval") streamPollingInterval: Duration = 500.millis)
-    derives JsonCodec
 
 /**
  * Flink rest api export type.

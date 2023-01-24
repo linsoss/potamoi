@@ -12,8 +12,9 @@ import potamoi.sharding.*
 import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.syntax.*
 import potamoi.zios.*
+import potamoi.BaseConf
 import zio.*
-import zio.http.{Server,Client}
+import zio.http.{Client, Server}
 
 object FlinkRestReverseProxyTestApp extends ZIOAppDefault:
 
@@ -33,13 +34,14 @@ object FlinkRestReverseProxyTestApp extends ZIOAppDefault:
 
   val run = program
     .provide(
-      FlinkConfTest.asLayer,
-      S3ConfTest.asLayer,
-      K8sConfTest.asLayer,
-      S3Operator.live,
+      S3ConfDev.asLayer, // todo remove
+      BaseConf.test,
+      FlinkConf.test,
+      K8sConf.default,
+      S3Operator.live,   // todo replace with RemoteFsOperator
       K8sOperator.live,
       FlinkDataStorage.test,
-      ShardingConf.test.asLayer,
+      ShardingConf.test,
       Shardings.test,
       FlinkObserver.live,
       FlinkOperator.live,

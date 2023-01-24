@@ -6,7 +6,7 @@ case class InteractSession(
     sessionId: String,
     flinkVer: FlinkMajorVer,
     definition: InteractSessionDef,
-    status: InteractSessionStatus,
+//    status: InteractSessionStatus,
     createdAt: Long)
 
 

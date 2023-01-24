@@ -3,7 +3,7 @@ package potamoi.flink.observer
 import com.devsisters.shardcake.Sharding
 import org.scalatest.wordspec.AnyWordSpec
 import potamoi.common.Syntax.toPrettyString
-import potamoi.PotaErr
+import potamoi.{BaseConf, PotaErr}
 import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
@@ -32,11 +32,12 @@ object FlinkObserverTest:
     ZIO
       .scoped(program)
       .provide(
-        FlinkConfTest.asLayer,
-        K8sConfTest.asLayer,
+        BaseConf.test,
+        FlinkConf.test,
+        K8sConf.default,
         K8sOperator.live,
         FlinkDataStorage.test,
-        ShardingConf.test.asLayer,
+        ShardingConf.test,
         Shardings.test,
         FlinkObserver.live
       )

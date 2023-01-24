@@ -1,16 +1,30 @@
 package potamoi.fs.refactor
 
-import zio.config.magnolia.name
+import potamoi.{codecs, BaseConf}
+import potamoi.common.HoconConfig
+import potamoi.fs.refactor.S3AccessStyles.given_JsonCodec_S3AccessStyle
+import zio.config.magnolia.{descriptor, name}
+import zio.config.read
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
-import potamoi.codecs
-import S3AccessStyles.given_JsonCodec_S3AccessStyle
+import zio.{ZIO, ZLayer}
 
 /**
  * Remote file system backend configuration.
  */
-sealed trait FsBackendConf derives JsonCodec:
+sealed trait FsBackendConf:
   type This <: FsBackendConf
   def resolve(rootDataDir: String): This
+
+object FsBackendConf:
+
+  val live: ZLayer[BaseConf, Throwable, FsBackendConf] = ZLayer {
+    for {
+      baseConf      <- ZIO.service[BaseConf]
+      source        <- HoconConfig.directHoconSource("potamoi.fs")
+      config        <- read(descriptor[FsBackendConf].from(source))
+      resolvedConfig = config.resolve(baseConf.dataDir)
+    } yield resolvedConfig
+  }
 
 /**
  * S3 file system backend configuration.

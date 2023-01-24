@@ -8,15 +8,12 @@ import zio.Schedule.spaced
 import zio.stream.ZStream
 
 package object flink:
-
-  val FlinkConfTest = FlinkConf.test.resolve("var/potamoi")
-
-  val K8sConfTest = K8sConf.default
-
-  val S3ConfTest = S3Conf(
+  
+  val S3ConfDev = S3Conf(
     endpoint = "http://10.144.74.197:30255",
     bucket = "flink-dev",
     accessKey = "minio",
     secretKey = "minio123",
-    accessStyle = S3AccessStyle.PathStyle
+    accessStyle = S3AccessStyle.PathStyle,
+    sslEnabled = false
   )

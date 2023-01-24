@@ -1,9 +1,10 @@
 package potamoi.logger
 
-import zio.{LogLevel, ZIO, ZLayer}
+import potamoi.common.HoconConfig
+import potamoi.syntax.toPrettyStr
+import zio.{Console, LogLevel, UIO, ULayer, ZIO, ZLayer}
+import zio.config.read
 import zio.config.magnolia.{descriptor, name}
-import zio.config.{read, ReadError}
-import potamoi.configs
 
 /**
  * Logging configuration.
@@ -16,15 +17,18 @@ case class LogConf(
 
 object LogConf:
 
-  def make: ZIO[Any, ReadError[String], LogConf] =
-    for {
-      _         <- ZIO.unit
-      source     = configs.hoconSource("potamoi.log")
-      configDesc = descriptor[LogConf].from(source)
-      config    <- read(configDesc)
+  def make: UIO[LogConf] = {
+    val find = for {
+      source <- HoconConfig.directHoconSource("potamoi.log")
+      config <- read(descriptor[LogConf].from(source))
     } yield config
+    // using default config
+    find.catchAll(_ => ZIO.succeed(LogConf()))
+  }.tap { conf =>
+    Console.printLine(s"PotaLogger config: ${conf.toPrettyStr}").ignore
+  }
 
-  lazy val live = ZLayer.fromZIO(make)
+  lazy val live: ULayer[LogConf] = ZLayer.fromZIO(make)
 
 /**
  * Potamoi logging line style.
