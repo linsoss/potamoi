@@ -36,12 +36,12 @@ object FlinkDataStorage:
   // pure in local memory implementation
   lazy val memory: ZLayer[Any, Nothing, FlinkDataStorage] = ZLayer {
     for {
-      trackedLists  <- TrackedFcidMemoryStorage.instance
-      restEndpoints <- RestEndpointMemoryStorage.instance
-      restProxies   <- RestProxyFcidMemoryStorage.instance
-      clusters      <- ClusterSnapMemoryStorage.instance
-      jobs          <- JobSnapMemoryStorage.instance
-      k8sRefs       <- K8sRefSnapMemoryStorage.instance
+      trackedLists  <- TrackedFcidMemoryStorage.make
+      restEndpoints <- RestEndpointMemoryStorage.make
+      restProxies   <- RestProxyFcidMemoryStorage.make
+      clusters      <- ClusterSnapMemoryStorage.make
+      jobs          <- JobSnapMemoryStorage.make
+      k8sRefs       <- K8sRefSnapMemoryStorage.make
     } yield new FlinkDataStorage:
       lazy val trackedList  = trackedLists
       lazy val restEndpoint = restEndpoints

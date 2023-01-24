@@ -12,7 +12,7 @@ import scala.collection.mutable
  * Flink cluster snapshot storage in-memory implementation.
  */
 object ClusterSnapMemoryStorage:
-  def instance: UIO[ClusterSnapStorage] =
+  def make: UIO[ClusterSnapStorage] =
     for {
       ovRef              <- Ref.make(mutable.Map.empty[Fcid, FlinkClusterOverview])
       jmMetricRef        <- Ref.make(mutable.Map.empty[Fcid, FlinkJmMetrics])

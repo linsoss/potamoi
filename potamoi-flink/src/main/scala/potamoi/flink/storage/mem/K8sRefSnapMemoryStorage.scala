@@ -12,7 +12,7 @@ import scala.collection.mutable
  * Flink k8s resource snapshot storage in-memory implementation.
  */
 object K8sRefSnapMemoryStorage:
-  def instance: UIO[K8sRefSnapStorage] =
+  def make: UIO[K8sRefSnapStorage] =
     for {
       deployRef    <- Ref.make(mutable.Map.empty[(Fcid, String), FlinkK8sDeploymentSnap])
       svcRef       <- Ref.make(mutable.Map.empty[(Fcid, String), FlinkK8sServiceSnap])

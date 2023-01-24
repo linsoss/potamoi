@@ -12,7 +12,7 @@ import scala.collection.mutable
  * Flink job snapshot storage in-memory implementation.
  */
 object JobSnapMemoryStorage:
-  def instance: UIO[JobSnapStorage] =
+  def make: UIO[JobSnapStorage] =
     for {
       ovRef     <- Ref.make(mutable.Map.empty[Fjid, FlinkJobOverview])
       metricRef <- Ref.make(mutable.Map.empty[Fjid, FlinkJobMetrics])

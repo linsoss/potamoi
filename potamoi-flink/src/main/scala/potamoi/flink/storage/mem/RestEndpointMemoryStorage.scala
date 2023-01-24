@@ -12,7 +12,7 @@ import scala.collection.mutable
  * Flink rest endpoint storage in-memory implementation.
  */
 object RestEndpointMemoryStorage:
-  def instance = Ref.make(mutable.Map.empty[Fcid, FlinkRestSvcEndpoint]).map(RestEndpointMemoryStorage(_))
+  def make = Ref.make(mutable.Map.empty[Fcid, FlinkRestSvcEndpoint]).map(RestEndpointMemoryStorage(_))
 
 class RestEndpointMemoryStorage(ref: Ref[mutable.Map[Fcid, FlinkRestSvcEndpoint]]) extends RestEndpointStorage:
   private val stg                                                               = MapBasedStg(ref)

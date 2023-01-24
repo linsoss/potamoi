@@ -12,7 +12,7 @@ import scala.collection.mutable
  * Flink rest fcid list storage in-memory storage.
  */
 object RestProxyFcidMemoryStorage:
-  def instance: UIO[RestProxyFcidStorage] = Ref.make(mutable.Set.empty[Fcid]).map(RestProxyFcidMemoryStorage(_))
+  def make: UIO[RestProxyFcidStorage] = Ref.make(mutable.Set.empty[Fcid]).map(RestProxyFcidMemoryStorage(_))
 
 class RestProxyFcidMemoryStorage(ref: Ref[mutable.Set[Fcid]]) extends RestProxyFcidStorage:
   def put(fcid: Fcid): IO[FlinkDataStoreErr, Unit]       = ref.update(_ += fcid)

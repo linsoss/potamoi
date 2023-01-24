@@ -12,7 +12,7 @@ import scala.collection.mutable
  * Tracked flink cluster fcid in-memory implementation.
  */
 object TrackedFcidMemoryStorage:
-  def instance: UIO[TrackedFcidStorage] = Ref.make(mutable.Set.empty[Fcid]).map(TrackedFcidMemoryStorage(_))
+  def make: UIO[TrackedFcidStorage] = Ref.make(mutable.Set.empty[Fcid]).map(TrackedFcidMemoryStorage(_))
 
 class TrackedFcidMemoryStorage(ref: Ref[mutable.Set[Fcid]]) extends TrackedFcidStorage:
   def put(fcid: Fcid): IO[FlinkDataStoreErr, Unit]       = ref.update(_ += fcid)
