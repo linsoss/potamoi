@@ -3,7 +3,7 @@ package potamoi.sharding
 import com.devsisters.shardcake.*
 import com.devsisters.shardcake.interfaces.*
 import potamoi.kubernetes.K8sConf
-import potamoi.sharding.store.StorageMemory
+import potamoi.sharding.store.{ShardcakeRedisStorage, ShardRedisStoreConf, MemoryStorage}
 import zio.*
 
 /**
@@ -21,7 +21,7 @@ object Shardings:
     val grpcPods      = grpcConfig >>> GrpcPods.live
     val managerClient = config >>> ShardManagerClient.liveWithSttp
     val serializer    = KryoSerialization.live
-    val storage       = managerClient >>> StorageMemory.live
+    val storage       = managerClient >>> MemoryStorage.live
     val sharding      = config ++ grpcPods ++ managerClient ++ storage ++ serializer >>> Sharding.live
     val grpcShardSvc  = config ++ sharding >>> GrpcShardingService.live
     sharding ++ grpcShardSvc

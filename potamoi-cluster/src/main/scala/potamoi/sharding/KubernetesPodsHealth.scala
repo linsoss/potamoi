@@ -10,7 +10,7 @@ import zio.ZLayer
 /**
  * Shardcake k8s pod health check layer.
  */
-object ShardcakeK8sPodsHealth:
+object KubernetesPodsHealth:
 
   val live: ZLayer[K8sConf, Throwable, PodsHealth] = {
     val k8sConf   = ZLayer.service[K8sConf]

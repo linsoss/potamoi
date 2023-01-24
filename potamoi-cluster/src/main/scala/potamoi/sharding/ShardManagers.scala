@@ -3,6 +3,7 @@ package potamoi.sharding
 import com.devsisters.shardcake.{GrpcPods, ManagerConfig, ShardManager}
 import com.devsisters.shardcake.interfaces.{PodsHealth, Storage}
 import potamoi.kubernetes.K8sConf
+import potamoi.sharding.store.{ShardcakeRedisStorage, ShardRedisStoreConf}
 import zio.ZLayer
 
 /**
@@ -45,7 +46,7 @@ object ShardManagers:
     val managerConfig = ZLayer.service[ShardManagerConf].project(_.toManagerConfig)
     val grpcConfig    = ZLayer.service[ShardManagerConf].project(_.toGrpcConfig)
     val grpcPods      = grpcConfig >>> GrpcPods.live
-    val podHealth     = ShardcakeK8sPodsHealth.live
+    val podHealth     = KubernetesPodsHealth.live
     val storage       = ShardcakeRedisStorage.live
     managerConfig ++ storage ++ grpcPods ++ podHealth >>> ShardManager.live ++ managerConfig
   }

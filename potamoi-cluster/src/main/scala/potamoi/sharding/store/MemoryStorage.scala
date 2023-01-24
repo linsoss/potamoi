@@ -10,7 +10,7 @@ import zio.stream.{SubscriptionRef, ZStream}
  * Enhanced shardcake memory store.
  * This is useful for testing with multiple pods.
  */
-object StorageMemory:
+object MemoryStorage:
 
   val live: ZLayer[ShardManagerClient, Nothing, Storage] = ZLayer {
     for {

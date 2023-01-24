@@ -1,4 +1,4 @@
-package potamoi.sharding
+package potamoi.sharding.store
 
 import com.devsisters.shardcake.{RedisConfig, StorageRedis}
 import com.devsisters.shardcake.StorageRedis.Redis
