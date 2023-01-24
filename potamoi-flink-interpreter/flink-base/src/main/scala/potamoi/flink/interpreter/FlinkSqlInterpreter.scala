@@ -1,6 +1,6 @@
 package potamoi.flink.interpreter
 
-import com.devsisters.shardcake.{Replier, Sharding}
+import com.devsisters.shardcake.{EntityType, Replier, Sharding}
 import potamoi.common.Ack
 import potamoi.flink.{FlinkInteractErr, FlinkInterpreterErr}
 import potamoi.flink.model.interact.*
@@ -26,11 +26,12 @@ import scala.reflect.ClassTag
  */
 object FlinkSqlInterpreter:
 
-  val live = ZLayer {
-    for {
-      remoteFs <- ZIO.service[RemoteFsOperator]
-    } yield FlinkSqlInterpreter(remoteFs)
-  }
+  def live(entity: EntityType[FlinkInterpProto]): ZLayer[RemoteFsOperator, Nothing, FlinkSqlInterpreter] =
+    ZLayer {
+      for {
+        remoteFs <- ZIO.service[RemoteFsOperator]
+      } yield FlinkSqlInterpreter(entity, remoteFs)
+    }
 
   private case class State(sessionDef: Ref[Option[SessionDef]], executor: Ref[Option[SerialSqlExecutor]])
 
@@ -43,13 +44,13 @@ object FlinkSqlInterpreter:
 /**
  * Default implementation
  */
-class FlinkSqlInterpreter(remoteFs: RemoteFsOperator) extends ShardRegister:
+class FlinkSqlInterpreter(entity: EntityType[FlinkInterpProto], remoteFs: RemoteFsOperator) extends ShardRegister:
 
   import FlinkInterpProto.*
   import FlinkSqlInterpreter.*
 
   override private[potamoi] def registerEntities: URIO[Sharding with Scope, Unit] = {
-    Sharding.registerEntity(FlinkInterpEntity.V116, behavior)
+    Sharding.registerEntity(entity, behavior)
   }
 
   /**
