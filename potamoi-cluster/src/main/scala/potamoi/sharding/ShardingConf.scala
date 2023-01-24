@@ -5,9 +5,9 @@ import potamoi.codecs.scalaDurationJsonCodec
 import potamoi.common.HoconConfig
 import potamoi.times.given
 import sttp.client3.UriContext
+import zio.{ULayer, ZIO, ZLayer}
 import zio.config.magnolia.{descriptor, name}
 import zio.config.read
-import zio.{ULayer, ZIO, ZLayer}
 
 import scala.concurrent.duration.{Duration, DurationInt}
 
@@ -18,9 +18,9 @@ import scala.concurrent.duration.{Duration, DurationInt}
 
 object ShardingConf:
 
-  val live: ZLayer[Any, Throwable, ShardingConf] = ZLayer {
+  val live: ZLayer[com.typesafe.config.Config, Throwable, ShardingConf] = ZLayer {
     for {
-      source <- HoconConfig.directHoconSource("potamoi.sharding")
+      source <- HoconConfig.hoconSource("potamoi.sharding")
       config <- read(descriptor[ShardingConf].from(source))
     } yield config
   }

@@ -2,6 +2,7 @@ package potamoi
 
 import com.devsisters.shardcake.*
 import com.devsisters.shardcake.interfaces.*
+import potamoi.common.HoconConfig
 import potamoi.kubernetes.K8sConf
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.sharding.{ShardManagerConf, ShardManagers}
@@ -21,6 +22,7 @@ object ShardManagerApp extends ZIOAppDefault:
 
   val run = (ZIO.logInfo("Shardcake manager launching...") *> Server.run)
     .provide(
+      HoconConfig.live,
       ShardManagerConf.live,
       ShardRedisStoreConf.live,
       K8sConf.live,
@@ -31,7 +33,7 @@ object ShardManagerApp extends ZIOAppDefault:
  * Local shardcake manager app for debugging.
  * Using memory as storage.
  */
-object DebugShardManagerApp extends ZIOAppDefault:
+object TestShardManagerApp extends ZIOAppDefault:
 
   override val bootstrap = PotaLogger.default
 

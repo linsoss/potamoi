@@ -3,6 +3,7 @@ package potamoi.sharding.store
 import com.devsisters.shardcake.{RedisConfig, StorageRedis}
 import com.devsisters.shardcake.StorageRedis.Redis
 import com.devsisters.shardcake.interfaces.Storage
+import com.typesafe.config.Config
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec
@@ -47,9 +48,9 @@ object ShardcakeRedisStorage:
 case class ShardRedisStoreConf(@name("uri") redisUri: String)
 
 object ShardRedisStoreConf:
-  val live: ZLayer[Any, Throwable, ShardRedisStoreConf] = ZLayer {
+  val live: ZLayer[Config, Throwable, ShardRedisStoreConf] = ZLayer {
     for {
-      source <- HoconConfig.directHoconSource("potamoi.redis")
+      source <- HoconConfig.hoconSource("potamoi.redis")
       config <- read(descriptor[ShardRedisStoreConf].from(source))
     } yield config
   }

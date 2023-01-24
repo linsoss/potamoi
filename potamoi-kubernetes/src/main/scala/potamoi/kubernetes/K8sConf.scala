@@ -1,5 +1,6 @@
 package potamoi.kubernetes
 
+import com.typesafe.config.Config
 import potamoi.common.HoconConfig
 import zio.{config, ULayer, ZLayer}
 import zio.config.magnolia.descriptor
@@ -14,9 +15,9 @@ case class K8sConf(
 
 object K8sConf:
 
-  val live: ZLayer[Any, Throwable, K8sConf] = ZLayer {
+  val live: ZLayer[Config, Throwable, K8sConf] = ZLayer {
     for {
-      source <- HoconConfig.directHoconSource("potamoi.k8s")
+      source <- HoconConfig.hoconSource("potamoi.k8s")
       config <- config.read(descriptor[K8sConf].from(source))
     } yield config
   }

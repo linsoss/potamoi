@@ -16,5 +16,5 @@ object FileServerAppTest extends ZIOAppDefault:
     .provide(
       S3FsBackendConfDev.asLayer,
       S3FsBackend.live,
-      FileServerConf.test.asLayer
+      FileServerConf.default
     )

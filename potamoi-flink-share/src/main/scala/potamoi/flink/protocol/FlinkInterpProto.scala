@@ -4,6 +4,7 @@ import com.devsisters.shardcake.*
 import potamoi.common.Ack
 import potamoi.flink.model.interact.*
 import potamoi.flink.FlinkInteractErr.*
+import potamoi.flink.FlinkMajorVer
 import zio.{Cause, UIO}
 
 /**
@@ -12,10 +13,17 @@ import zio.{Cause, UIO}
 trait FlinkInterpProto
 
 object FlinkInterpEntity:
+
   object V116 extends EntityType[FlinkInterpProto]("flinkInterp116")
   object V115 extends EntityType[FlinkInterpProto]("flinkInterp115")
 
+  val adapters: Map[FlinkMajorVer, EntityType[FlinkInterpProto]] = Map(
+    FlinkMajorVer.V116 -> V116,
+    FlinkMajorVer.V115 -> V115
+  )
+
 object FlinkInterpProto:
+
   private type Reply[E, A] = Replier[Either[E, A]]
 
   case class Start(sessionDef: SessionDef, updateConflict: Boolean = false, replier: Replier[Ack.type]) extends FlinkInterpProto

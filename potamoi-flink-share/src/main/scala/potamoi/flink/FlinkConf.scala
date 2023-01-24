@@ -1,6 +1,7 @@
 package potamoi.flink
 
 import com.softwaremill.quicklens.modify
+import com.typesafe.config.Config
 import potamoi.{codecs, BaseConf}
 import potamoi.common.{Codec, HoconConfig}
 import potamoi.common.Codec.scalaDurationJsonCodec
@@ -36,10 +37,10 @@ case class FlinkConf(
 
 object FlinkConf:
 
-  val live: ZLayer[BaseConf, Throwable, FlinkConf] = ZLayer {
+  val live: ZLayer[BaseConf with Config, Throwable, FlinkConf] = ZLayer {
     for {
       baseConf      <- ZIO.service[BaseConf]
-      source        <- HoconConfig.directHoconSource("potamoi.flink")
+      source        <- HoconConfig.hoconSource("potamoi.flink")
       config        <- read(descriptor[FlinkConf].from(source))
       resolvedConfig = config.resolve(baseConf.dataDir)
     } yield resolvedConfig
