@@ -9,6 +9,8 @@ import zio.http.model.{Method, Status}
 import zio.http.Http.status
 import zio.stream.ZStream
 
+import java.net.InetSocketAddress
+
 /**
  * Potamoi remote http file server application.
  * The actual storage backend depends on [[RemoteFsOperator]].
@@ -20,18 +22,20 @@ object FileServer:
    */
   def run: ZIO[RemoteFsOperator with FileServerConf, Throwable, Unit] =
     for {
-      conf               <- ZIO.service[FileServerConf]
-      backend            <- ZIO.service[RemoteFsOperator]
-      app                 = FileServer(conf, backend)
-      httpServerConfLayer = ServerConfig.live.project(_.binding(conf.host, conf.port))
-
-      _ <- ZIO.logInfo(s"""Potamoi file remote server start at http://${conf.host}:${conf.port}
+      conf    <- ZIO.service[FileServerConf]
+      backend <- ZIO.service[RemoteFsOperator]
+      app      = FileServer(conf, backend)
+      _       <- ZIO.logInfo(s"""Potamoi file remote server start at http://${conf.host}:${conf.port}
                           |API List:
                           |- GET /heath
                           |- GET /fs/<file-path>""".stripMargin)
-      _ <- Server
-             .serve(app.routes)
-             .provideLayer(ServerConfig.live ++ httpServerConfLayer >>> Server.live ++ Scope.default)
+      _       <- Server
+                   .serve(app.routes)
+                   .provide(
+                     ServerConfig.live ++ ServerConfig.live.project(_.binding(InetSocketAddress(conf.port))),
+                     Server.live,
+                     Scope.default
+                   )
     } yield ()
 
   /**
