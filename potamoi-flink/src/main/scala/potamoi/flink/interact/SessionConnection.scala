@@ -2,7 +2,7 @@ package potamoi.flink.interact
 
 import cats.instances.unit
 import com.devsisters.shardcake.Messenger
-import potamoi.flink.{FlinkConf, FlinkInteractErr, FlinkMajorVer}
+import potamoi.flink.{FlinkConf, FlinkErr, FlinkInteractErr, FlinkMajorVer}
 import potamoi.flink.FlinkInterpreterErr.{ExecOperationErr, ExecuteSqlErr, RetrieveResultNothing, SplitSqlScriptErr}
 import potamoi.flink.model.interact.*
 import potamoi.flink.protocol.FlinkInterpProto
@@ -48,6 +48,7 @@ trait SessionConnection:
 
   def getHandleStatus(handleId: String): IO[AttachHandleErr, HandleStatusView]
   def getHandleFrame(handleId: String): IO[AttachHandleErr, HandleFrame]
+  def overview: IO[RpcFailure, SessionOverview]
 
 /**
  * Default implementation.
@@ -280,3 +281,12 @@ class SessionConnectionImpl(
           case Right(v: HandleFrame)          => succeed(v)
         }
     }
+
+  /**
+   * Get session overview info.
+   */
+  override def overview: IO[RpcFailure, SessionOverview] = annoTag {
+    interpreter
+      .send(sessionId)(FlinkInterpProto.GetOverview.apply)
+      .narrowRpcErr
+  }

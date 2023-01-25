@@ -30,6 +30,7 @@ object FlinkInterpProto:
   case class Stop(replier: Replier[Ack.type])                                                           extends FlinkInterpProto
   case object Terminate                                                                                 extends FlinkInterpProto
   case class CancelCurrentHandles(replier: Replier[Ack.type])                                           extends FlinkInterpProto
+  case class GetOverview(replier: Replier[SessionOverview])                                             extends FlinkInterpProto
 
   case class CompleteSql(
       sql: String,

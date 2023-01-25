@@ -42,6 +42,8 @@ class SessionManagerImpl(
   lazy val session = dataStore.session
   lazy val pod     = dataStore.pod
 
+
+
   /**
    * Create flink sql interactive session.
    */
@@ -131,3 +133,4 @@ class SessionManagerImpl(
                    .unit
     } yield ()
   } @@ annotated("sessionId" -> sessionId)
+

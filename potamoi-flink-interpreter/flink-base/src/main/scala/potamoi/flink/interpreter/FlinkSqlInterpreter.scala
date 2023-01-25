@@ -84,6 +84,16 @@ class FlinkSqlInterpreter(entity: EntityType[FlinkInterpProto], remoteFs: Remote
         state.executor.set(None) *>
         state.sessionDef.set(None)
 
+      case GetOverview(replier) =>
+        (state.executor.get <&> state.sessionDef.get).flatMap {
+          case (None, sessionDef)           =>
+            replier.reply(SessionOverview(sessionId, isStarted = false, isBusy = false, sessionDef))
+          case (Some(executor), sessionDef) =>
+            (executor.isStarted <&> executor.isBusy).flatMap { case (isStart, isBusy) =>
+              replier.reply(SessionOverview(sessionId, isStart, isBusy, sessionDef))
+            }
+        }
+
       case CompleteSql(sql, position, replier) =>
         getExecutor
           .flatMap { executor => executor.completeSql(sql, position) }
