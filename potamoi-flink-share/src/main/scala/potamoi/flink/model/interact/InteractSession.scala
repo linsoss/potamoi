@@ -1,14 +1,13 @@
 package potamoi.flink.model.interact
 
+import potamoi.curTs
 import potamoi.flink.{FlinkMajorVer, FlinkVersion}
 
 case class InteractSession(
     sessionId: String,
     flinkVer: FlinkMajorVer,
-    definition: InteractSessionDef,
 //    status: InteractSessionStatus,
-    createdAt: Long)
-
+    createdAt: Long = curTs)
 
 enum InteractSessionStatus:
   case Busy

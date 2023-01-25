@@ -1,16 +1,15 @@
 package potamoi.flink.interact
 
 import com.devsisters.shardcake.{Messenger, Sharding}
-import potamoi.flink.{FlinkConf, FlinkInteractErr, FlinkMajorVer, FlinkRestEndpointType, FlinkVersion}
-import potamoi.flink.FlinkInterpreterErr.{ExecOperationErr, ExecuteSqlErr, RetrieveResultNothing}
+import potamoi.flink.*
 import potamoi.flink.model.interact.*
 import potamoi.flink.model.FlinkTargetType
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.protocol.{FlinkInterpEntity, FlinkInterpProto}
-import potamoi.flink.FlinkInteractErr.{CreateSessionReqErr, ResolveFlinkClusterEndpointErr, RpcFailure}
-import potamoi.rpc.Rpc
-import potamoi.uuids
+import potamoi.flink.FlinkInteractErr.{ResolveFlinkClusterEndpointErr, RpcFailure, SessionNotFound}
+import potamoi.flink.storage.{FlinkDataStorage, InteractSessionStorage}
 import potamoi.rpc.Rpc.narrowRpcErr
+import potamoi.uuids
 import zio.{IO, Task, UIO}
 import zio.ZIO.{logDebug, logInfo, succeed}
 import zio.ZIOAspect.annotated
@@ -20,29 +19,40 @@ import zio.ZIOAspect.annotated
  */
 trait SessionManager:
 
-  // todo
-  //  def list: UIO[List[SessionId]]
-  def create(sessionDef: InteractSessionDef): IO[CreateSessionReqErr, SessionId]
-  def update(sessionId: String, sessionDef: InteractSessionDef): IO[CreateSessionReqErr, Unit]
-  def cancel(sessionId: String): IO[RpcFailure, Unit]
-  def close(sessionId: String): IO[RpcFailure, Unit]
+  def create(sessionDef: InteractSessionDef, flinkVer: FlinkMajorVer): IO[FlinkErr, SessionId]
+  def update(sessionId: String, sessionDef: InteractSessionDef): IO[FlinkErr, Unit]
+  def cancel(sessionId: String): IO[FlinkErr, Unit]
+  def close(sessionId: String): IO[FlinkErr, Unit]
+
+  def session: InteractSessionStorage.Query
 
 /**
  * Default implementation
  */
-class SessionManagerImpl(flinkConf: FlinkConf, observer: FlinkObserver, interpreter: Messenger[FlinkInterpProto]) extends SessionManager:
+class SessionManagerImpl(
+    flinkConf: FlinkConf,
+    observer: FlinkObserver,
+    dataStore: FlinkDataStorage,
+    interpreters: Map[FlinkMajorVer, Messenger[FlinkInterpProto]])
+    extends SessionManager:
 
   private given FlinkRestEndpointType = flinkConf.restEndpointTypeInternal
-
+  lazy val session                    = dataStore.interact
+  
   /**
    * Create flink sql interactive session.
    */
-  override def create(sessionDef: InteractSessionDef): IO[CreateSessionReqErr, SessionId] = {
+  override def create(
+      sessionDef: InteractSessionDef,
+      flinkVer: FlinkMajorVer): IO[RpcFailure | ResolveFlinkClusterEndpointErr | FlinkDataStoreErr, SessionId] = {
     for {
       sessionId <- succeed(uuids.genUUID32)
       sessDef   <- resolveSessionDef(sessionDef)
+      _         <- dataStore.interact.put(InteractSession(sessionId, flinkVer))
       _         <- logDebug("Call remote flink interactive session rpc command: Create(updateConflict=false)")
-      _         <- interpreter.send(sessionId)(FlinkInterpProto.Start(sessDef, false, _)).narrowRpcErr
+      _         <- interpreters(flinkVer)
+                     .send(sessionId)(FlinkInterpProto.Start(sessDef, false, _))
+                     .narrowRpcErr
     } yield sessionId
   }
 
@@ -74,30 +84,40 @@ class SessionManagerImpl(flinkConf: FlinkConf, observer: FlinkObserver, interpre
   /**
    * Create SessionDef of interactive session entity.
    */
-  override def update(sessionId: String, sessionDef: InteractSessionDef): IO[CreateSessionReqErr, Unit] = {
+  override def update(
+      sessionId: String,
+      sessionDef: InteractSessionDef): IO[SessionNotFound | FlinkDataStoreErr | ResolveFlinkClusterEndpointErr | RpcFailure | FlinkErr, Unit] = {
     for {
+      session <- dataStore.interact.get(sessionId).someOrFail(SessionNotFound(sessionId))
       sessDef <- resolveSessionDef(sessionDef)
       _       <- logDebug("Call remote flink interactive session rpc command: Create(updateConflict=true)")
-      _       <- interpreter.send(sessionId)(FlinkInterpProto.Start(sessDef, true, _)).narrowRpcErr
+      _       <- interpreters(session.flinkVer)
+                   .send(sessionId)(FlinkInterpProto.Start(sessDef, true, _))
+                   .narrowRpcErr
     } yield ()
   } @@ annotated("sessionId" -> sessionId)
 
   /**
    * Cancel current sqls execution plan of given session entity.
    */
-  override def cancel(sessionId: String): IO[RpcFailure, Unit] = {
+  override def cancel(sessionId: String): IO[SessionNotFound | FlinkDataStoreErr | RpcFailure | FlinkErr, Unit] = {
     for {
-      _ <- logDebug("Call remote flink interactive session rpc command: CancelCurrentHandles")
-      _ <- interpreter.send(sessionId)(FlinkInterpProto.CancelCurrentHandles.apply).narrowRpcErr
+      session <- dataStore.interact.get(sessionId).someOrFail(SessionNotFound(sessionId))
+      _       <- logDebug("Call remote flink interactive session rpc command: CancelCurrentHandles")
+      _       <- interpreters(session.flinkVer).send(sessionId)(FlinkInterpProto.CancelCurrentHandles.apply).narrowRpcErr
     } yield ()
   } @@ annotated("sessionId" -> sessionId)
 
   /**
    * Close remote session entity of given session id.
    */
-  override def close(sessionId: String): IO[RpcFailure, Unit] = {
+  override def close(sessionId: String): IO[SessionNotFound | FlinkDataStoreErr | RpcFailure | FlinkErr, Unit] = {
     for {
-      _ <- logDebug("Call remote flink interactive session rpc command: Stop")
-      _ <- interpreter.send(sessionId)(FlinkInterpProto.Stop.apply).narrowRpcErr.unit
+      session <- dataStore.interact.get(sessionId).someOrFail(SessionNotFound(sessionId))
+      _       <- logDebug("Call remote flink interactive session rpc command: Stop")
+      _       <- interpreters(session.flinkVer)
+                   .send(sessionId)(FlinkInterpProto.Stop.apply)
+                   .narrowRpcErr
+                   .unit
     } yield ()
   } @@ annotated("sessionId" -> sessionId)

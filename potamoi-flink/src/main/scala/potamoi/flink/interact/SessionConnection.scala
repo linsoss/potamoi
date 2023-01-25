@@ -2,7 +2,7 @@ package potamoi.flink.interact
 
 import cats.instances.unit
 import com.devsisters.shardcake.Messenger
-import potamoi.flink.{FlinkConf, FlinkInteractErr}
+import potamoi.flink.{FlinkConf, FlinkInteractErr, FlinkMajorVer}
 import potamoi.flink.FlinkInterpreterErr.{ExecOperationErr, ExecuteSqlErr, RetrieveResultNothing, SplitSqlScriptErr}
 import potamoi.flink.model.interact.*
 import potamoi.flink.protocol.FlinkInterpProto
@@ -11,9 +11,9 @@ import potamoi.rpc.Rpc
 import potamoi.syntax.contra
 import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import potamoi.uuids
+import zio.{durationInt, Chunk, Duration, IO, Ref, Schedule, Task, UIO, ZIO}
 import zio.ZIO.{fail, succeed}
 import zio.stream.{Stream, ZStream}
-import zio.{durationInt, Chunk, Duration, IO, Ref, Schedule, Task, UIO, ZIO}
 import zio.ZIOAspect.annotated
 
 /**
@@ -25,7 +25,7 @@ trait SessionConnection:
   def completeSql(sql: String, position: Int): IO[AttachSessionErr, List[String]]
 
   def submitSqlAsync(sql: String): IO[AttachSessionErr, HandleId]
-  def submitSqlScriptAsync(sqlScript: String): IO[SubmitSqlScriptReqErr, List[ScripSqlSign]]
+  def submitSqlScriptAsync(sqlScript: String): IO[FlinkInteractErr, List[ScripSqlSign]]
 
   def subscribeHandleFrame(handleId: String): HandleFrameWatcher
   def subscribeScriptResultFrame(handleIds: List[String]): ScriptHandleFrameWatcher
@@ -52,7 +52,11 @@ trait SessionConnection:
 /**
  * Default implementation.
  */
-class SessionConnectionImpl(sessionId: String, flinkConf: FlinkConf, interpreter: Messenger[FlinkInterpProto]) extends SessionConnection:
+class SessionConnectionImpl(
+    sessionId: String,
+    flinkConf: FlinkConf,
+    interpreter: Messenger[FlinkInterpProto])
+    extends SessionConnection:
 
   private val streamPollingInterval: Duration            = flinkConf.sqlInteract.streamPollingInterval
   private inline def annoTag[R, E, A](zio: ZIO[R, E, A]) = zio @@ annotated("sessionId" -> sessionId)
@@ -101,7 +105,7 @@ class SessionConnectionImpl(sessionId: String, flinkConf: FlinkConf, interpreter
    * Submit sql script.
    */
   override def submitSqlScriptAsync(
-      sqlScript: String): IO[SubmitSqlScriptReqErr, List[ScripSqlSign]] = annoTag {
+      sqlScript: String): IO[AttachHandleErr | FailToSplitSqlScript, List[ScripSqlSign]] = annoTag {
     interpreter
       .send(sessionId)(FlinkInterpProto.SubmitSqlScriptAsync(sqlScript, _))
       .narrowRpcErr

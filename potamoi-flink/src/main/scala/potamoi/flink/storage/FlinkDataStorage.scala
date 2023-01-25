@@ -17,6 +17,7 @@ trait FlinkDataStorage:
   def cluster: ClusterSnapStorage
   def job: JobSnapStorage
   def k8sRef: K8sRefSnapStorage
+  def interact: InteractSessionStorage
 
   /**
    * Remove all current snapshot data belongs to Fcid.
@@ -42,6 +43,7 @@ object FlinkDataStorage:
       clusters      <- ClusterSnapMemoryStorage.make
       jobs          <- JobSnapMemoryStorage.make
       k8sRefs       <- K8sRefSnapMemoryStorage.make
+      interacts     <- InteractSessionMemoryStorage.make
     } yield new FlinkDataStorage:
       lazy val trackedList  = trackedLists
       lazy val restEndpoint = restEndpoints
@@ -49,4 +51,5 @@ object FlinkDataStorage:
       lazy val cluster      = clusters
       lazy val job          = jobs
       lazy val k8sRef       = k8sRefs
+      lazy val interact     = interacts
   }

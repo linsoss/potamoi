@@ -86,16 +86,15 @@ object FlinkK8sEntityConvertErr:
 sealed trait FlinkInteractErr extends FlinkErr
 
 object FlinkInteractErr:
-  sealed trait AttachSessionErr      extends FlinkInteractErr
-  sealed trait AttachHandleErr       extends FlinkInteractErr
-  sealed trait CreateSessionReqErr   extends FlinkInteractErr
-  sealed trait SubmitSqlScriptReqErr extends FlinkInteractErr
+  sealed trait AttachSessionErr extends FlinkInteractErr
+  sealed trait AttachHandleErr  extends FlinkInteractErr
 
-  case class RpcFailure(cause: RpcErr)                                      extends AttachSessionErr with AttachHandleErr with CreateSessionReqErr with SubmitSqlScriptReqErr
-  case class SessionNotYetStarted(sessionId: String)                        extends AttachSessionErr with AttachHandleErr with SubmitSqlScriptReqErr
-  case class SessionHandleNotFound(sessionId: String, handleId: String)     extends AttachHandleErr with SubmitSqlScriptReqErr
-  case class ResolveFlinkClusterEndpointErr(fcid: Fcid, reason: FlinkErr)   extends CreateSessionReqErr
-  case class FailToSplitSqlScript(reason: SplitSqlScriptErr, stack: String) extends SubmitSqlScriptReqErr
+  case class RpcFailure(cause: RpcErr)                                      extends AttachSessionErr with AttachHandleErr
+  case class SessionNotYetStarted(sessionId: String)                        extends AttachSessionErr with AttachHandleErr
+  case class SessionNotFound(sessionId: String)                             extends FlinkInteractErr
+  case class SessionHandleNotFound(sessionId: String, handleId: String)     extends AttachHandleErr
+  case class ResolveFlinkClusterEndpointErr(fcid: Fcid, reason: FlinkErr)   extends FlinkInteractErr
+  case class FailToSplitSqlScript(reason: SplitSqlScriptErr, stack: String) extends FlinkInteractErr
 
 /**
  * Flink sql interpreter error.
