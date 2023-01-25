@@ -38,7 +38,7 @@ abstract class FlinkInterpBootstrap(flinkVer: FlinkMajorVer) extends ZIOAppDefau
       _           <- Sharding.registerScoped
       // report register/unregister events via internal rpc
       internalRpc <- Rpc(InternalRpcEntity)
-      _           <- internalRpc.ask(RegisterFlinkInterpreter(InterpreterPod(flinkVer, shardConf.selfHost, shardConf.selfPort), _))
+      _           <- internalRpc.ask(RegisterFlinkInterpreter(InterpreterPod(flinkVer, shardConf.selfHost, shardConf.selfPort), _)).retryN(3)
       _           <- Sharding.register.withFinalizer { _ =>
                        internalRpc.tell(UnregisterFlinkInterpreter(flinkVer, shardConf.selfHost, shardConf.selfPort))
                      }
