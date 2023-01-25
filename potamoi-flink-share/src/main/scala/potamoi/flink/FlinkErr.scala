@@ -89,6 +89,7 @@ object FlinkInteractErr:
   sealed trait AttachSessionErr extends FlinkInteractErr
   sealed trait AttachHandleErr  extends FlinkInteractErr
 
+  case class InterpreterNotYetRegistered(flinkVer: FlinkMajorVer)           extends FlinkInteractErr
   case class RpcFailure(cause: RpcErr)                                      extends AttachSessionErr with AttachHandleErr
   case class SessionNotYetStarted(sessionId: String)                        extends AttachSessionErr with AttachHandleErr
   case class SessionNotFound(sessionId: String)                             extends FlinkInteractErr

@@ -8,11 +8,14 @@ import potamoi.sharding.{ShardingConf, Shardings}
 import potamoi.sharding.store.ShardRedisStoreConf
 import potamoi.BaseConf
 import potamoi.common.HoconConfig
-import potamoi.flink.protocol.{FlinkInterpEntity, FlinkInterpProto}
+import potamoi.flink.model.interact.InterpreterPod
+import potamoi.flink.protocol.{FlinkInterpEntity, FlinkInterpProto, InternalRpcEntity}
+import potamoi.rpc.Rpc
 import zio.{Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.ZIO.logInfo
 import zio.http.{Server, *}
 import zio.http.model.Method
+import potamoi.flink.protocol.InternalRpcProto.*
 
 import java.net.InetSocketAddress
 
@@ -24,14 +27,21 @@ abstract class FlinkInterpBootstrap(flinkVer: FlinkMajorVer) extends ZIOAppDefau
   override val bootstrap = LogConf.live >>> PotaLogger.live
   val shardEntity        = FlinkInterpEntity.adapters(flinkVer)
 
-  def active: ZIO[Sharding with Scope with FlinkInterpConf with FlinkSqlInterpreter, Throwable, Unit] =
+  def active: ZIO[Sharding with Scope with ShardingConf with FlinkInterpConf with FlinkSqlInterpreter, Throwable, Unit] =
     for {
       _           <- logInfo(s"Flink interpreter launching, flink-version: ${flinkVer.value}")
       interpreter <- ZIO.service[FlinkSqlInterpreter]
       interpConf  <- ZIO.service[FlinkInterpConf]
+      shardConf   <- ZIO.service[ShardingConf]
       // register sharding entity
       _           <- interpreter.registerEntities
       _           <- Sharding.registerScoped
+      // report register/unregister events via internal rpc
+      internalRpc <- Rpc(InternalRpcEntity)
+      _           <- internalRpc.ask(RegisterFlinkInterpreter(InterpreterPod(flinkVer, shardConf.selfHost, shardConf.selfPort), _))
+      _           <- Sharding.register.withFinalizer { _ =>
+                       internalRpc.tell(UnregisterFlinkInterpreter(flinkVer, shardConf.selfHost, shardConf.selfPort))
+                     }
       // launch health http api
       _           <- Server
                        .serve(healthApi)

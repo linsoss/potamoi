@@ -1,6 +1,7 @@
 package potamoi.flink
 
 import com.devsisters.shardcake.{EntityType, Sharding}
+import potamoi.common.Ack
 import potamoi.flink.model.interact.{RemoteClusterEndpoint, SessionDef}
 import potamoi.flink.model.FlinkTargetType
 import potamoi.flink.observer.FlinkObserver
@@ -17,54 +18,21 @@ import scala.util.Failure
 /**
  * Internal system rpc service for potamoi-flink module.
  * see: [[potamoi.flink.protocol.InternalRpcProto]]
- * todo continue
  */
 object InternalRpcService {
 
-  val live: ZIO[FlinkConf with FlinkDataStorage with FlinkObserver, Nothing, InternalRpcService] =
+  val live: ZIO[FlinkDataStorage, Nothing, InternalRpcService] =
     for {
-      flinkConf <- ZIO.service[FlinkConf]
       dataStore <- ZIO.service[FlinkDataStorage]
-      observer  <- ZIO.service[FlinkObserver]
-    } yield InternalRpcService(flinkConf, dataStore, observer)
+    } yield InternalRpcService(dataStore)
 }
 
 import InternalRpcProto.*
 
-class InternalRpcService(
-    flinkConf: FlinkConf,
-    dataStore: FlinkDataStorage,
-    observer: FlinkObserver)
-    extends RpcService[InternalRpcProto](InternalRpcEntity) {
+class InternalRpcService(dataStore: FlinkDataStorage) extends RpcService[InternalRpcProto](InternalRpcEntity) {
 
-  def handleMessage(message: InternalRpcProto): URIO[Sharding, Unit] = ???
-
-//  private def getInteractSessionDef(sessionId: String): IO[DataStoreErr | RetrieveRemoteClusterEndpointErr, Option[SessionDef]] = defer {
-//    val interactSessionDef = dataStore.interactSession.get(sessionId).map(_.map(_.definition)).run
-//    interactSessionDef match
-//      case None              => succeed(None).run
-//      case Some(interactDef) =>
-//        // convert remote fcid to RemoteClusterEndpoint
-//        val remoteEndpoint: Option[RemoteClusterEndpoint] = interactDef.remoteCluster match
-//          case None       => succeed(None).run
-//          case Some(fcid) =>
-//            observer.restEndpoint
-//              .getEnsure(fcid)
-//              .mapBoth(RetrieveRemoteClusterEndpointErr(fcid, _), _.map(ept => RemoteClusterEndpoint(ept.chooseHost, ept.port)))
-//              .run
-//        succeed(
-//          SessionDef(
-//            execType = interactDef.execType,
-//            execMode = interactDef.execMode,
-//            remoteEndpoint = remoteEndpoint,
-//            jobName = interactDef.jobName,
-//            localJars = interactDef.localJars,
-//            clusterJars = interactDef.clusterJars,
-//            parallelism = interactDef.parallelism,
-//            extraProps = interactDef.extraProps,
-//            resultStore = interactDef.resultStore,
-//            allowSinkOperation = interactDef.allowSinkOperation
-//          ))
-//  }
-
+  def handleMessage(message: InternalRpcProto): URIO[Sharding, Unit] = message match {
+    case RegisterFlinkInterpreter(pod, replier)           => dataStore.interact.pod.put(pod).as(Ack).either.flatMap(replier.reply)
+    case UnregisterFlinkInterpreter(flinkVer, host, port) => dataStore.interact.pod.rm(flinkVer, host, port).ignore
+  }
 }
