@@ -33,12 +33,20 @@ object ZIOExtension {
   }
 
   extension [R, E, A](zio: ZIO[R, E, A]) {
-    inline def debugPretty: ZIO[R, E, A]                                              =
+    inline def debugPretty: ZIO[R, E, A] =
       zio
         .tap(value => ZIO.succeed(println(toPrettyString(value))))
         .tapErrorCause { case cause =>
           ZIO.succeed(println(s"<FAIL> ${cause.prettyPrint}"))
         }
+
+    inline def debugPrettyWithTag(tag: String): ZIO[R, E, A] =
+      zio
+        .tap(value => ZIO.succeed(println(s"<$tag> ${toPrettyString(value)}")))
+        .tapErrorCause { case cause =>
+          ZIO.succeed(println(s"<$tag> <FAIL> ${cause.prettyPrint}"))
+        }
+
     inline def repeatWhileWithSpaced(f: A => Boolean, spaced: Duration): ZIO[R, E, A] =
       zio.repeat(Schedule.recurWhile[A](f) && Schedule.spaced(spaced)).map(_._1)
   }
