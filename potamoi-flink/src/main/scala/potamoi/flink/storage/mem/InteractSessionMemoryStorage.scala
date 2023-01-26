@@ -1,7 +1,7 @@
 package potamoi.flink.storage.mem
 
 import potamoi.flink.{FlinkDataStoreErr, FlinkMajorVer}
-import potamoi.flink.model.interact.{InteractSession, InteractSessionStatus, InterpreterPod}
+import potamoi.flink.model.interact.{InteractSession, InterpreterPod}
 import potamoi.flink.storage.InteractSessionStorage
 import zio.{stream, IO, Ref, UIO, ZIO}
 
@@ -21,7 +21,7 @@ object InteractSessionMemoryStorage:
 class SessionMemoryStorage(ref: Ref[mutable.Map[String, InteractSession]]) extends InteractSessionStorage.SessionStorage:
   private val stg                                                            = MapBasedStg(ref)
   def put(session: InteractSession): IO[FlinkDataStoreErr, Unit]             = stg.put(session.sessionId, session)
-  def rm(session: InteractSession): IO[FlinkDataStoreErr, Unit]              = stg.delete(session.sessionId)
+  def rm(sessionId: String): IO[FlinkDataStoreErr, Unit]                     = stg.delete(sessionId)
   def get(sessionId: String): IO[FlinkDataStoreErr, Option[InteractSession]] = stg.get(sessionId)
   def list: stream.Stream[FlinkDataStoreErr, InteractSession]                = stg.streamValues
   def listSessionId: IO[FlinkDataStoreErr, List[String]]                     = stg.getKeys

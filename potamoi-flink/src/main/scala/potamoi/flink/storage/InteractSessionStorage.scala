@@ -1,7 +1,7 @@
 package potamoi.flink.storage
 
 import potamoi.flink.{FlinkDataStoreErr, FlinkMajorVer}
-import potamoi.flink.model.interact.{InteractSession, InteractSessionStatus, InterpreterPod}
+import potamoi.flink.model.interact.{InteractSession, InterpreterPod}
 import potamoi.flink.storage.InteractSessionStorage.{PodStorage, SessionStorage}
 import zio.IO
 import zio.stream.Stream
@@ -23,7 +23,7 @@ object InteractSessionStorage {
   object SessionStorage:
     trait Modify:
       def put(session: InteractSession): IO[FlinkDataStoreErr, Unit]
-      def rm(session: InteractSession): IO[FlinkDataStoreErr, Unit]
+      def rm(sessionId: String): IO[FlinkDataStoreErr, Unit]
 
     trait Query:
       def get(sessionId: String): IO[FlinkDataStoreErr, Option[InteractSession]]
