@@ -32,4 +32,4 @@ class PodMemoryStorage(ref: Ref[mutable.Map[(FlinkMajorVer, String, Int), Interp
   def rm(flinkVer: FlinkMajorVer, address: String, port: Int): IO[FlinkDataStoreErr, Unit] = stg.delete((flinkVer, address, port))
   def list: IO[FlinkDataStoreErr, List[InterpreterPod]]                                    = stg.getValues
   def listFlinkVersion: IO[FlinkDataStoreErr, Set[FlinkMajorVer]]                          = stg.getKeys.map(_.map(_._1).toSet)
-  def exists(flinkVer: FlinkMajorVer): IO[FlinkDataStoreErr, Boolean]                      = stg.getKeys.map(_.exists(_._1 == flinkVer))
+  def exists(flinkVer: FlinkMajorVer): IO[FlinkDataStoreErr, Boolean]                      = stg.getKeys.map(_.exists(_._1.value == flinkVer.value))
