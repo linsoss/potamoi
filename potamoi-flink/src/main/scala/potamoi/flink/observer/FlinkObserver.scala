@@ -10,7 +10,7 @@ import potamoi.flink.observer.tracker.{TrackerManager, TrackManager}
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.kubernetes.K8sOperator
-import zio.{IO, URIO, ZIO, ZLayer}
+import zio.{IO, Scope, URIO, ZIO, ZLayer}
 import zio.stream.Stream
 
 import scala.concurrent.duration.Duration
@@ -30,16 +30,16 @@ object FlinkObserver {
 
   val live: ZLayer[Sharding with FlinkDataStorage with K8sOperator with FlinkConf, Nothing, FlinkObserver] = ZLayer {
     for {
-      flinkConf   <- ZIO.service[FlinkConf]
-      k8sOperator <- ZIO.service[K8sOperator]
-      snapStorage <- ZIO.service[FlinkDataStorage]
-      k8sClient   <- k8sOperator.client
+      flinkConf        <- ZIO.service[FlinkConf]
+      k8sOperator      <- ZIO.service[K8sOperator]
+      snapStorage      <- ZIO.service[FlinkDataStorage]
+      k8sClient        <- k8sOperator.client
       eptRetriever      = FlinkRestEndpointRetrieverLive(k8sClient)
       restEndpointQuery = FlinkRestEndpointQueryLive(snapStorage.restEndpoint, eptRetriever)
       clusterQuery      = FlinkClusterQueryLive(snapStorage.cluster)
       jobQuery          = FlinkJobQueryLive(flinkConf, snapStorage.job, restEndpointQuery)
       k8sRefQuery       = FlinkK8sRefQueryLive(snapStorage.k8sRef, k8sOperator)
-      trackerManager <- TrackerManager.instance(flinkConf, snapStorage, eptRetriever, k8sOperator)
+      trackerManager   <- TrackerManager.instance(flinkConf, snapStorage, eptRetriever, k8sOperator)
     } yield new FlinkObserver:
       val manager           = trackerManager
       lazy val restEndpoint = restEndpointQuery
@@ -47,4 +47,7 @@ object FlinkObserver {
       lazy val job          = jobQuery
       lazy val k8s          = k8sRefQuery
   }
+
+  def registerEntities: URIO[Sharding with Scope with FlinkObserver, Unit] =
+    ZIO.serviceWithZIO[FlinkObserver](_.manager.registerEntities)
 }

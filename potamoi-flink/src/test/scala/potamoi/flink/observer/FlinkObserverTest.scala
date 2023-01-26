@@ -22,15 +22,16 @@ import zio.Schedule.spaced
 object FlinkObserverTest:
 
   def testing[E, A](effect: FlinkObserver => IO[E, A]): Unit = {
-    val program = ZIO
-      .serviceWithZIO[FlinkObserver] { obr =>
-        obr.manager.registerEntities *>
-        Sharding.registerScoped.ignore *>
-        effect(obr)
-      }
-      .tapErrorCause(cause => ZIO.logErrorCause(cause))
     ZIO
-      .scoped(program)
+      .scoped {
+        for {
+          _ <- FlinkObserver.registerEntities
+          _ <- Sharding.registerScoped
+          _ <- ZIO
+                 .serviceWithZIO[FlinkObserver] { obr => effect(obr) }
+                 .tapErrorCause(cause => ZIO.logErrorCause(cause))
+        } yield ()
+      }
       .provide(
         BaseConf.test,
         FlinkConf.test,
@@ -39,7 +40,7 @@ object FlinkObserverTest:
         FlinkDataStorage.test,
         ShardingConf.test,
         Shardings.test,
-        FlinkObserver.live
+        FlinkObserver.live,
       )
       .withLocalShardManager
       .provideLayer(PotaLogger.default)
