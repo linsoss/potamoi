@@ -1,7 +1,7 @@
 package potamoi
 
 import com.devsisters.shardcake.Sharding
-import potamoi.flink.FlinkMajorVer
+import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf, FlinkSqlInterpreter}
 import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator}
 import potamoi.fs.refactor.backend.S3FsMirrorBackend
@@ -19,6 +19,8 @@ object TestFlinkInterpreterAppV116 extends FlinkInterpBootstrap(FlinkMajorVer.V1
   override val bootstrap = PotaLogger.default
 
   override val run = active.provide(
+    BaseConf.test,
+    FlinkConf.test,
     FlinkInterpConf.default,
     S3FsBackendConfDev.asLayer,
     S3FsMirrorBackend.live,
