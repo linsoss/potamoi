@@ -24,7 +24,7 @@ trait FlinkSqlInteractor:
 
 object FlinkSqlInteractor:
 
-  def live: ZLayer[FlinkDataStorage with Sharding with FlinkObserver with FlinkConf, Nothing, FlinkSqlInteractor] =
+  val live: ZLayer[FlinkDataStorage with Sharding with FlinkObserver with FlinkConf, Nothing, FlinkSqlInteractor] =
     ZLayer {
       for {
         flinkConf     <- ZIO.service[FlinkConf]

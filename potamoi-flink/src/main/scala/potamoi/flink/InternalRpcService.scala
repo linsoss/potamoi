@@ -9,7 +9,7 @@ import potamoi.flink.protocol.{InternalRpcEntity, InternalRpcProto}
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.rpc.RpcService
 import potamoi.sharding.ShardRegister
-import zio.{Dequeue, IO, RIO, Scope, Tag, UIO, URIO, ZIO}
+import zio.{Dequeue, IO, RIO, Scope, Tag, UIO, URIO, ZIO, ZLayer}
 import zio.ZIO.succeed
 import zio.direct.*
 
@@ -21,10 +21,14 @@ import scala.util.Failure
  */
 object InternalRpcService {
 
-  val live: ZIO[FlinkDataStorage, Nothing, InternalRpcService] =
+  val live: ZLayer[FlinkDataStorage, Nothing, InternalRpcService] = ZLayer {
     for {
       dataStore <- ZIO.service[FlinkDataStorage]
     } yield InternalRpcService(dataStore)
+  }
+
+  def registerEntities: URIO[InternalRpcService with Sharding with Scope, Unit] =
+    ZIO.serviceWithZIO[InternalRpcService](_.registerEntities)
 }
 
 import InternalRpcProto.*
