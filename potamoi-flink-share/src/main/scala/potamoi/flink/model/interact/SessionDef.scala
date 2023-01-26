@@ -7,6 +7,7 @@ import potamoi.flink.model.interact.ResultDropStrategies.given
 import potamoi.flink.model.interact.ResultDropStrategy.*
 import potamoi.flink.model.FlinkRuntimeModes.given
 import potamoi.flink.model.InterpFlinkTargetTypes.given
+import zio.{durationInt, Duration}
 import zio.json.JsonCodec
 
 /**

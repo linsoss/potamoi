@@ -2,18 +2,19 @@ package potamoi.flink.interpreter
 
 import com.devsisters.shardcake.{EntityType, Replier, Sharding}
 import potamoi.common.Ack
-import potamoi.flink.{FlinkInteractErr, FlinkInterpreterErr}
+import potamoi.flink.{FlinkConf, FlinkInteractErr, FlinkInterpreterErr}
 import potamoi.flink.model.interact.*
-import potamoi.flink.protocol.{FlinkInterpEntity, FlinkInterpProto, InternalRpcProto}
+import potamoi.flink.protocol.{FlinkInterpEntity, FlinkInterpProto, InternalRpcEntity, InternalRpcProto}
 import potamoi.flink.FlinkInteractErr.{FailToSplitSqlScript, SessionHandleNotFound, SessionNotYetStarted}
 import potamoi.flink.model.interact.SqlResult.toView
 import potamoi.flink.FlinkInterpreterErr.{HandleNotFound, ResultNotFound}
 import potamoi.fs.refactor.RemoteFsOperator
-import potamoi.rpc.RpcClient
+import potamoi.rpc.{Rpc, RpcClient}
 import potamoi.sharding.ShardRegister
+import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
 import potamoi.zios.someOrUnit
-import zio.{Dequeue, Duration, IO, Ref, RIO, Scope, UIO, URIO, ZIO, ZIOAspect, ZLayer}
-import zio.ZIO.{executor, fail, succeed}
+import zio.{Dequeue, Duration, Fiber, IO, Ref, RIO, Scope, UIO, URIO, ZIO, ZIOAspect, ZLayer}
+import zio.ZIO.{executor, fail, logInfo, succeed}
 import zio.ZIOAspect.annotated
 
 import scala.reflect.ClassTag
@@ -26,25 +27,30 @@ import scala.reflect.ClassTag
  */
 object FlinkSqlInterpreter:
 
-  def live(entity: EntityType[FlinkInterpProto]): ZLayer[RemoteFsOperator, Nothing, FlinkSqlInterpreter] =
+  def live(entity: EntityType[FlinkInterpProto]): ZLayer[RemoteFsOperator with FlinkConf, Nothing, FlinkSqlInterpreter] =
     ZLayer {
       for {
-        remoteFs <- ZIO.service[RemoteFsOperator]
-      } yield FlinkSqlInterpreter(entity, remoteFs)
+        flinkConf <- ZIO.service[FlinkConf]
+        remoteFs  <- ZIO.service[RemoteFsOperator]
+      } yield FlinkSqlInterpreter(entity, flinkConf, remoteFs)
     }
 
-  private case class State(sessionDef: Ref[Option[SessionDef]], executor: Ref[Option[SerialSqlExecutor]])
+  private case class State(
+      sessionDef: Ref[Option[SessionDef]],
+      executor: Ref[Option[SerialSqlExecutor]],
+      idleCheckFiber: Ref[Option[Fiber.Runtime[_, _]]])
 
   private object State:
     def make: UIO[State] = for {
-      sessDef  <- Ref.make[Option[SessionDef]](None)
-      executor <- Ref.make[Option[SerialSqlExecutor]](None)
-    } yield State(sessDef, executor)
+      sessDef        <- Ref.make[Option[SessionDef]](None)
+      executor       <- Ref.make[Option[SerialSqlExecutor]](None)
+      idleCheckFiber <- Ref.make[Option[Fiber.Runtime[_, _]]](None)
+    } yield State(sessDef, executor, idleCheckFiber)
 
 /**
  * Default implementation
  */
-class FlinkSqlInterpreter(entity: EntityType[FlinkInterpProto], remoteFs: RemoteFsOperator) extends ShardRegister:
+class FlinkSqlInterpreter(entity: EntityType[FlinkInterpProto], flinkConf: FlinkConf, remoteFs: RemoteFsOperator) extends ShardRegister:
 
   import FlinkInterpProto.*
   import FlinkSqlInterpreter.*
@@ -53,14 +59,33 @@ class FlinkSqlInterpreter(entity: EntityType[FlinkInterpProto], remoteFs: Remote
     Sharding.registerEntity(entity, behavior)
   }
 
+  private val idleCancelTimeout: Duration = flinkConf.sqlInteract.maxIdleTimeout
+
+  private def resetIdleCheck(state: State): URIO[Scope, Unit] =
+    for {
+      _     <- state.idleCheckFiber.get.someOrUnit(fiber => fiber.interrupt.unit)
+      fiber <- state.executor.get
+                 .someOrUnit { executor =>
+                   logInfo(s"Cancel flink sql executor due to reaching the max idle timeout: ${idleCancelTimeout.toString}") *>
+                   executor.cancel
+                 }
+                 .delay(idleCancelTimeout)
+                 .forkScoped
+      _     <- state.idleCheckFiber.set(Some(fiber))
+    } yield ()
+
   /**
    * Sharding behaviors.
    */
-  def behavior(sessionId: String, messages: Dequeue[FlinkInterpProto]): RIO[Sharding with Scope, Nothing] =
+  def behavior(sessionId: String, messages: Dequeue[FlinkInterpProto]): RIO[Sharding with Scope, Nothing] = {
     for {
       state    <- State.make
-      handlers <- messages.take.flatMap(handleMessage(_)(using state, sessionId)).forever @@ annotated("sessionId" -> sessionId)
+      _        <- resetIdleCheck(state)
+      handlers <- messages.take.flatMap { msg =>
+                    resetIdleCheck(state) *> handleMessage(msg)(using state, sessionId)
+                  }.forever
     } yield handlers
+  } @@ annotated("sessionId" -> sessionId)
 
   private def handleMessage(message: FlinkInterpProto)(using state: State, sessionId: String): RIO[Sharding with Scope, Unit] =
     message match {

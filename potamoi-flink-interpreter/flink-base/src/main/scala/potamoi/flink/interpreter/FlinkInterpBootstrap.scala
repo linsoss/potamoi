@@ -1,7 +1,7 @@
 package potamoi.flink.interpreter
 
 import com.devsisters.shardcake.{EntityType, Sharding}
-import potamoi.flink.FlinkMajorVer
+import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator}
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.sharding.{ShardingConf, Shardings}
@@ -60,6 +60,7 @@ abstract class FlinkInterpBootstrap(flinkVer: FlinkMajorVer) extends ZIOAppDefau
   val run = active.provide(
     HoconConfig.live,
     BaseConf.live,
+    FlinkConf.live,
     FsBackendConf.live,
     ShardingConf.live,
     ShardRedisStoreConf.live,

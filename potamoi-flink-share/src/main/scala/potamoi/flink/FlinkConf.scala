@@ -91,6 +91,7 @@ case class FlinkReverseProxyConf(
  * Flink sql interactor config.
  */
 case class FlinkSqlInteractorConf(
+    @name("max-idle-timeout") maxIdleTimeout: Duration = 30.minutes,
     @name("rpc-timeout") rpcTimeout: Duration = Duration.Inf,
     @name("stream-poll-interval") streamPollingInterval: Duration = 500.millis)
 
