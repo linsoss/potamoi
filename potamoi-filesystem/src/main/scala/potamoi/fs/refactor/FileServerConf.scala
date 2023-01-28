@@ -1,7 +1,7 @@
 package potamoi.fs.refactor
 
 import com.typesafe.config.Config
-import potamoi.common.HoconConfig
+import potamoi.HoconConfig
 import zio.{ULayer, ZIO, ZLayer}
 import zio.config.magnolia.{descriptor, name}
 import zio.config.read

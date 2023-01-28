@@ -1,7 +1,7 @@
 package potamoi.flink.interpreter
 
 import com.typesafe.config.Config
-import potamoi.common.HoconConfig
+import potamoi.HoconConfig
 import zio.ZLayer
 import zio.config.magnolia.{descriptor, name}
 import zio.config.read

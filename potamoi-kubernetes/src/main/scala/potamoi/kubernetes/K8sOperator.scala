@@ -109,8 +109,8 @@ class K8sOperatorLive(k8sClient: K8sClient) extends K8sOperator {
         .send(backend)
         .flattenBody
         .attemptBody { rsp =>
-          val json = ujson.read(rsp)
-          val ts   = DateTime.parse(json("timestamp").str).getMillis
+          val json       = ujson.read(rsp)
+          val ts         = DateTime.parse(json("timestamp").str).getMillis
           val containers = json("containers").arr.map { container =>
             val name = container("name").str
             val cpu  = K8sQuantity(container("usage").obj("cpu").str)

@@ -1,8 +1,7 @@
 package potamoi.fs.refactor
 
 import com.typesafe.config.Config
-import potamoi.{codecs, BaseConf}
-import potamoi.common.HoconConfig
+import potamoi.{codecs, BaseConf, HoconConfig}
 import potamoi.fs.refactor.S3AccessStyles.given_JsonCodec_S3AccessStyle
 import zio.{ZIO, ZLayer}
 import zio.config.magnolia.{descriptor, name}

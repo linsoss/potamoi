@@ -1,7 +1,6 @@
 package potamoi
 
 import com.typesafe.config.Config
-import potamoi.common.HoconConfig
 import zio.{ULayer, ZIO, ZLayer}
 import zio.config.{read, ReadError}
 import zio.config.magnolia.{descriptor, name}

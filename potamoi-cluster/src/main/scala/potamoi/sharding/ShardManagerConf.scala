@@ -2,8 +2,8 @@ package potamoi.sharding
 
 import com.devsisters.shardcake.{Config, GrpcConfig, ManagerConfig}
 import potamoi.codecs.scalaDurationJsonCodec
-import potamoi.common.HoconConfig
 import potamoi.times.given
+import potamoi.HoconConfig
 import sttp.client3.UriContext
 import zio.{ULayer, ZLayer}
 import zio.config.magnolia.{descriptor, name}

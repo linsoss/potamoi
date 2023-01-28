@@ -1,7 +1,7 @@
 package potamoi.logger
 
-import potamoi.common.HoconConfig
 import potamoi.syntax.toPrettyStr
+import potamoi.HoconConfig
 import zio.{Console, LogLevel, UIO, ULayer, ZIO, ZLayer}
 import zio.config.read
 import zio.config.magnolia.{descriptor, name}

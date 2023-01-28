@@ -2,8 +2,8 @@ package potamoi.flink
 
 import com.softwaremill.quicklens.modify
 import com.typesafe.config.Config
-import potamoi.{codecs, BaseConf}
-import potamoi.common.{Codec, HoconConfig}
+import potamoi.{codecs, BaseConf, HoconConfig}
+import potamoi.common.Codec
 import potamoi.common.Codec.scalaDurationJsonCodec
 import potamoi.flink.FlinkRestEndpointTypes.given
 import potamoi.fs.refactor.paths

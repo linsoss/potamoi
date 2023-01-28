@@ -1,7 +1,7 @@
 package potamoi.kubernetes
 
 import com.typesafe.config.Config
-import potamoi.common.HoconConfig
+import potamoi.HoconConfig
 import zio.{config, ULayer, ZLayer}
 import zio.config.magnolia.descriptor
 import zio.json.{DeriveJsonCodec, JsonCodec}

@@ -1,13 +1,13 @@
-package potamoi
+package potamoi.sharding
 
 import com.devsisters.shardcake.*
 import com.devsisters.shardcake.interfaces.*
-import potamoi.common.HoconConfig
 import potamoi.kubernetes.K8sConf
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.sharding.{ShardManagerConf, ShardManagers}
 import potamoi.sharding.store.{ShardcakeRedisStorage, ShardRedisStoreConf}
 import potamoi.zios.asLayer
+import potamoi.HoconConfig
 import zio.*
 import zio.http.Client
 import zio.http.model.Status

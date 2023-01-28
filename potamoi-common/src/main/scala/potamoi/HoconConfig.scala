@@ -1,7 +1,7 @@
-package potamoi.common
+package potamoi
 
 import com.typesafe.config.{Config, ConfigFactory}
-import zio.{Task, ZIO, ZLayer}
+import zio.{Task, ULayer, ZIO, ZLayer}
 import zio.config.typesafe.TypesafeConfigSource
 import zio.ZIO.{attempt, logError}
 import zio.config.ConfigSource
@@ -20,6 +20,16 @@ object HoconConfig:
    * Key of hocon file path: "POTAMOI_CONF_PATH".
    */
   val live: ZLayer[Any, Throwable, Config] = ZLayer.fromZIO(load)
+
+  /**
+   * Create a empty hocon config layer.
+   */
+  val empty: ULayer[Config] = ZLayer.succeed(ConfigFactory.empty)
+
+  /**
+   * Create root hocon config layer manually.
+   */
+  def manual(config: Task[Config]): ZLayer[Any, Throwable, Config] = ZLayer.fromZIO(config)
 
   /**
    * Load sub config source from root hocon configuration.

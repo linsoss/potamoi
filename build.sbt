@@ -17,14 +17,20 @@ lazy val zioSchemaVer  = "0.4.0"
 lazy val zioCacheVer   = "0.2.1"
 lazy val shardcakeVer  = "2.0.5"
 
-lazy val scalaTestVer = "3.2.15"
-lazy val catsVer      = "2.9.0"
-lazy val sttpVer      = "3.8.5"
-lazy val quicklensVer = "1.9.0"
-lazy val upickleVer   = "2.0.0"
-lazy val pprintVer    = "0.8.1"
-lazy val osLibVer     = "0.8.1"
-lazy val circeVer     = "0.14.3"
+// Keep Akka at 2.6.20 which is the last version in the apache license and
+// replace it with Pekko in the future.
+lazy val akkaVer     = "2.6.20"
+lazy val akkaKryoVer = "2.5.0"
+
+lazy val scalaTestVer        = "3.2.15"
+lazy val scalaJava8CompatVer = "1.0.2"
+lazy val catsVer             = "2.9.0"
+lazy val sttpVer             = "3.8.5"
+lazy val quicklensVer        = "1.9.0"
+lazy val upickleVer          = "2.0.0"
+lazy val pprintVer           = "0.8.1"
+lazy val osLibVer            = "0.8.1"
+lazy val circeVer            = "0.14.3"
 
 lazy val slf4jVer       = "1.7.36"
 lazy val munitVer       = "1.0.0-M7"
@@ -51,7 +57,7 @@ lazy val commonSettings = Seq(
     )),
   ThisBuild / scalaVersion := scala3,
   ThisBuild / scalacOptions ++= Seq("-Xmax-inlines", "64"),
-  ThisBuild / javacOptions ++= Seq("-source", javaVer, "-target", javaVer),
+  ThisBuild / javacOptions ++= Seq("-source", javaVer, "-target", javaVer) ++ jdk17opens.flatMap(Seq("--add-opens", _)),
   libraryDependencies ++= Seq(
     "dev.zio"       %% "zio"                   % zioVer,
     "dev.zio"       %% "zio-concurrent"        % zioVer,
@@ -76,6 +82,24 @@ lazy val commonSettings = Seq(
   testFrameworks           := Seq(TestFramework("zio.test.sbt.ZTestFramework")),
 )
 
+lazy val jdk17opens = Seq(
+  "java.base/java.lang=ALL-UNNAMED",
+  "java.base/java.lang.invoke=ALL-UNNAMED",
+  "java.base/java.lang.reflect=ALL-UNNAMED",
+  "java.base/java.io=ALL-UNNAMED",
+  "java.base/java.net=ALL-UNNAMED",
+  "java.base/java.nio=ALL-UNNAMED",
+  "java.base/java.util=ALL-UNNAMED",
+  "java.base/java.util.concurrent=ALL-UNNAMED",
+  "java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+  "java.base/java.math=ALL-UNNAMED",
+  "java.base/sun.nio.ch=ALL-UNNAMED",
+  "java.base/sun.nio.cs=ALL-UNNAMED",
+  "java.base/sun.security.action=ALL-UNNAMED",
+  "java.base/sun.util.calendar=ALL-UNNAMED",
+  "java.security.jgss/sun.security.krb5=ALL-UNNAMED"
+)
+
 lazy val root = (project in file("."))
   .settings(name := "potamoi")
   .aggregate(
@@ -95,6 +119,7 @@ lazy val potaCommon = (project in file("potamoi-common"))
   .settings(
     name := "potamoi-common",
     libraryDependencies ++= Seq(
+      akkaDep("com.typesafe.akka" %% "akka-actor-typed" % akkaVer),
       "dev.zio"                       %% "zio-http"       % zioHttpVer exclude ("dev.zio", "zio_3") exclude ("dev.zio", "zio-streams_3"),
       "dev.zio"                       %% "zio-direct"     % zioDirectVer exclude ("com.lihaoyi", "geny_2.13"),
       "dev.zio"                       %% "zio-cache"      % zioCacheVer,
@@ -140,14 +165,20 @@ lazy val potaCluster = (project in file("potamoi-cluster"))
   .settings(
     name := "potamoi-cluster",
     libraryDependencies ++= Seq(
-      "com.devsisters" %% "shardcake-manager"            % shardcakeVer,
-      "com.devsisters" %% "shardcake-entities"           % shardcakeVer,
-      "com.devsisters" %% "shardcake-protocol-grpc"      % shardcakeVer,
-      "com.devsisters" %% "shardcake-serialization-kryo" % shardcakeVer,
-      "com.devsisters" %% "shardcake-storage-redis"      % shardcakeVer,
-      "com.devsisters" %% "shardcake-health-k8s"         % shardcakeVer
+      "com.devsisters"         %% "shardcake-manager"       % shardcakeVer,
+      "com.devsisters"         %% "shardcake-entities"      % shardcakeVer,
+      "com.devsisters"         %% "shardcake-protocol-grpc" % shardcakeVer,
+      "com.devsisters"         %% "shardcake-storage-redis" % shardcakeVer,
+      "com.devsisters"         %% "shardcake-health-k8s"    % shardcakeVer,
+      akkaDep("com.typesafe.akka" %% "akka-actor-typed"            % akkaVer),
+      akkaDep("com.typesafe.akka" %% "akka-cluster-typed"          % akkaVer),
+      akkaDep("com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVer),
+      "io.altoo"               %% "akka-kryo-serialization" % akkaKryoVer exclude ("com.typesafe.akka", "akka-actor_2.13"),
+      "org.scala-lang.modules" %% "scala-java8-compat"      % scalaJava8CompatVer
     )
   )
+
+def akkaDep(moduleId: ModuleID) = moduleId cross CrossVersion.for3Use2_13 exclude ("org.scala-lang.modules", "scala-java8-compat_2.13")
 
 lazy val potaServer = (project in file("potamoi-server"))
   .dependsOn(potaCommon, potaKubernetes, potaFilesystem)

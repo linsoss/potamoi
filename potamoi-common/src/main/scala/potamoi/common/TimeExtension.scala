@@ -1,9 +1,11 @@
 package potamoi.common
 
-import zio.Duration as ZioDuration
+import akka.util.Timeout
+import zio.Duration as ZIODuration
 
 import java.time.Duration as JavaDuration
-import scala.concurrent.duration.{Duration as ScalaDuration, FiniteDuration, NANOSECONDS}
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.{Duration as ScalaDuration, FiniteDuration, NANOSECONDS, TimeUnit}
 
 /**
  * Time, Duration extension.
@@ -12,14 +14,23 @@ object TimeExtension:
 
   given Conversion[FiniteDuration, JavaDuration] = duration => JavaDuration.ofNanos(duration.toNanos)
 
-  given Conversion[ScalaDuration, ZioDuration] = {
-    case ScalaDuration.Inf  => ZioDuration.Infinity
-    case ScalaDuration.Zero => ZioDuration.Zero
-    case d                  => ZioDuration.fromNanos(d.toNanos)
+  given Conversion[ScalaDuration, ZIODuration] = {
+    case ScalaDuration.Inf  => ZIODuration.Infinity
+    case ScalaDuration.Zero => ZIODuration.Zero
+    case d                  => ZIODuration.fromNanos(d.toNanos)
   }
 
-  given Conversion[ZioDuration, ScalaDuration] = {
-    case ZioDuration.Infinity => ScalaDuration.Inf
-    case ZioDuration.Zero     => ScalaDuration.Zero
+  given Conversion[ZIODuration, ScalaDuration] = {
+    case ZIODuration.Infinity => ScalaDuration.Inf
+    case ZIODuration.Zero     => ScalaDuration.Zero
     case d                    => ScalaDuration.fromNanos(d.toNanos)
+  }
+
+  given Conversion[ScalaDuration, Timeout] = {
+    case d: FiniteDuration => Timeout(d)
+    case _                 => Timeout(FiniteDuration(102400, TimeUnit.DAYS))
+  }
+
+  given Conversion[ZIODuration, Timeout] = {
+    (given_Conversion_ZIODuration_ScalaDuration andThen given_Conversion_ScalaDuration_Timeout).apply(_)
   }

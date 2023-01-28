@@ -19,7 +19,7 @@ object PotaLogger {
   /**
    * MDC keys that allowed to be received from non-zio Slf4j pipeline.
    */
-  private val defaultAcceptedSlf4jMdc = Set(Slf4jBridge.loggerNameAnno, Slf4jBridge.threadNameAnno)
+  private val defaultAcceptedSlf4jMdc = Set(Slf4jBridge.loggerNameAnno, Slf4jBridge.threadNameAnno, "akkaSource")
   private val excludeAnnoKeys         = Set(Slf4jBridge.loggerNameAnno, Slf4jBridge.threadNameAnno)
 
   /**

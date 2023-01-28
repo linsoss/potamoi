@@ -9,7 +9,7 @@ import dev.profunktor.redis4cats.connection.RedisClient
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.pubsub.PubSub
-import potamoi.common.HoconConfig
+import potamoi.HoconConfig
 import zio.{Task, ZEnvironment, ZIO, ZLayer}
 import zio.config.magnolia.{descriptor, name}
 import zio.config.read

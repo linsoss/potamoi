@@ -11,7 +11,7 @@ import potamoi.flink.FlinkInterpreterErr.{HandleNotFound, ResultNotFound}
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.rpc.{Rpc, RpcClient}
 import potamoi.sharding.ShardRegister
-import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
+import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
 import potamoi.zios.someOrUnit
 import zio.{Dequeue, Duration, Fiber, IO, Ref, RIO, Scope, UIO, URIO, ZIO, ZIOAspect, ZLayer}
 import zio.ZIO.{executor, fail, logInfo, succeed}
