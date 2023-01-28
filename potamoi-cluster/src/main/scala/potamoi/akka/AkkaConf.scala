@@ -7,7 +7,6 @@ import zio.{UIO, ULayer, ZIO, ZLayer}
 import zio.config.{read, ReadError}
 import zio.config.magnolia.{descriptor, name}
 
-import java.net.{InetAddress, NetworkInterface}
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.jdk.CollectionConverters.*
 
