@@ -9,7 +9,7 @@ import potamoi.akka.Bot.*
 import potamoi.akka.BotAssign.*
 import potamoi.logger.PotaLogger
 import potamoi.HoconConfig
-import potamoi.akka.actorOp.*
+import potamoi.akka.actors.*
 import zio.{Duration, Scope, ZIO, ZIOAppDefault}
 
 object BotApp1 extends ZIOAppDefault {

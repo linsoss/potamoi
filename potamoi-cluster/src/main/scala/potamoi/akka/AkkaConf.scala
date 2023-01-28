@@ -22,7 +22,8 @@ case class AkkaConf(
     @name("debug-logging") debugLogging: Boolean = false,
     @name("log-generated-config") logGeneratedConfig: Boolean = true,
     @name("default-spawn-timeout") defaultSpawnTimeout: Duration = 30.seconds,
-    @name("default-ask-timeout") defaultAskTimeout: Duration = 1.minutes):
+    @name("default-ask-timeout") defaultAskTimeout: Duration = 1.minutes,
+    @name("default-ddata") defaultDDataConf: DDataConf = DDataConf()):
 
   /**
    * Convert to raw akka hocon configuration.

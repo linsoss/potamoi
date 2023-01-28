@@ -34,3 +34,8 @@ object TimeExtension:
   given Conversion[ZIODuration, Timeout] = {
     (given_Conversion_ZIODuration_ScalaDuration andThen given_Conversion_ScalaDuration_Timeout).apply(_)
   }
+
+  given Conversion[ScalaDuration, FiniteDuration] = {
+    case d: FiniteDuration => d
+    case _                 => FiniteDuration(102400, TimeUnit.DAYS)
+  }

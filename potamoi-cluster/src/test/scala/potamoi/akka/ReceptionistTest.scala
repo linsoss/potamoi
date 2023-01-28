@@ -5,7 +5,7 @@ import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.Behaviors
 import potamoi.logger.PotaLogger
 import potamoi.HoconConfig
-import potamoi.akka.actorOp.*
+import potamoi.akka.actors.*
 import potamoi.akka.Worker.*
 import potamoi.zios.debugPretty
 import zio.{Duration, Scope, ZIO, ZIOAppDefault, ZLayer}

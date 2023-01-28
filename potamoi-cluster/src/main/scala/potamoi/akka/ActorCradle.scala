@@ -8,7 +8,7 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import potamoi.times.{given_Conversion_ScalaDuration_Timeout, given_Conversion_ZIODuration_Timeout}
 import potamoi.EarlyLoad
-import potamoi.akka.actorOp.*
+import potamoi.akka.actors.*
 import zio.{durationInt, Duration, IO, Scope, Task, URIO, ZIO, ZLayer}
 
 import scala.collection.mutable
@@ -79,7 +79,7 @@ class ActorCradle(akkaConf: AkkaConf, val system: ActorSystem[ActorCradleActor.E
   /**
    * Find receptionist from system.
    */
-  def findReceptionist[U](key: ServiceKey[U], includeUnreachable: Boolean = false): IO[ActorOpErr.AskFailure, Set[ActorRef[U]]] = {
+  def findReceptionist[U](key: ServiceKey[U], includeUnreachable: Boolean = false): IO[ActorOpErr, Set[ActorRef[U]]] = {
     system.receptionist
       .askZIO(Receptionist.Find(key))
       .map { listing =>
