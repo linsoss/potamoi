@@ -20,7 +20,7 @@ case class AkkaConf(
     @name("seed-addresses") seedAddresses: List[String] = List.empty,
     @name("node-roles") nodeRoles: List[String] = List.empty,
     @name("debug-logging") debugLogging: Boolean = false,
-    @name("log-generated-config") logGeneratedConfig: Boolean = true,
+    @name("log-generated-config") logGeneratedConfig: Boolean = false,
     @name("default-spawn-timeout") defaultSpawnTimeout: Duration = 30.seconds,
     @name("default-ask-timeout") defaultAskTimeout: Duration = 1.minutes,
     @name("default-ddata") defaultDDataConf: DDataConf = DDataConf()):
