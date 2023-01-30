@@ -5,7 +5,7 @@ import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.RestEndpointStorage
 import potamoi.flink.FlinkErr.K8sFailure
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
-import zio.{IO, ZIO}
+import zio.{IO, UIO, ZIO}
 import zio.stream.Stream
 import zio.ZIO.logDebug
 
@@ -27,13 +27,18 @@ trait FlinkRestEndpointQuery extends RestEndpointStorage.Query {
   def getEnsure(fcid: Fcid): IO[FlinkErr, Option[FlinkRestSvcEndpoint]]
 }
 
+object FlinkRestEndpointQuery {
+  def make(storage: RestEndpointStorage, retriever: FlinkRestEndpointRetriever): UIO[FlinkRestEndpointQuery] =
+    ZIO.succeed(FlinkRestEndpointQueryImpl(storage, retriever))
+}
+
 /**
  * Default implementation.
  */
-case class FlinkRestEndpointQueryLive(storage: RestEndpointStorage, retriever: FlinkRestEndpointRetriever) extends FlinkRestEndpointQuery {
+class FlinkRestEndpointQueryImpl(storage: RestEndpointStorage, retriever: FlinkRestEndpointRetriever) extends FlinkRestEndpointQuery {
 
-  override def get(fcid: Fcid): IO[FlinkDataStoreErr, Option[FlinkRestSvcEndpoint]]             = storage.get(fcid)
-  override def list: Stream[FlinkDataStoreErr, FlinkRestSvcEndpoint]                            = storage.list
+  override def get(fcid: Fcid): IO[FlinkDataStoreErr, Option[FlinkRestSvcEndpoint]]        = storage.get(fcid)
+  override def list: Stream[FlinkDataStoreErr, FlinkRestSvcEndpoint]                       = storage.list
   override def retrieve(fcid: Fcid): IO[FlinkErr.K8sFailure, Option[FlinkRestSvcEndpoint]] =
     retriever.retrieve(fcid).mapError(FlinkErr.K8sFailure.apply)
 

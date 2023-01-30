@@ -30,7 +30,7 @@ object LogConf:
 
   lazy val live: ULayer[LogConf] = ZLayer.fromZIO(make)
 
-  lazy val default: LogConf = LogConf()
+  lazy val default: ULayer[LogConf] = ZLayer.succeed(LogConf())
 
 /**
  * Potamoi logging line style.

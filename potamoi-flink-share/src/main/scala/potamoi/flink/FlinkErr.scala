@@ -1,6 +1,7 @@
 package potamoi.flink
 
 import potamoi.PotaErr
+import potamoi.akka.ActorOpErr
 import potamoi.flink.model.*
 import potamoi.flink.FlinkInterpreterErr.{RetrieveResultNothing, SplitSqlScriptErr}
 import potamoi.kubernetes.K8sErr
@@ -18,7 +19,8 @@ object FlinkErr:
 
   case class K8sFailure(err: K8sErr)                                    extends FlinkErr
   case class WatchTimeout(timeout: Duration)                            extends FlinkErr
-  case class FailToConnectShardEntity(entity: String, cause: Throwable) extends FlinkErr
+  case class FailToConnectShardEntity(entity: String, cause: Throwable) extends FlinkErr // todo remove
+  case class AkkaErr(reason: ActorOpErr)                                extends FlinkErr
 
   case class ClusterNotFound(fcid: Fcid)                                                     extends FlinkErr
   case class ClusterIsNotYetTracked(fcid: Fcid)                                              extends FlinkErr

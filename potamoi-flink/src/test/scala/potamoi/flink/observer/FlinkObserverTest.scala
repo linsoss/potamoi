@@ -1,21 +1,19 @@
 package potamoi.flink.observer
 
-import com.devsisters.shardcake.Sharding
 import org.scalatest.wordspec.AnyWordSpec
+import potamoi.{BaseConf, HoconConfig, NodeRoles, PotaErr}
+import potamoi.akka.{ActorCradle, AkkaConf}
 import potamoi.common.Syntax.toPrettyString
-import potamoi.{BaseConf, PotaErr}
 import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.model.FlK8sComponentName.jobmanager
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.{K8sConf, K8sOperator}
-import potamoi.logger.PotaLogger
-import potamoi.sharding.{LocalShardManager, ShardingConf, Shardings}
-import potamoi.sharding.LocalShardManager.withLocalShardManager
+import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.syntax.*
 import potamoi.zios.*
-import zio.{durationInt, IO, ZIO}
+import zio.{durationInt, IO, Scope, ZIO}
 import zio.Console.printLine
 import zio.Schedule.spaced
 
@@ -23,26 +21,21 @@ object FlinkObserverTest:
 
   def testing[E, A](effect: FlinkObserver => IO[E, A]): Unit = {
     ZIO
-      .scoped {
-        for {
-          _ <- FlinkObserver.registerEntities
-          _ <- Sharding.registerScoped
-          _ <- ZIO
-                 .serviceWithZIO[FlinkObserver] { obr => effect(obr) }
-                 .tapErrorCause(cause => ZIO.logErrorCause(cause))
-        } yield ()
-      }
+      .serviceWithZIO[FlinkObserver] { obr => effect(obr) }
+      .tapErrorCause(cause => ZIO.logErrorCause(cause))
       .provide(
+        HoconConfig.empty,
+        LogConf.default,
         BaseConf.test,
         FlinkConf.test,
         K8sConf.default,
         K8sOperator.live,
         FlinkDataStorage.test,
-        ShardingConf.test,
-        Shardings.test,
         FlinkObserver.live,
+        AkkaConf.local(List(NodeRoles.flinkService)),
+        ActorCradle.live,
+        Scope.default,
       )
-      .withLocalShardManager
       .provideLayer(PotaLogger.default)
       .run
       .exitCode

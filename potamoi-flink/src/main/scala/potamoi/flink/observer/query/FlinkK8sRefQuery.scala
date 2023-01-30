@@ -9,7 +9,7 @@ import potamoi.flink.storage.*
 import potamoi.kubernetes.K8sErr.*
 import potamoi.kubernetes.K8sOperator
 import potamoi.syntax.valueToSome
-import zio.{IO, ZIO, ZIOAppDefault}
+import zio.{IO, UIO, ZIO, ZIOAppDefault}
 import zio.stream.{Stream, ZStream}
 
 /**
@@ -76,10 +76,15 @@ trait FlinkConfigmapQuery(stg: K8sConfigmapNamesStorage) extends K8sConfigmapNam
   def getData(fcid: Fcid, configmapName: String): IO[RequestK8sApiErr, Map[String, String]]
 }
 
+object FlinkK8sRefQuery {
+  def make(storage: K8sRefSnapStorage, k8sOperator: K8sOperator): UIO[FlinkK8sRefQuery] =
+    ZIO.succeed(FlinkK8sRefQueryImpl(storage, k8sOperator))
+}
+
 /**
  * Default implementation.
  */
-case class FlinkK8sRefQueryLive(storage: K8sRefSnapStorage, k8sOperator: K8sOperator) extends FlinkK8sRefQuery {
+class FlinkK8sRefQueryImpl(storage: K8sRefSnapStorage, k8sOperator: K8sOperator) extends FlinkK8sRefQuery {
 
   lazy val deployment = new FlinkK8sDeploymentQuery(storage.deployment):
     def getSpec(fcid: Fcid, deployName: String): IO[RequestK8sApiErr, Option[DeploymentSpec]] =

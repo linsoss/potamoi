@@ -3,7 +3,7 @@ package potamoi.flink.observer.query
 import potamoi.flink.model.{Fjid, FlinkSptTriggerStatus}
 import potamoi.flink.storage.*
 import potamoi.flink.FlinkErr
-import zio.IO
+import zio.{IO, UIO, ZIO}
 
 import scala.concurrent.duration.Duration
 
@@ -17,10 +17,14 @@ trait FlinkClusterQuery {
   def tmMetrics: TmMetricStorage.Query
 }
 
+object FlinkClusterQuery {
+  def make(storage: ClusterSnapStorage): UIO[FlinkClusterQuery] = ZIO.succeed(FlinkClusterQueryImpl(storage))
+}
+
 /**
  * Default implementation.
  */
-case class FlinkClusterQueryLive(storage: ClusterSnapStorage) extends FlinkClusterQuery {
+class FlinkClusterQueryImpl(storage: ClusterSnapStorage) extends FlinkClusterQuery {
   lazy val overview  = storage.overview
   lazy val tmDetail  = storage.tmDetail
   lazy val jmMetrics = storage.jmMetrics

@@ -1,9 +1,10 @@
 package potamoi.flink.operator
 
 import com.devsisters.shardcake.Sharding
+import potamoi.{BaseConf, HoconConfig, NodeRoles, PotaErr}
+import potamoi.akka.{ActorCradle, AkkaConf}
 import potamoi.common.ScalaVersion.Scala212
 import potamoi.common.Syntax.toPrettyString
-import potamoi.{BaseConf, PotaErr}
 import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.*
@@ -15,12 +16,12 @@ import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.fs.S3Operator
 import potamoi.kubernetes.{K8sConf, K8sOperator}
-import potamoi.logger.PotaLogger
+import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.sharding.{ShardingConf, Shardings}
 import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.syntax.*
 import potamoi.zios.*
-import zio.{durationInt, IO, ZIO}
+import zio.{durationInt, IO, Scope, ZIO}
 import zio.Console.printLine
 import zio.Schedule.spaced
 import zio.ZIO.logInfo
@@ -33,27 +34,26 @@ object FlinkOperatorTest {
         for {
           opr <- ZIO.service[FlinkOperator]
           obr <- ZIO.service[FlinkObserver]
-          _   <- obr.manager.registerEntities *> Sharding.registerScoped.ignore
           r   <- effect(opr, obr)
         } yield r
       ).tapErrorCause(cause => ZIO.logErrorCause(cause))
 
-    ZIO
-      .scoped(program)
+    program
       .provide(
+        HoconConfig.empty,
         S3ConfDev.asLayer, // todo remove
+        LogConf.default,
         BaseConf.test,
         FlinkConf.test,
         K8sConf.default,
         S3Operator.live,   // todo replace with RemoteFsOperator
         K8sOperator.live,
         FlinkDataStorage.test,
-        ShardingConf.test,
-        Shardings.test,
         FlinkObserver.live,
-        FlinkOperator.live
-      )
-      .withLocalShardManager
+        FlinkOperator.live,
+        AkkaConf.local(List(NodeRoles.flinkService)),
+        ActorCradle.live,
+        Scope.default)
       .provideLayer(PotaLogger.default)
       .run
       .exitCode
