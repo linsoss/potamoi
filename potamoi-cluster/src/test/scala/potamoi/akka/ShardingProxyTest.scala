@@ -30,9 +30,9 @@ object ShardingProxyTest extends ZIOAppDefault {
 
 object BotProxy extends ShardingProxy[String, Bot.Event] {
 
-  val entityKey: EntityTypeKey[Bot.Event] = EntityTypeKey[Bot.Event]("bot")
-  val marshallKey: EntityId => EntityId   = identity
-  val unmarshallKey: EntityId => EntityId = identity
+  val entityKey     = EntityTypeKey[Bot.Event]("bot")
+  val marshallKey   = identity
+  val unmarshallKey = identity
 
   def apply(): Behavior[Req] = behavior(createBehavior = entityId => Bot(entityId))
 }

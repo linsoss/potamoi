@@ -55,18 +55,16 @@ trait ShardingProxy[ShardKey, ProxyCmd]:
         .onFailure[Exception](restart)
     }
 
-  type EntityId = String
-
   /**
    * Simpler action behavior.
    */
   protected def behavior(
-      createBehavior: EntityId => Behavior[ProxyCmd],
+      createBehavior: ShardKey => Behavior[ProxyCmd],
       stopMessage: Option[ProxyCmd] = None,
       bindRole: Option[String] = None,
       passivation: Option[PassivationStrategySettings] = None): Behavior[Req] = behavior { (ctx, sharding) =>
     sharding.init {
-      Entity(entityKey)(entityCtx => createBehavior(entityCtx.entityId))
+      Entity(entityKey)(entityCtx => createBehavior(unmarshallKey(entityCtx.entityId)))
         .contra { it =>
           stopMessage match
             case Some(message) => it.withStopMessage(message)
