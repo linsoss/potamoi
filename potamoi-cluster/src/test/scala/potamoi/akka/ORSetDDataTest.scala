@@ -14,7 +14,7 @@ object ORSetDDataTest extends ZIOAppDefault {
   object DemoSetCache extends ORSetDData[String]("demo-set-cache"):
     def apply(): Behavior[DemoSetCache.Req] = behavior(DDataConf.default)
 
-  import DemoSetCache.op.*
+  import DemoSetCache.ops
 
   val effect: RIO[ActorCradle, Unit] =
     for {

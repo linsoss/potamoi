@@ -87,14 +87,14 @@ trait ShardingProxy[ShardKey, ProxyCmd]:
    * ZIO interop.
    */
   type AIO[A] = IO[ActorOpErr, A]
-  object op:
 
-    extension (actor: ActorRef[Req])(using cradle: ActorCradle)
-      def attach(key: ShardKey): ProxyPartiallyApplied =
-        ProxyPartiallyApplied(actor, key)
+  implicit class ops(actor: ActorRef[Req])(implicit cradle: ActorCradle) {
 
-    case class ProxyPartiallyApplied(actor: ActorRef[Req], key: ShardKey)(using cradle: ActorCradle) {
-      def tellZIO(cmd: ProxyCmd): AIO[Unit]                                                                 = actor.tellZIO(Proxy(key, cmd))
-      def askZIO[Res: ClassTag](cmd: ActorRef[Res] => ProxyCmd, timeout: Option[Duration] = None): AIO[Res] =
+    def apply(key: ShardKey): ProxyPartiallyApplied = ProxyPartiallyApplied(key)
+
+    case class ProxyPartiallyApplied(key: ShardKey):
+      inline def tellZIO(cmd: ProxyCmd): AIO[Unit] = actor.tellZIO(Proxy(key, cmd))
+
+      inline def askZIO[Res: ClassTag](cmd: ActorRef[Res] => ProxyCmd, timeout: Option[Duration] = None): AIO[Res] =
         actor.askZIO[Res](ref => Proxy(key, cmd(ref)), timeout)
-    }
+  }

@@ -110,16 +110,15 @@ trait ORSetDData[Value](cacheId: String):
    * ZIO interop.
    */
   type AIO[A] = IO[ActorOpErr, A]
-  object op:
-    extension (actor: ActorRef[Req])(using cradle: ActorCradle) {
+  implicit class ops(actor: ActorRef[Req])(implicit cradle: ActorCradle) {
 
-      inline def list(timeout: Option[Duration] = None): AIO[Set[Value]]                = actor.askZIO(List.apply, timeout)
-      inline def size(timeout: Option[Duration] = None): AIO[Int]                       = actor.askZIO(Size.apply, timeout)
-      inline def contains(value: Value, timeout: Option[Duration] = None): AIO[Boolean] = actor.askZIO(Contains(value, _), timeout)
+    inline def list(timeout: Option[Duration] = None): AIO[Set[Value]]                = actor.askZIO(List.apply, timeout)
+    inline def size(timeout: Option[Duration] = None): AIO[Int]                       = actor.askZIO(Size.apply, timeout)
+    inline def contains(value: Value, timeout: Option[Duration] = None): AIO[Boolean] = actor.askZIO(Contains(value, _), timeout)
 
-      inline def put(value: Value): AIO[Unit]           = actor.tellZIO(Put(value))
-      inline def puts(values: Set[Value]): AIO[Unit]    = actor.tellZIO(Puts(values))
-      inline def remove(value: Value): AIO[Unit]        = actor.tellZIO(Remove(value))
-      inline def removes(values: Set[Value]): AIO[Unit] = actor.tellZIO(Removes(values))
-      inline def clear: AIO[Unit]                       = actor.tellZIO(Clear)
-    }
+    inline def put(value: Value): AIO[Unit]           = actor.tellZIO(Put(value))
+    inline def puts(values: Set[Value]): AIO[Unit]    = actor.tellZIO(Puts(values))
+    inline def remove(value: Value): AIO[Unit]        = actor.tellZIO(Remove(value))
+    inline def removes(values: Set[Value]): AIO[Unit] = actor.tellZIO(Removes(values))
+    inline def clear: AIO[Unit]                       = actor.tellZIO(Clear)
+  }

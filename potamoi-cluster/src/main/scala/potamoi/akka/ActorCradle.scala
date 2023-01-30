@@ -32,7 +32,7 @@ object ActorCradle extends EarlyLoad[ActorCradle]:
                       .ignore
                   }
     } yield ActorCradle(akkaConf, system)
-  }
+  }.tapErrorCause(ZIO.logErrorCause("Failed to create actor system", _))
 
   override def active: URIO[ActorCradle, Unit] =
     for {

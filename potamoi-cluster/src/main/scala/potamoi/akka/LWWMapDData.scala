@@ -136,20 +136,20 @@ trait LWWMapDData[Key, Value](cacheId: String):
    * ZIO interop.
    */
   type AIO[A] = IO[ActorOpErr, A]
-  object op:
-    extension (actor: ActorRef[Req])(using cradle: ActorCradle) {
-      inline def get(key: Key, timeout: Option[Duration] = None): AIO[Option[Value]] = actor.askZIO(Get(key, _), timeout)
-      inline def contains(key: Key, timeout: Option[Duration] = None): AIO[Boolean]  = actor.askZIO(Contains(key, _), timeout)
-      inline def listKeys(timeout: Option[Duration] = None): AIO[List[Key]]          = actor.askZIO(ListKeys.apply, timeout)
-      inline def listValues(timeout: Option[Duration] = None): AIO[List[Value]]      = actor.askZIO(ListValues.apply, timeout)
-      inline def listAll(timeout: Option[Duration] = None): AIO[Map[Key, Value]]     = actor.askZIO(ListAll.apply, timeout)
-      inline def size(timeout: Option[Duration] = None): AIO[Int]                    = actor.askZIO(Size.apply, timeout)
 
-      inline def put(key: Key, value: Value): AIO[Unit]                                    = actor.tellZIO(Put(key, value))
-      inline def puts(kv: List[(Key, Value)]): AIO[Unit]                                   = actor.tellZIO(Puts(kv))
-      inline def remove(key: Key): AIO[Unit]                                               = actor.tellZIO(Remove(key))
-      inline def removes(keys: List[Key]): AIO[Unit]                                       = actor.tellZIO(Removes(keys))
-      inline def removeBySelectKey(filter: Key => Boolean): AIO[Unit]                      = actor.tellZIO(RemoveBySelectKey(filter))
-      inline def update(key: Key, updateValue: Value => Value): AIO[Unit]                  = actor.tellZIO(Update(key, updateValue))
-      inline def upsert(key: Key, putValue: Value, updateValue: Value => Value): AIO[Unit] = actor.tellZIO(Upsert(key, putValue, updateValue))
-    }
+  implicit class ops(actor: ActorRef[Req])(implicit cradle: ActorCradle) {
+    inline def get(key: Key, timeout: Option[Duration] = None): AIO[Option[Value]] = actor.askZIO(Get(key, _), timeout)
+    inline def contains(key: Key, timeout: Option[Duration] = None): AIO[Boolean]  = actor.askZIO(Contains(key, _), timeout)
+    inline def listKeys(timeout: Option[Duration] = None): AIO[List[Key]]          = actor.askZIO(ListKeys.apply, timeout)
+    inline def listValues(timeout: Option[Duration] = None): AIO[List[Value]]      = actor.askZIO(ListValues.apply, timeout)
+    inline def listAll(timeout: Option[Duration] = None): AIO[Map[Key, Value]]     = actor.askZIO(ListAll.apply, timeout)
+    inline def size(timeout: Option[Duration] = None): AIO[Int]                    = actor.askZIO(Size.apply, timeout)
+
+    inline def put(key: Key, value: Value): AIO[Unit]                                    = actor.tellZIO(Put(key, value))
+    inline def puts(kv: List[(Key, Value)]): AIO[Unit]                                   = actor.tellZIO(Puts(kv))
+    inline def remove(key: Key): AIO[Unit]                                               = actor.tellZIO(Remove(key))
+    inline def removes(keys: List[Key]): AIO[Unit]                                       = actor.tellZIO(Removes(keys))
+    inline def removeBySelectKey(filter: Key => Boolean): AIO[Unit]                      = actor.tellZIO(RemoveBySelectKey(filter))
+    inline def update(key: Key, updateValue: Value => Value): AIO[Unit]                  = actor.tellZIO(Update(key, updateValue))
+    inline def upsert(key: Key, putValue: Value, updateValue: Value => Value): AIO[Unit] = actor.tellZIO(Upsert(key, putValue, updateValue))
+  }

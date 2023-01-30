@@ -1,12 +1,12 @@
 package potamoi.akka
 
 import akka.actor.typed.Behavior
-import potamoi.logger.PotaLogger
-import zio.{RIO, Scope, Task, ZIO, ZIOAppDefault, ZLayer}
 import potamoi.akka.actors.*
+import potamoi.logger.PotaLogger
 import potamoi.HoconConfig
-
 import potamoi.zios.debugPretty
+import zio.{RIO, Scope, Task, ZIO, ZIOAppDefault, ZLayer}
+import potamoi.akka.LWWMapDDataTest.DemoMapCache.ops
 
 object LWWMapDDataTest extends ZIOAppDefault {
 
@@ -14,8 +14,6 @@ object LWWMapDDataTest extends ZIOAppDefault {
 
   object DemoMapCache extends LWWMapDData[Int, String]("demo-map-cache"):
     def apply(): Behavior[DemoMapCache.Req] = behavior(DDataConf.default)
-  
-  import DemoMapCache.op.*
 
   val effect: RIO[ActorCradle, Unit] =
     for {
@@ -36,9 +34,10 @@ object LWWMapDDataTest extends ZIOAppDefault {
       _                <- cache.get(10).debugPretty
       _                <- cache.upsert(10, "ten", _ => "ten-replace")
       _                <- cache.get(10).debugPretty
+      _ <- ZIO.never
     } yield ()
 
-  val run = effect.provide(
+  val run = effect.debugPretty.provide(
     Scope.default,
     HoconConfig.empty,
     AkkaConf.local(),
