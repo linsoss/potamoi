@@ -1,22 +1,26 @@
 package potamoi.flink.observer.tracker
 
+import akka.actor.typed.ActorRef
 import com.devsisters.shardcake.{Messenger, Sharding}
-import potamoi.flink.{FlinkDataStoreErr, FlinkConf, FlinkErr, FlinkRestEndpointRetriever}
+import potamoi.flink.{FlinkConf, FlinkDataStoreErr, FlinkErr, FlinkRestEndpointRetriever}
 import potamoi.flink.model.Fcid
 import potamoi.flink.storage.{FlinkDataStorage, TrackedFcidStorage}
-import potamoi.flink.FlinkErr.FailToConnectShardEntity
+import potamoi.flink.FlinkErr.{AkkaErr, FailToConnectShardEntity}
 import potamoi.kubernetes.K8sOperator
 import potamoi.sharding.ShardRegister
+import potamoi.EarlyLoad
+import potamoi.akka.ActorCradle
+import potamoi.flink.observer.tracker.FlinkClusterTracker.ops
+import potamoi.flink.observer.tracker.FlinkK8sRefTracker.ops
+import potamoi.logger.LogConf
 import zio.{IO, RIO, Scope, Task, UIO, URIO, ZIO, ZIOAspect}
 import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
 import zio.stream.{Stream, UStream, ZStream}
 
-import scala.util.Try
-
 /**
  * Flink cluster trackers manager.
  */
-trait TrackManager extends ShardRegister {
+trait TrackManager {
 
   /**
    * Tracking flink cluster.
@@ -50,78 +54,81 @@ trait TrackManager extends ShardRegister {
 
 }
 
-private val ClusterTrk = FlinkClusterTracker
-private val K8sRefTrk  = FlinkK8sRefTracker
-
 object TrackerManager {
-  def instance(
-                flinkConf: FlinkConf,
-                snapStorage: FlinkDataStorage,
-                eptRetriever: FlinkRestEndpointRetriever,
-                k8sOperator: K8sOperator): URIO[Sharding, TrackManagerLive] =
+  def make(
+      logConf: LogConf,
+      flinkConf: FlinkConf,
+      actorCradle: ActorCradle,
+      snapStorage: FlinkDataStorage,
+      eptRetriever: FlinkRestEndpointRetriever,
+      k8sOperator: K8sOperator): ZIO[Any, Throwable, TrackManager] =
     for {
-      _ <- ZIO.unit
-      clusterTracker = FlinkClusterTracker(flinkConf, snapStorage, eptRetriever)
-      k8sRefTracker  = FlinkK8sRefTracker(flinkConf, snapStorage, k8sOperator)
-      clusterTrlEnvelop <- Sharding.messenger(ClusterTrk.Entity)
-      k8sRefTrkEnvelope <- Sharding.messenger(K8sRefTrk.Entity)
-    } yield TrackManagerLive(snapStorage, clusterTracker, k8sRefTracker, clusterTrlEnvelop, k8sRefTrkEnvelope)
+      clusterTrackerProxy <- actorCradle.spawn("flink-cluster-trackers", FlinkClusterTracker(logConf, flinkConf, snapStorage, eptRetriever))
+      k8sRefTrackerProxy  <- actorCradle.spawn("flink-k8s-trackers", FlinkK8sRefTracker(logConf, flinkConf, snapStorage, k8sOperator))
+      given ActorCradle    = actorCradle
+    } yield new TrackManagerImpl(snapStorage, clusterTrackerProxy, k8sRefTrackerProxy)
 }
 
 /**
  * Default implementation.
  */
-class TrackManagerLive(
-                        snapStorage: FlinkDataStorage,
-                        clusterTracker: FlinkClusterTracker,
-                        k8sRefTracker: FlinkK8sRefTracker,
-                        clusterTrkEnvelope: Messenger[ClusterTrk.Cmd],
-                        k8sRefTrkEnvelope: Messenger[K8sRefTrk.Cmd])
+class TrackManagerImpl(
+    snapStorage: FlinkDataStorage,
+    clusterTrackers: ActorRef[FlinkClusterTracker.Req],
+    k8sRefTrackers: ActorRef[FlinkK8sRefTracker.Req]
+  )(using ActorCradle)
     extends TrackManager {
 
-  override private[potamoi] def registerEntities: URIO[Sharding with Scope, Unit] = {
-    Sharding.registerEntity(ClusterTrk.Entity, clusterTracker.behavior, _ => Some(ClusterTrk.Terminate)) *>
-    Sharding.registerEntity(K8sRefTrk.Entity, k8sRefTracker.behavior, _ => Some(K8sRefTrk.Terminate))
-  }
-
-  override def track(fcid: Fcid): IO[FlinkDataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
-    snapStorage.trackedList.put(fcid) *>
-    clusterTrkEnvelope
-      .send(marshallFcid(fcid))(ClusterTrk.Start.apply)
-      .mapError(FailToConnectShardEntity(ClusterTrk.Entity.name, _))
-      .unit *>
-    k8sRefTrkEnvelope
-      .send(marshallFcid(fcid))(K8sRefTrk.Start.apply)
-      .mapError(FailToConnectShardEntity(K8sRefTrk.Entity.name, _))
-      .unit
+  /**
+   * Tracking flink cluster.
+   */
+  override def track(fcid: Fcid): IO[FlinkDataStoreErr | AkkaErr | FlinkErr, Unit] = {
+    for {
+      _ <- snapStorage.trackedList.put(fcid)
+      _ <- clusterTrackers(fcid).askZIO(FlinkClusterTrackerActor.Start.apply).mapError(AkkaErr.apply).unit
+      _ <- k8sRefTrackers(fcid).askZIO(FlinkK8sRefTrackerActor.Start.apply).mapError(AkkaErr.apply).unit
+    } yield ()
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
+  /**
+   * UnTracking flink cluster.
+   */
   override def untrack(fcid: Fcid): IO[FlinkDataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
-    snapStorage.trackedList.rm(fcid) *>
-    clusterTrkEnvelope
-      .send(marshallFcid(fcid))(ClusterTrk.Stop.apply)
-      .mapError(FailToConnectShardEntity(ClusterTrk.Entity.name, _))
-      .unit *>
-    k8sRefTrkEnvelope
-      .send(marshallFcid(fcid))(K8sRefTrk.Stop.apply)
-      .mapError(FailToConnectShardEntity(K8sRefTrk.Entity.name, _))
-      .unit *>
-    // remove all snapshot data belongs to Fcid
-    snapStorage.rmSnapData(fcid)
+    for {
+      _ <- snapStorage.trackedList.rm(fcid)
+      _ <- clusterTrackers(fcid).askZIO(FlinkClusterTrackerActor.Stop.apply).mapError(AkkaErr.apply).unit
+      _ <- k8sRefTrackers(fcid).askZIO(FlinkK8sRefTrackerActor.Stop.apply).mapError(AkkaErr.apply).unit
+      // remove all snapshot data belongs to fcid
+      _ <- snapStorage.rmSnapData(fcid)
+    } yield ()
   } @@ ZIOAspect.annotated(fcid.toAnno*)
 
+  /**
+   * Whether the tracked fcid exists.
+   */
   override def isBeTracked(fcid: Fcid): IO[FlinkDataStoreErr, Boolean] = snapStorage.trackedList.exists(fcid)
-  override def listTrackedClusters: Stream[FlinkDataStoreErr, Fcid]    = snapStorage.trackedList.list
 
+  /**
+   * Listing tracked cluster id.
+   */
+  override def listTrackedClusters: Stream[FlinkDataStoreErr, Fcid] = snapStorage.trackedList.list
+
+  /**
+   * Get trackers status.
+   */
   override def getTrackersStatus(fcid: Fcid): IO[Nothing, TrackersStatus] = {
-    askStatus(clusterTrkEnvelope.send(marshallFcid(fcid))(ClusterTrk.IsStarted.apply)) <&>
-    askStatus(k8sRefTrkEnvelope.send(marshallFcid(fcid))(K8sRefTrk.IsStarted.apply))
+    askStatus(clusterTrackers(fcid).askZIO(FlinkClusterTrackerActor.IsStarted.apply)) <&>
+    askStatus(k8sRefTrackers(fcid).askZIO(FlinkK8sRefTrackerActor.IsStarted.apply))
   } map { case (clusterTrk, k8sRefTrk) => TrackersStatus(fcid, clusterTrk, k8sRefTrk) }
-
-  override def listTrackersStatus(parallelism: Int): Stream[FlinkDataStoreErr, TrackersStatus] =
-    snapStorage.trackedList.list.mapZIOParUnordered(parallelism)(getTrackersStatus)
 
   private def askStatus(io: Task[Boolean]) =
     io.map(if _ then TrackerState.Running else TrackerState.Idle)
-      .catchAll(e => ZIO.logError(e.getMessage) *> ZIO.succeed(TrackerState.Unknown))
+      .catchAllCause(cause => ZIO.logErrorCause(cause) *> ZIO.succeed(TrackerState.Unknown))
+
+  /**
+   * list all trackers status.
+   */
+  override def listTrackersStatus(parallelism: Int): Stream[FlinkDataStoreErr, TrackersStatus] =
+    snapStorage.trackedList.list.mapZIOParUnordered(parallelism)(getTrackersStatus)
+
 }

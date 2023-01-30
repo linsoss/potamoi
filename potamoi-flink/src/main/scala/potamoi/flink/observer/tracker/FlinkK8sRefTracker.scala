@@ -1,17 +1,23 @@
 package potamoi.flink.observer.tracker
 
+import akka.actor.typed.{ActorRef, Behavior, PostStop, SupervisorStrategy}
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
 import com.coralogix.zio.k8s.client.model.{label, Added, Deleted, K8sNamespace, Modified, Reseted}
-import com.coralogix.zio.k8s.client.K8sFailure
-import com.devsisters.shardcake.*
-import potamoi.common.Syntax.toPrettyString
+import potamoi.akka.actors.*
+import potamoi.akka.behaviors.*
 import potamoi.flink.FlinkConf
 import potamoi.flink.model.{Fcid, FlinkK8sPodMetrics, FlinkK8sServiceSnap, FlinkRestSvcEndpoint}
 import potamoi.flink.observer.tracker.K8sEntityConverter.*
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.{K8sClient, K8sOperator}
 import potamoi.kubernetes.K8sErr.PodNotFound
-import potamoi.syntax.valueToSome
-import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
+import potamoi.logger.LogConf
+import potamoi.syntax.{toPrettyString, valueToSome}
+import potamoi.times.{given_Conversion_ScalaDuration_ZIODuration, given_Conversion_ZIODuration_ScalaDuration}
+import potamoi.zios.runInsideActor
+import potamoi.NodeRoles
+import potamoi.akka.ShardingProxy
 import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced, succeed}
@@ -19,90 +25,138 @@ import zio.ZIO.{logError, logInfo, logWarning}
 import zio.ZIOAspect.annotated
 
 import scala.collection.mutable
+import scala.util.{Failure, Success}
 
 /**
  * Flink kubernetes ref resource snapshot tracker.
  */
-object FlinkK8sRefTracker {
+object FlinkK8sRefTracker extends ShardingProxy[Fcid, FlinkK8sRefTrackerActor.Cmd] {
 
-  object Entity extends EntityType[Cmd]("flinkK8sRefTracker")
-
-  sealed trait Cmd
-  case class Start(replier: Replier[Ack.type])    extends Cmd
-  case class Stop(replier: Replier[Ack.type])     extends Cmd
-  case object Terminate                           extends Cmd
-  case class IsStarted(replier: Replier[Boolean]) extends Cmd
-
-  // noinspection DuplicatedCode
-  private case class TrackerState(isStarted: Ref[Boolean], trackTaskFibersRef: Ref[Set[Fiber.Runtime[_, _]]]):
-    def reset: UIO[Unit] =
-      for {
-        _ <- trackTaskFibersRef.getAndSet(Set.empty).flatMap { fibers =>
-               ZIO.foreachPar(fibers)(_.interrupt)
-             }
-        _ <- isStarted.set(false)
-      } yield ()
-
-  private object TrackerState:
-    def make: UIO[TrackerState] =
-      for {
-        isStarted          <- Ref.make[Boolean](false)
-        trackTaskFibersRef <- Ref.make[Set[Fiber.Runtime[_, _]]](Set.empty)
-      } yield TrackerState(isStarted, trackTaskFibersRef)
-}
-
-class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sOperator: K8sOperator) {
-
-  import FlinkK8sRefTracker.*
-  private val watchEffectRecoverInterval = 1.seconds
-  private val watchEffectClock           = ZLayer.succeed(Clock.ClockLive)
+  val entityKey     = EntityTypeKey[FlinkK8sRefTrackerActor.Cmd]("flink-k8s-tracker")
+  val marshallKey   = marshallFcid
+  val unmarshallKey = unmarshallFcid
 
   /**
-   * Sharding entity behavior.
+   * Actor behavior.
    */
-  def behavior(entityId: String, messages: Dequeue[Cmd]): RIO[Sharding with Scope, Nothing] =
-    for {
-      fcid   <- ZIO.attempt(unmarshallFcid(entityId)).tapErrorCause(cause => ZIO.logErrorCause(s"Fail to unmarshall Fcid: entityId", cause))
-      state  <- TrackerState.make
-      // start tracking automatically if needs.
-      _      <- snapStore.trackedList
-                  .exists(fcid)
-                  .catchAll(_ => ZIO.succeed(false))
-                  .flatMap { shouldAutoStart =>
-                    if shouldAutoStart then start(fcid, state) else ZIO.unit
-                  }
-                  .forkScoped
-      effect <- messages.take.flatMap(handleMessage(fcid, _, state)).forever
-    } yield effect
+  def apply(logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sOperator: K8sOperator): Behavior[Req] =
+    behavior(
+      createBehavior = fcid => FlinkK8sRefTrackerActor(fcid, logConf, flinkConf, snapStore, k8sOperator),
+      stopMessage = Some(FlinkK8sRefTrackerActor.Terminate),
+      bindRole = Some(NodeRoles.flinkService)
+    )
+}
 
-  private def handleMessage(fcid: Fcid, message: Cmd, state: TrackerState): RIO[Sharding with Scope, Unit] = {
-    message match {
-      case Start(replier)     => start(fcid, state) *> replier.reply(Ack)
-      case Stop(replier)      => logInfo(s"Flink k8s refs tracker stopped: ${fcid.show}") *> state.reset *> replier.reply(Ack)
-      case Terminate          => logInfo(s"Flink k8s refs tracker terminated: ${fcid.show}") *> state.reset
-      case IsStarted(replier) => state.isStarted.get.flatMap(replier.reply)
-    }
-  } @@ ZIOAspect.annotated(fcid.toAnno*)
+/**
+ * Flink kubernetes ref resource snapshot tracker sharding actor.
+ */
+object FlinkK8sRefTrackerActor {
 
-  private def start(fcid: Fcid, state: TrackerState) = {
-    state.isStarted.get.flatMap {
-      case true  => ZIO.unit
-      case false =>
-        for {
-          _                   <- logInfo(s"Flink k8s refs tracker started: ${fcid.show}")
-          _                   <- state.reset
-          watchDeployFiber    <- watchDeployments(fcid).forkScoped
-          watchSvcFiber       <- watchServices(fcid).forkScoped
-          watchPodFiber       <- watchPods(fcid).forkScoped
-          watchConfigmapFiber <- watchConfigmapNames(fcid).forkScoped
-          pollPodMetricsFiber <- pollPodMetrics(fcid).forkScoped
-          _                   <- state.trackTaskFibersRef.set(Set(watchDeployFiber, watchSvcFiber, watchPodFiber, watchConfigmapFiber, pollPodMetricsFiber))
-          _                   <- state.isStarted.set(true)
-        } yield ()
+  sealed trait Cmd
+  final case class Start(replier: ActorRef[Ack.type])    extends Cmd
+  final case class Stop(replier: ActorRef[Ack.type])     extends Cmd
+  final case object Terminate                            extends Cmd
+  final case class IsStarted(replier: ActorRef[Boolean]) extends Cmd
+  private case class ShouldAutoStart(rs: Boolean)        extends Cmd
+
+  def apply(fcid: Fcid, logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sOperator: K8sOperator): Behavior[Cmd] =
+    Behaviors.setup { ctx =>
+      new FlinkK8sRefTrackerActor(fcid, logConf, flinkConf, snapStore, k8sOperator)(using ctx).active
+        .onFailure[Exception](defaultTrackerFailoverStrategy)
     }
+}
+
+import potamoi.flink.observer.tracker.FlinkK8sRefTrackerActor.*
+
+class FlinkK8sRefTrackerActor(
+    fcid: Fcid,
+    logConf: LogConf,
+    flinkConf: FlinkConf,
+    snapStore: FlinkDataStorage,
+    k8sOperator: K8sOperator
+  )(using ctx: ActorContext[Cmd]) {
+
+  private given LogConf                  = logConf
+  private val watchEffectRecoverInterval = 1.seconds
+  private val watchEffectClock           = ZLayer.succeed(Clock.ClockLive)
+  private def appSelector(fcid: Fcid)    = label("app") === fcid.clusterId && label("type") === "flink-native-kubernetes"
+
+  // actor state
+  private var isStarted                                = false
+  private var workProc: Option[CancelableFuture[Unit]] = None
+
+  /**
+   * Actor start behavior.
+   */
+  // noinspection DuplicatedCode
+  def start: Behavior[Cmd] = Behaviors.withStash(100) { stash =>
+    Behaviors
+      .receiveMessage[Cmd] {
+        case ShouldAutoStart(r) =>
+          if r then ctx.self ! Start(ctx.system.ignoreRef)
+          stash.unstashAll(active)
+        case cmd                =>
+          stash.stash(cmd)
+          Behaviors.same
+      }
+      .beforeIt {
+        ctx.pipeToSelf(snapStore.trackedList.exists(fcid).runInsideActor) {
+          case Success(r) => ShouldAutoStart(r)
+          case Failure(e) => ShouldAutoStart(false)
+        }
+      }
   }
 
-  private def appSelector(fcid: Fcid) = label("app") === fcid.clusterId && label("type") === "flink-native-kubernetes"
+  /**
+   * Actor active behavior.
+   */
+  def active: Behavior[Cmd] = Behaviors
+    .receiveMessagePartial[Cmd] {
+
+      case Start(reply) =>
+        if (!isStarted) {
+          workProc.map(_.cancel())
+          workProc = Some(launchTrackers.runInsideActor)
+          isStarted = true
+          ctx.log.info(s"Flink k8s refs tracker started: ${fcid.show}")
+        }
+        reply ! Ack
+        Behaviors.same
+
+      case Stop(reply) =>
+        workProc.map(_.cancel())
+        isStarted = false
+        reply ! Ack
+        Behaviors.stopped
+
+      case Terminate =>
+        workProc.map(_.cancel())
+        isStarted = false
+        Behaviors.stopped
+
+      case IsStarted(reply) =>
+        reply ! isStarted
+        Behaviors.same
+    }
+    .receiveSignal { case (_, PostStop) =>
+      ctx.log.info(s"Flink k8s refs tracker stopped: ${fcid.show}")
+      workProc.map(_.cancel())
+      Behaviors.same
+    }
+
+  /**
+   * Launch all flink kubernetes info trackers.
+   */
+  private def launchTrackers: UIO[Unit] = {
+    for {
+      _ <- watchDeployments.fork
+      _ <- watchServices.fork
+      _ <- watchPods.fork
+      _ <- watchConfigmapNames.fork
+      _ <- pollPodMetrics.fork
+      _ <- ZIO.never
+    } yield ()
+  } @@ annotated(fcid.toAnno*)
 
   /**
    * Auto retry k8s watching effect when it fails, and log the first different error.
@@ -112,10 +166,12 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sO
       k8sWatchEffect
         .tapError { err =>
           errState.get.flatMap { pre =>
-            (logError(err match
-              case e: Throwable => e.getMessage
-              case e            => toPrettyString(e)
-            ) *> errState.set(Some(err))).when(!pre.contains(err))
+            (
+              logError(err match
+                case e: Throwable => e.getMessage
+                case e            => toPrettyString(e)
+              ) *> errState.set(Some(err))
+            ).when(!pre.contains(err))
           }
         }
         .retry(Schedule.spaced(watchEffectRecoverInterval))
@@ -126,7 +182,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sO
   /**
    * Watch k8s deployments api.
    */
-  def watchDeployments(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
+  def watchDeployments: UIO[Unit] = k8sOperator.client.flatMap { client =>
     client.deployments
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
@@ -141,7 +197,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sO
   /**
    * Watch k8s services api.
    */
-  def watchServices(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
+  def watchServices: UIO[Unit] = k8sOperator.client.flatMap { client =>
     client.services
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
@@ -169,7 +225,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sO
   /**
    * Watch k8s pods api.
    */
-  def watchPods(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
+  def watchPods: UIO[Unit] = k8sOperator.client.flatMap { client =>
     client.pods
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
@@ -184,7 +240,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sO
   /**
    * Watch k8s configmap api.
    */
-  def watchConfigmapNames(fcid: Fcid): UIO[Unit] = k8sOperator.client.flatMap { client =>
+  def watchConfigmapNames: UIO[Unit] = k8sOperator.client.flatMap { client =>
     client.configMaps
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
@@ -199,7 +255,7 @@ class FlinkK8sRefTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sO
   /**
    * Poll k8s pod metrics api.
    */
-  def pollPodMetrics(fcid: Fcid): UIO[Unit] = {
+  def pollPodMetrics: UIO[Unit] = {
 
     def watchPodNames(podNames: Ref[mutable.HashSet[String]]) = k8sOperator.client.flatMap { client =>
       client.pods

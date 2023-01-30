@@ -1,118 +1,159 @@
 package potamoi.flink.observer.tracker
 
-import com.devsisters.shardcake.*
+import akka.actor.typed.{ActorRef, Behavior, PostStop}
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
+import potamoi.akka.behaviors.*
+import potamoi.akka.ShardingProxy
 import potamoi.flink.{flinkRest, FlinkConf, FlinkRestEndpointRetriever, FlinkRestEndpointType}
 import potamoi.flink.model.*
 import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExecModeKey}
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.flink.FlinkErr.ClusterNotFound
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
+import potamoi.logger.LogConf
 import potamoi.syntax.toPrettyStr
-import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
+import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
+import potamoi.zios.{runInsideActor, runNow}
+import potamoi.NodeRoles
 import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced}
 import zio.ZIO.{logErrorCause, logInfo}
 import zio.ZIOAspect.annotated
 
+import scala.collection.immutable.Set
 import scala.collection.mutable
+import scala.util.{Failure, Success}
 import scala.util.hashing.MurmurHash3
 
 /**
  * Flink cluster snapshot tracker.
  */
-object FlinkClusterTracker {
+object FlinkClusterTracker extends ShardingProxy[Fcid, FlinkClusterTrackerActor.Cmd] {
 
-  object Entity extends EntityType[Cmd]("flinkClusterTracker")
+  val entityKey     = EntityTypeKey[FlinkClusterTrackerActor.Cmd]("flink-cluster-tracker")
+  val marshallKey   = marshallFcid
+  val unmarshallKey = unmarshallFcid
 
-  sealed trait Cmd
-  case class Start(replier: Replier[Ack.type])    extends Cmd
-  case class Stop(replier: Replier[Ack.type])     extends Cmd
-  case object Terminate                           extends Cmd
-  case class IsStarted(replier: Replier[Boolean]) extends Cmd
-
-  // noinspection DuplicatedCode
-  private case class TrackerState(
-      isStarted: Ref[Boolean],
-      launchFiberRef: Ref[Option[Fiber.Runtime[_, _]]],
-      trackTaskFibersRef: Ref[Set[Fiber.Runtime[_, _]]],
-      flinkEptCache: Ref[Option[FlinkRestSvcEndpoint]]):
-    def reset: UIO[Unit] =
-      for {
-        _ <- launchFiberRef.getAndSet(None).flatMap {
-               case None        => ZIO.unit
-               case Some(fiber) => fiber.interrupt
-             }
-        _ <- trackTaskFibersRef.getAndSet(Set.empty).flatMap { fibers =>
-               ZIO.foreachPar(fibers)(_.interrupt)
-             }
-        _ <- flinkEptCache.set(None)
-        _ <- isStarted.set(false)
-      } yield ()
-
-  private object TrackerState:
-    def make: UIO[TrackerState] =
-      for {
-        isStarted          <- Ref.make[Boolean](false)
-        launchFiberRef     <- Ref.make[Option[Fiber.Runtime[_, _]]](None)
-        trackTaskFibersRef <- Ref.make[Set[Fiber.Runtime[_, _]]](Set.empty)
-        flinkEptCache      <- Ref.make[Option[FlinkRestSvcEndpoint]](None)
-      } yield TrackerState(isStarted, launchFiberRef, trackTaskFibersRef, flinkEptCache)
+  /**
+   * Actor behavior.
+   */
+  def apply(logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, eptRetriever: FlinkRestEndpointRetriever): Behavior[Req] =
+    behavior(
+      createBehavior = fcid => FlinkClusterTrackerActor(fcid, logConf, flinkConf, snapStore, eptRetriever),
+      stopMessage = Some(FlinkClusterTrackerActor.Terminate),
+      bindRole = Some(NodeRoles.flinkService)
+    )
 }
 
-class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, eptRetriever: FlinkRestEndpointRetriever) {
+/**
+ * Flink cluster snapshot tracker actor.
+ */
+object FlinkClusterTrackerActor {
 
-  import FlinkClusterTracker.*
+  sealed trait Cmd
+  final case class Start(reply: ActorRef[Ack.type])    extends Cmd
+  final case class Stop(reply: ActorRef[Ack.type])     extends Cmd
+  final case object Terminate                          extends Cmd
+  final case class IsStarted(reply: ActorRef[Boolean]) extends Cmd
+  private case class ShouldAutoStart(rs: Boolean)      extends Cmd
+
+  def apply(
+      fcid: Fcid,
+      logConf: LogConf,
+      flinkConf: FlinkConf,
+      snapStore: FlinkDataStorage,
+      eptRetriever: FlinkRestEndpointRetriever): Behavior[Cmd] =
+    Behaviors.setup { ctx =>
+      new FlinkClusterTrackerActor(fcid, logConf, flinkConf, snapStore, eptRetriever)(using ctx).active
+        .onFailure[Exception](defaultTrackerFailoverStrategy)
+    }
+}
+
+import potamoi.flink.observer.tracker.FlinkClusterTrackerActor.*
+
+class FlinkClusterTrackerActor(
+    fcid: Fcid,
+    logConf: LogConf,
+    flinkConf: FlinkConf,
+    snapStore: FlinkDataStorage,
+    eptRetriever: FlinkRestEndpointRetriever
+  )(using ctx: ActorContext[Cmd]) {
+
+  private given LogConf                = logConf
   private given FlinkRestEndpointType  = flinkConf.restEndpointTypeInternal
   private given logFailReason: Boolean = flinkConf.tracking.logTrackersFailedInfo
 
+  // actor state
+  private var isStarted: Boolean                          = false
+  private var workProc: Option[CancelableFuture[Unit]]    = None
+  private val eptCache: Ref[Option[FlinkRestSvcEndpoint]] = Ref.make(None).runNow
+
   /**
-   * Sharding entity behavior.
+   * Actor start behavior.
    */
-  def behavior(entityId: String, messages: Dequeue[Cmd]): RIO[Sharding with Scope, Nothing] =
-    for {
-      fcid   <- ZIO.attempt(unmarshallFcid(entityId)).tapErrorCause(cause => ZIO.logErrorCause(s"Fail to unmarshall Fcid: $entityId", cause))
-      state  <- TrackerState.make
-      // start tracking automatically if needs.
-      _      <- snapStore.trackedList
-                  .exists(fcid)
-                  .catchAll(_ => ZIO.succeed(false))
-                  .flatMap { shouldAutoStart =>
-                    if shouldAutoStart then start(fcid)(using state) else ZIO.unit
-                  }
-                  .forkScoped
-      effect <- messages.take.flatMap(handleMessage(fcid, _)(using state)).forever
-    } yield effect
-
-  private def handleMessage(fcid: Fcid, message: Cmd)(using state: TrackerState): RIO[Sharding with Scope, Unit] = {
-    message match {
-      case Start(replier)     => start(fcid) *> replier.reply(Ack)
-      case Stop(replier)      => logInfo(s"Flink cluster tracker stopped: ${fcid.show}") *> state.reset *> replier.reply(Ack)
-      case Terminate          => logInfo(s"Flink cluster tracker terminated: ${fcid.show}") *> state.reset
-      case IsStarted(replier) => state.isStarted.get.flatMap(replier.reply)
-    }
-  } @@ ZIOAspect.annotated(fcid.toAnno*)
-
-  private def start(fcid: Fcid)(using state: TrackerState): RIO[Scope, Unit] = {
-    state.isStarted.get.flatMap {
-      case true  => ZIO.unit
-      case false =>
-        for {
-          _           <- logInfo(s"Flink cluster tracker started: ${fcid.show}")
-          _           <- state.reset
-          launchFiber <- launchTrackers(fcid).forkScoped
-          _           <- state.launchFiberRef.update(_ => Some(launchFiber))
-          _           <- state.isStarted.set(true)
-
-        } yield ()
-    }
+  // noinspection DuplicatedCode
+  def start: Behavior[Cmd] = Behaviors.withStash(100) { stash =>
+    Behaviors
+      .receiveMessage[Cmd] {
+        case ShouldAutoStart(r) =>
+          if r then ctx.self ! Start(ctx.system.ignoreRef)
+          stash.unstashAll(active)
+        case cmd                =>
+          stash.stash(cmd)
+          Behaviors.same
+      }
+      .beforeIt {
+        ctx.pipeToSelf(snapStore.trackedList.exists(fcid).runInsideActor) {
+          case Success(r) => ShouldAutoStart(r)
+          case Failure(e) => ShouldAutoStart(false)
+        }
+      }
   }
+
+  /**
+   * Actor active behavior.
+   */
+  def active: Behavior[Cmd] = Behaviors
+    .receiveMessage[Cmd] {
+
+      case Start(reply) =>
+        if (!isStarted) {
+          workProc.map(_.cancel())
+          workProc = Some(launchTrackers.runInsideActor)
+          isStarted = true
+          ctx.log.info(s"Flink cluster tracker started: ${fcid.show}")
+        }
+        reply ! Ack
+        Behaviors.same
+
+      case Stop(reply) =>
+        workProc.map(_.cancel())
+        isStarted = false
+        reply ! Ack
+        Behaviors.stopped
+
+      case Terminate =>
+        workProc.map(_.cancel())
+        isStarted = false
+        Behaviors.stopped
+
+      case IsStarted(reply) =>
+        reply ! isStarted
+        Behaviors.same
+    }
+    .receiveSignal { case (_, PostStop) =>
+      ctx.log.info(s"Flink cluster tracker stopped: ${fcid.show}")
+      workProc.map(_.cancel())
+      Behaviors.same
+    }
 
   /**
    * Start the track task and all api-polling-based tasks will be blocking until
    * a flink rest k8s endpoint is found for availability.
    */
-  private def launchTrackers(fcid: Fcid)(using state: TrackerState): RIO[Scope, Unit] =
+  private def launchTrackers = {
     for {
       // blocking until the rest service is available in kubernetes.
       _        <- logInfo("Retrieving flink rest endpoint...")
@@ -123,7 +164,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, ept
                     .map(_._1.get)
       _        <- logInfo(s"Found flink rest endpoint: ${endpoint.show}")
       _        <- snapStore.restEndpoint.put(fcid, endpoint)
-      _        <- state.flinkEptCache.set(Some(endpoint))
+      _        <- eptCache.set(Some(endpoint))
 
       // blocking until the rest api can be connected.
       _ <- logInfo(s"Checking availability of flink rest endpoint: ${endpoint.show} ...")
@@ -132,43 +173,35 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, ept
              .unit
       _ <- logInfo("Flink rest endpoint is available, let's start all cluster tracking fibers.")
 
-      given Ref[Option[FlinkRestSvcEndpoint]] = state.flinkEptCache
-
       // launch tracking fibers.
-      clusterOvFiber    <- pollClusterOverview(fcid).forkScoped
-      tmDetailFiber     <- pollTmDetail(fcid).forkScoped
-      jmMetricFiber     <- pollJmMetrics(fcid).forkScoped
-      tmMetricFiber     <- pollTmMetrics(fcid).forkScoped
-      jobOvFiber        <- pollJobOverview(fcid).forkScoped
-      jobMetricFiber    <- pollJobMetrics(fcid).forkScoped
-      syncEptValueFiber <- syncEptValueCache(fcid).forkScoped
-      _                 <- state.trackTaskFibersRef.set(
-                             Set(
-                               clusterOvFiber,
-                               tmDetailFiber,
-                               jmMetricFiber,
-                               tmMetricFiber,
-                               jobOvFiber,
-                               jobMetricFiber,
-                               syncEptValueFiber
-                             ))
+      _ <- pollClusterOverview.fork
+      _ <- pollTmDetail.fork
+      _ <- pollJmMetrics.fork
+      _ <- pollTmMetrics.fork
+      _ <- pollJobOverview.fork
+      _ <- pollJobMetrics.fork
+
+      // flink svc endpoint cache sync fiber.
+      _ <- syncEptValueCache.fork
+      _ <- ZIO.never
     } yield ()
+  } @@ annotated(fcid.toAnno*)
 
   /**
    * Sync FlinkSvcEndpoint value from storage.
    */
-  private def syncEptValueCache(fcid: Fcid)(using state: TrackerState): UIO[Unit] = loopTrigger(
+  private def syncEptValueCache: UIO[Unit] = loopTrigger(
     flinkConf.tracking.eptCacheSyncInterval,
     snapStore.restEndpoint
       .get(fcid)
-      .flatMap(state.flinkEptCache.set)
+      .flatMap(eptCache.set)
       .mapError(err => Exception(s"Fail to sync FlinkSvcEndpoint cache inner tracker: $err", err))
   )
 
   /**
    * Poll flink cluster overview api.
    */
-  private def pollClusterOverview(fcid: Fcid)(using eptCache: Ref[Option[FlinkRestSvcEndpoint]]): UIO[Unit] = {
+  private def pollClusterOverview: UIO[Unit] = {
 
     def polling(mur: Ref[Int]) = for {
       restUrl            <- eptCache.get.someOrFail(ClusterNotFound(fcid))
@@ -195,13 +228,14 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, ept
              .zip(mur.set(curMur))
              .when(preMur != curMur)
     } yield ()
+
     Ref.make(0).flatMap { mur => loopTrigger(flinkConf.tracking.clusterOvPolling, polling(mur)) }
   }
 
   /**
    * Poll flink task-manager detail api.
    */
-  private def pollTmDetail(fcid: Fcid)(using eptCache: Ref[Option[FlinkRestSvcEndpoint]]): UIO[Unit] = {
+  private def pollTmDetail: UIO[Unit] = {
 
     def polling(tmMur: Ref[Int], tmIds: Ref[Set[String]]) = for {
       restUrl   <- eptCache.get.someOrFail(ClusterNotFound(fcid))
@@ -239,7 +273,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, ept
   /**
    * Poll flink job-manager metrics api.
    */
-  private def pollJmMetrics(fcid: Fcid)(using eptCache: Ref[Option[FlinkRestSvcEndpoint]]): UIO[Unit] = {
+  private def pollJmMetrics: UIO[Unit] = {
     val polling = for {
       restUrl   <- eptCache.get.someOrFail(ClusterNotFound(fcid))
       jmMetrics <- flinkRest(restUrl.chooseUrl).getJmMetrics(FlinkJmMetrics.metricsRawKeys).map(FlinkJmMetrics.fromRaw(fcid, _))
@@ -251,7 +285,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, ept
   /**
    * Polling flink task-manager metrics api.
    */
-  private def pollTmMetrics(fcid: Fcid)(using eptCache: Ref[Option[FlinkRestSvcEndpoint]]): UIO[Unit] = {
+  private def pollTmMetrics: UIO[Unit] = {
     def polling(tmIds: Ref[Set[String]]) = for {
       restUrl  <- eptCache.get.someOrFail(ClusterNotFound(fcid))
       curTmIds <- flinkRest(restUrl.chooseUrl).listTaskManagerIds.map(_.toSet)
@@ -284,7 +318,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, ept
   /**
    * Poll flink job overview api.
    */
-  private def pollJobOverview(fcid: Fcid)(using eptCache: Ref[Option[FlinkRestSvcEndpoint]]): UIO[Unit] = {
+  private def pollJobOverview: UIO[Unit] = {
 
     def polling(ovMur: Ref[Int], jobIds: Ref[Set[String]]) = for {
       restUrl <- eptCache.get.someOrFail(ClusterNotFound(fcid))
@@ -318,7 +352,7 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, ept
   /**
    * Poll flink job metrics api.
    */
-  private def pollJobMetrics(fcid: Fcid)(using eptCache: Ref[Option[FlinkRestSvcEndpoint]]): UIO[Unit] = {
+  private def pollJobMetrics: UIO[Unit] = {
 
     def polling(jobIds: Ref[Set[String]]) = for {
       restUrl   <- eptCache.get.someOrFail(ClusterNotFound(fcid))
@@ -348,5 +382,4 @@ class FlinkClusterTracker(flinkConf: FlinkConf, snapStore: FlinkDataStorage, ept
       pollProc <- loopTrigger(flinkConf.tracking.jobMetricsPolling, polling(jobIds))
     } yield pollProc
   }
-
 }

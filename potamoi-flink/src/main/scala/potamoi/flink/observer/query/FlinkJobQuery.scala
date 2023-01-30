@@ -7,8 +7,8 @@ import potamoi.flink.FlinkErr.{ClusterNotFound, WatchTimeout}
 import potamoi.flink.FlinkRestErr.{JobNotFound, RequestApiErr, TriggerNotFound}
 import potamoi.kubernetes.K8sErr
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
-import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
-import zio.{IO, Ref, ZIO}
+import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
+import zio.{IO, Ref, UIO, ZIO}
 import zio.Schedule.{recurWhile, spaced}
 import zio.ZIOAspect.annotated
 import zio.stream.{Stream, ZPipeline, ZStream}
@@ -43,10 +43,15 @@ trait FlinkSavepointTriggerQuery {
 
 }
 
+object FlinkJobQuery {
+  def make(flinkConf: FlinkConf, jobSnapStorage: JobSnapStorage, restEndpointQuery: FlinkRestEndpointQuery): UIO[FlinkJobQuery] =
+    ZIO.succeed(FlinkJobQueryImpl(flinkConf, jobSnapStorage, restEndpointQuery))
+}
+
 /**
  * Default implementation.
  */
-case class FlinkJobQueryLive(flinkConf: FlinkConf, jobSnapStorage: JobSnapStorage, restEndpointQuery: FlinkRestEndpointQuery) extends FlinkJobQuery {
+case class FlinkJobQueryImpl(flinkConf: FlinkConf, jobSnapStorage: JobSnapStorage, restEndpointQuery: FlinkRestEndpointQuery) extends FlinkJobQuery {
   lazy val overview         = jobSnapStorage.overview
   lazy val metrics          = jobSnapStorage.metrics
   lazy val savepointTrigger = SavepointTriggerQueryLive(flinkConf, restEndpointQuery)
@@ -76,9 +81,9 @@ case class FlinkJobQueryLive(flinkConf: FlinkConf, jobSnapStorage: JobSnapStorag
           .repeat(spaced(sptPollInterval))
           .filterZIO { status =>
             for {
-              pre <- preState.get
+              pre       <- preState.get
               shouldDrop = pre.contains(status.state)
-              _ <- preState.set(Some(status.state))
+              _         <- preState.set(Some(status.state))
             } yield !shouldDrop
           }
           .takeUntil(_.isCompleted)
@@ -101,10 +106,10 @@ case class FlinkJobQueryLive(flinkConf: FlinkConf, jobSnapStorage: JobSnapStorag
         timeout: Duration): IO[ClusterNotFound | JobNotFound | TriggerNotFound | WatchTimeout | FlinkErr, FlinkSptTriggerStatus] = {
       for {
         restUrl <- restEndpoint.getEnsure(fjid.fcid).someOrFail(ClusterNotFound(fjid.fcid)).map(_.chooseUrl)
-        rs <- flinkRest(restUrl)
-          .getSavepointOperationStatus(fjid.jobId, triggerId)
-          .repeatUntilZIO(r => if (r.isCompleted) ZIO.succeed(true) else ZIO.succeed(false).delay(flinkConf.tracking.savepointTriggerPolling))
-          .timeoutFail(WatchTimeout(timeout))(timeout)
+        rs      <- flinkRest(restUrl)
+                     .getSavepointOperationStatus(fjid.jobId, triggerId)
+                     .repeatUntilZIO(r => if (r.isCompleted) ZIO.succeed(true) else ZIO.succeed(false).delay(flinkConf.tracking.savepointTriggerPolling))
+                     .timeoutFail(WatchTimeout(timeout))(timeout)
       } yield rs
     } @@ annotated(fjid.toAnno :+ "flink.triggerId" -> triggerId: _*)
 }
