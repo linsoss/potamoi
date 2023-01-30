@@ -60,7 +60,7 @@ object ZIOExtension {
     /**
      * Run zio effect inner actor.
      */
-    def runInsideActor(ctx: ActorContext[_], logConf: LogConf = LogConf.default): CancelableFuture[A] =
+    def runInsideActor(using ctx: ActorContext[_], logConf: LogConf): CancelableFuture[A] =
       zioRunToFuture {
         zio.provide(logConf.asLayer, PotaLogger.live) @@ ZIOAspect.annotated(akkaSourceMdc -> ctx.self.path.toString)
       }

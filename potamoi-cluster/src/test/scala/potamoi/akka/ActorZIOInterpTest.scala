@@ -56,7 +56,7 @@ object TickBot {
             .runDrain
         @@ ZIOAspect.annotated(akkaSourceMdc -> ctx.self.path.toString)
 
-        proc = Some(effect.runInsideActor(ctx))
+        proc = Some(effect.runInsideActor(using ctx, LogConf.default))
         Behaviors.same
       case Stop  =>
         proc.map(_.cancel())

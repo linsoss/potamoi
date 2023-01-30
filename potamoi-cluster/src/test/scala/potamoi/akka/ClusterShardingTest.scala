@@ -61,6 +61,8 @@ object Bot {
   case class Echo(message: String, reply: ActorRef[String]) extends Event
 
   def apply(entityId: String): Behavior[Event] = Behaviors.setup { ctx =>
+    ctx.log.info(s"Bot started: $entityId")
+
     Behaviors.receiveMessage {
       case Touch(msg) =>
         ctx.log.info(s"[$entityId] be touch: $msg")
