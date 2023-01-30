@@ -1,6 +1,8 @@
 package potamoi.flink.storage
 
-import zio.{Ref, UIO}
+import potamoi.akka.ActorOpErr
+import potamoi.flink.FlinkDataStoreErr
+import zio.{IO, Ref, UIO}
 import zio.stream.{Stream, ZStream}
 
 import scala.collection.mutable
@@ -30,4 +32,20 @@ package object mem:
         .filter(f(_))
         .foldLeft(map)((ac, a) => ac -= a)
     }
+  }
+
+  private[mem] type DIO[A]     = IO[FlinkDataStoreErr, A]
+  private[mem] type DStream[A] = Stream[FlinkDataStoreErr, A]
+
+  extension [A](io: IO[ActorOpErr, A]) {
+
+    /**
+     * narrow read operation error.
+     */
+    private[mem] inline def rop: IO[FlinkDataStoreErr.ReadDataErr, A] = io.mapError(FlinkDataStoreErr.ReadDataErr(_))
+
+    /**
+     * narrow update operation error.
+     */
+    private[mem] inline def uop: IO[FlinkDataStoreErr.UpdateDataErr, A] = io.mapError(FlinkDataStoreErr.UpdateDataErr(_))
   }

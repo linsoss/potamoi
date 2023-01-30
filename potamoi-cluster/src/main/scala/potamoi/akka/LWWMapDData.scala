@@ -18,13 +18,14 @@ trait LWWMapDData[Key, Value](cacheId: String):
 
   sealed trait Req
 
-  trait GetReq                                                   extends Req
-  final case class Get(key: Key, reply: ActorRef[Option[Value]]) extends GetReq
-  final case class Contains(key: Key, reply: ActorRef[Boolean])  extends GetReq
-  final case class ListKeys(reply: ActorRef[List[Key]])          extends GetReq
-  final case class ListValues(reply: ActorRef[List[Value]])      extends GetReq
-  final case class ListAll(reply: ActorRef[Map[Key, Value]])     extends GetReq
-  final case class Size(reply: ActorRef[Int])                    extends GetReq
+  trait GetReq                                                                           extends Req
+  final case class Get(key: Key, reply: ActorRef[Option[Value]])                         extends GetReq
+  final case class Contains(key: Key, reply: ActorRef[Boolean])                          extends GetReq
+  final case class ListKeys(reply: ActorRef[List[Key]])                                  extends GetReq
+  final case class ListValues(reply: ActorRef[List[Value]])                              extends GetReq
+  final case class ListAll(reply: ActorRef[Map[Key, Value]])                             extends GetReq
+  final case class Size(reply: ActorRef[Int])                                            extends GetReq
+  final case class Select(filter: (Key, Value) => Boolean, reply: ActorRef[List[Value]]) extends GetReq
 
   trait UpdateReq                                                            extends Req
   final case class Put(key: Key, value: Value)                               extends UpdateReq
@@ -95,12 +96,13 @@ trait LWWMapDData[Key, Value](cacheId: String):
           case InternalGet(rsp @ Replicator.GetSuccess(cacheKey), req) =>
             val map = rsp.get(cacheKey)
             req match {
-              case Get(key, reply)      => reply ! map.get(key)
-              case Contains(key, reply) => reply ! map.contains(key)
-              case ListKeys(reply)      => reply ! map.entries.keys.toList
-              case ListValues(reply)    => reply ! map.entries.values.toList
-              case ListAll(reply)       => reply ! map.entries
-              case Size(reply)          => reply ! map.size
+              case Get(key, reply)       => reply ! map.get(key)
+              case Contains(key, reply)  => reply ! map.contains(key)
+              case ListKeys(reply)       => reply ! map.entries.keys.toList
+              case ListValues(reply)     => reply ! map.entries.values.toList
+              case ListAll(reply)        => reply ! map.entries
+              case Size(reply)           => reply ! map.size
+              case Select(filter, reply) => reply ! map.entries.filter { case (k, v) => filter(k, v) }.values.toList
             }
             Behaviors.same
 
@@ -138,12 +140,16 @@ trait LWWMapDData[Key, Value](cacheId: String):
   type AIO[A] = IO[ActorOpErr, A]
 
   implicit class ops(actor: ActorRef[Req])(implicit cradle: ActorCradle) {
+
     inline def get(key: Key, timeout: Option[Duration] = None): AIO[Option[Value]] = actor.askZIO(Get(key, _), timeout)
     inline def contains(key: Key, timeout: Option[Duration] = None): AIO[Boolean]  = actor.askZIO(Contains(key, _), timeout)
     inline def listKeys(timeout: Option[Duration] = None): AIO[List[Key]]          = actor.askZIO(ListKeys.apply, timeout)
     inline def listValues(timeout: Option[Duration] = None): AIO[List[Value]]      = actor.askZIO(ListValues.apply, timeout)
     inline def listAll(timeout: Option[Duration] = None): AIO[Map[Key, Value]]     = actor.askZIO(ListAll.apply, timeout)
     inline def size(timeout: Option[Duration] = None): AIO[Int]                    = actor.askZIO(Size.apply, timeout)
+
+    inline def select(filter: (Key, Value) => Boolean, timeout: Option[Duration] = None): AIO[List[Value]] =
+      actor.askZIO(Select(filter, _), timeout)
 
     inline def put(key: Key, value: Value): AIO[Unit]                                    = actor.tellZIO(Put(key, value))
     inline def puts(kv: List[(Key, Value)]): AIO[Unit]                                   = actor.tellZIO(Puts(kv))

@@ -35,8 +35,9 @@ import InternalRpcProto.*
 
 class InternalRpcService(dataStore: FlinkDataStorage) extends RpcService[InternalRpcProto](InternalRpcEntity) {
 
-  def handleMessage(message: InternalRpcProto): URIO[Sharding, Unit] = message match {
-    case RegisterFlinkInterpreter(pod, replier)           => dataStore.interact.pod.put(pod).as(Ack).either.flatMap(replier.reply)
-    case UnregisterFlinkInterpreter(flinkVer, host, port) => dataStore.interact.pod.rm(flinkVer, host, port).ignore
-  }
+  def handleMessage(message: InternalRpcProto): URIO[Sharding, Unit] = ???
+//    message match {
+//    case RegisterFlinkInterpreter(pod, replier)           => dataStore.interact.pod.put(pod).as(Ack).either.flatMap(replier.reply)
+//    case UnregisterFlinkInterpreter(flinkVer, host, port) => dataStore.interact.pod.rm(flinkVer, host, port).ignore
+//  }
 }

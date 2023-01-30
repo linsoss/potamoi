@@ -1,9 +1,11 @@
 package potamoi.flink.storage
 
+import potamoi.akka.ActorCradle
 import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.*
 import potamoi.flink.storage.mem.*
-import zio.{IO, ZLayer}
+import potamoi.EarlyLoad
+import zio.{IO, URIO, ZIO, ZLayer}
 import zio.stream.Stream
 
 /**
@@ -30,26 +32,30 @@ trait FlinkDataStorage:
     k8sRef.rmSnapData(fcid)
   }
 
-object FlinkDataStorage:
+object FlinkDataStorage extends EarlyLoad[FlinkDataStorage]:
 
-  lazy val test = memory
+  val test = memory
 
-  // pure in local memory implementation
-  lazy val memory: ZLayer[Any, Nothing, FlinkDataStorage] = ZLayer {
+  /**
+   * In-memory Akka DData storage.
+   */
+  lazy val memory: ZLayer[ActorCradle, Throwable, FlinkDataStorage] = ZLayer {
     for {
-      trackedLists  <- TrackedFcidMemoryStorage.make
-      restEndpoints <- RestEndpointMemoryStorage.make
-      restProxies   <- RestProxyFcidMemoryStorage.make
-      clusters      <- ClusterSnapMemoryStorage.make
-      jobs          <- JobSnapMemoryStorage.make
-      k8sRefs       <- K8sRefSnapMemoryStorage.make
-      interacts     <- InteractSessionMemoryStorage.make
+      trackedLists  <- TrackedFcidMemStorage.make
+      restEndpoints <- RestEndpointMemStorage.make
+      restProxies   <- RestProxyFcidMemStorage.make
+      clusters      <- ClusterSnapMemStorage.make
+      jobs          <- JobSnapMemStorage.make
+      k8sRefs       <- K8sRefSnapMemStorage.make
+      interacts     <- InteractSessionMemStorage.make
     } yield new FlinkDataStorage:
-      lazy val trackedList  = trackedLists
-      lazy val restEndpoint = restEndpoints
-      lazy val restProxy    = restProxies
-      lazy val cluster      = clusters
-      lazy val job          = jobs
-      lazy val k8sRef       = k8sRefs
-      lazy val interact     = interacts
+      val trackedList  = trackedLists
+      val restEndpoint = restEndpoints
+      val restProxy    = restProxies
+      val cluster      = clusters
+      val job          = jobs
+      val k8sRef       = k8sRefs
+      val interact     = interacts
   }
+
+  override def active: URIO[FlinkDataStorage, Unit] = ZIO.service[FlinkDataStorage].unit
