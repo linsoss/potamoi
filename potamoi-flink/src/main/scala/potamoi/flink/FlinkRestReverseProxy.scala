@@ -3,7 +3,7 @@ package potamoi.flink
 import potamoi.PotaErr
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.FlinkDataStorage
-import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
+import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
 import zio.{durationInt, IO, ZIO, ZLayer}
 import zio.http.*
 import zio.http.model.Status
