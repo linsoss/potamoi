@@ -3,8 +3,8 @@ package potamoi.logger
 import potamoi.syntax.toPrettyStr
 import potamoi.HoconConfig
 import zio.{Console, LogLevel, UIO, ULayer, ZIO, ZLayer}
-import zio.config.read
 import zio.config.magnolia.{descriptor, name}
+import zio.config.read
 
 /**
  * Logging configuration.
@@ -29,6 +29,8 @@ object LogConf:
   }
 
   lazy val live: ULayer[LogConf] = ZLayer.fromZIO(make)
+
+  lazy val default: LogConf = LogConf()
 
 /**
  * Potamoi logging line style.

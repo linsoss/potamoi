@@ -16,10 +16,12 @@ object PotaLogger {
   lazy val live: ZLayer[LogConf, Nothing, Unit] = ZLayer.service[LogConf].flatMap(confLayer => layer(confLayer.get))
   lazy val default: ULayer[Unit]                = layer(LogConf())
 
+  lazy val akkaSourceMdc = "akkaSource"
+
   /**
    * MDC keys that allowed to be received from non-zio Slf4j pipeline.
    */
-  private val defaultAcceptedSlf4jMdc = Set(Slf4jBridge.loggerNameAnno, Slf4jBridge.threadNameAnno, "akkaSource")
+  private val defaultAcceptedSlf4jMdc = Set(Slf4jBridge.loggerNameAnno, Slf4jBridge.threadNameAnno, akkaSourceMdc)
   private val excludeAnnoKeys         = Set(Slf4jBridge.loggerNameAnno, Slf4jBridge.threadNameAnno)
 
   /**

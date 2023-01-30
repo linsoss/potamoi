@@ -1,7 +1,10 @@
 package potamoi.common
 
+import akka.actor.typed.scaladsl.ActorContext
 import potamoi.syntax.toPrettyString
 import potamoi.PotaErr
+import potamoi.logger.{LogConf, PotaLogger}
+import potamoi.logger.PotaLogger.akkaSourceMdc
 import zio.{Exit, *}
 import zio.stream.ZStream
 
@@ -51,6 +54,18 @@ object ZIOExtension {
       zio.repeat(Schedule.recurWhile[A](f) && Schedule.spaced(spaced)).map(_._1)
   }
 
+  extension [E <: Throwable, A](zio: IO[E, A]) {
+    inline def runToFuture: CancelableFuture[A] = zioRunToFuture(zio)
+
+    /**
+     * Run zio effect inner actor.
+     */
+    def runInsideActor(ctx: ActorContext[_], logConf: LogConf = LogConf.default): CancelableFuture[A] =
+      zioRunToFuture {
+        zio.provide(logConf.asLayer, PotaLogger.live) @@ ZIOAspect.annotated(akkaSourceMdc -> ctx.self.path.toString)
+      }
+  }
+
   extension [R, E, A](zio: ZIO[R, E, Option[A]]) {
     inline def someOrUnit[R1 <: R, E1 >: E](f: A => ZIO[R1, E1, Unit]) =
       zio.flatMap {
@@ -72,6 +87,12 @@ object ZIOExtension {
    */
   inline def zioRun[E, A](zio: IO[E, A]): Exit[E, A] =
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(zio))
+
+  /**
+   * Unsafe running ZIO to future.
+   */
+  inline def zioRunToFuture[E <: Throwable, A](zio: IO[E, A]): CancelableFuture[A] =
+    Unsafe.unsafe { implicit u => Runtime.default.unsafe.runToFuture(zio) }
 
   /**
    * Close resource zio.
