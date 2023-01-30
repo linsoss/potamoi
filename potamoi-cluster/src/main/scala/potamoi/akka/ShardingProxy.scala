@@ -78,7 +78,7 @@ trait ShardingProxy[ShardKey, ProxyCmd]:
         .contra { it =>
           passivation match
             case Some(settings) => it.withSettings(ClusterShardingSettings(ctx.system).withPassivationStrategy(settings))
-            case None           => it.withSettings(ClusterShardingSettings(ctx.system).withNoPassivationStrategy())
+            case None           => it.withSettings(ClusterShardingSettings(ctx.system).withNoPassivationStrategy()) // not passivate shards by default
         }
     }
   }
