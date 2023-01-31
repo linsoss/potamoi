@@ -38,7 +38,7 @@ object FlinkConfigExtension:
      * Append [[FlinkRawConf]] to internal configuration.
      */
     def append(rawConf: Option[FlinkRawConfig]): ConfigurationPF = rawConf.map(append).getOrElse(this)
-    def append(rawConf: FlinkRawConfig): ConfigurationPF =
+    def append(rawConf: FlinkRawConfig): ConfigurationPF         =
       rawConf.mapping.foldLeft(this) { case (conf, (key, value)) =>
         conf.append(key, value)
       }

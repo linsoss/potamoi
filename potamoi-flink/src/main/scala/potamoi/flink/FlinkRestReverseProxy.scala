@@ -49,10 +49,10 @@ object FlinkRestProxyProvider {
   private case object EndpointNotFound extends PotaErr
 
   case class Live(
-                   flinkConf: FlinkConf,
-                   snapStg: FlinkDataStorage,
-                   zClient: Client,
-                   eptRouteTable: Cache[Fcid, Throwable, FlinkRestSvcEndpoint])
+      flinkConf: FlinkConf,
+      snapStg: FlinkDataStorage,
+      zClient: Client,
+      eptRouteTable: Cache[Fcid, Throwable, FlinkRestSvcEndpoint])
       extends FlinkRestProxyProvider {
     private given FlinkRestEndpointType = flinkConf.restEndpointTypeInternal
 

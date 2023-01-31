@@ -1,7 +1,7 @@
 package potamoi.flink.model
 
-import potamoi.flink.model.FlinkTargetTypes.given
 import zio.json.JsonCodec
+import FlinkTargetTypes.given_JsonCodec_FlinkTargetType
 
 /**
  * Flink cluster overview.

@@ -55,7 +55,7 @@ object FlinkClusterTrackerActor {
   sealed trait Cmd
   final case class Start(reply: ActorRef[Ack.type])    extends Cmd
   final case class Stop(reply: ActorRef[Ack.type])     extends Cmd
-  final case object Terminate                          extends Cmd
+  case object Terminate                                extends Cmd
   final case class IsStarted(reply: ActorRef[Boolean]) extends Cmd
   private case class ShouldAutoStart(rs: Boolean)      extends Cmd
 

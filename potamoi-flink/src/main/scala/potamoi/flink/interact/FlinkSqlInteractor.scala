@@ -6,7 +6,7 @@ import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.protocol.{FlinkInterpEntity, FlinkInterpProto}
 import potamoi.flink.storage.{FlinkDataStorage, InteractSessionStorage}
 import potamoi.flink.FlinkInteractErr.SessionNotFound
-import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
+import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
 import potamoi.uuids
 import zio.{IO, ZIO, ZLayer}
 
@@ -47,10 +47,10 @@ object FlinkSqlInteractor:
 
     lazy val manager: SessionManager = SessionManagerImpl(flinkConf, flinkObserver, dataStore, interpreters)
 
-    def attach(sessionId: SessionId): IO[SessionNotFound | FlinkDataStoreErr | FlinkErr, SessionConnection] =
-      for {
-        session    <- dataStore.session.get(sessionId).someOrFail(SessionNotFound(sessionId))
-        flinkVer    = session.flinkVer
-        interpreter = interpreters(flinkVer)
-      } yield SessionConnectionImpl(sessionId, flinkConf, interpreter)
+    def attach(sessionId: SessionId): IO[SessionNotFound | FlinkDataStoreErr | FlinkErr, SessionConnection] = ???
+//      for {
+//        session    <- dataStore.session.get(sessionId).someOrFail(SessionNotFound(sessionId))
+//        flinkVer    = session.flinkVer
+//        interpreter = interpreters(flinkVer)
+//      } yield SessionConnectionImpl(sessionId, flinkConf, interpreter)
   }

@@ -1,10 +1,10 @@
 package potamoi.flink
 
 import potamoi.{codecs, curTs}
-import potamoi.flink.{model, FlinkRestErr, FlinkRestRequest}
+import potamoi.flink.model.*
+import potamoi.flink.model.JobStates.given_JsonCodec_JobState
 import potamoi.flink.FlinkRestErr.*
 import potamoi.flink.FlinkRestRequest.*
-import potamoi.flink.model.*
 import potamoi.fs.paths
 import potamoi.sttps.*
 import potamoi.syntax.*
@@ -386,8 +386,6 @@ object FlinkRestRequest {
 
   def apply(restUrl: String): FlinkRestRequest = FlinkRestRequestLive(restUrl)
 
-  import potamoi.flink.model.FlinkTmDetail.given
-  import potamoi.flink.model.JobStates.given
   given JsonCodec[SavepointFormatType] = codecs.stringBasedJsonCodec(_.rawValue, s => SavepointFormatType.values.find(_.rawValue == s))
 
   /**

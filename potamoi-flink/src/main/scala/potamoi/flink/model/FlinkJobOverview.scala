@@ -1,8 +1,8 @@
 package potamoi.flink.model
 
 import potamoi.curTs
+import potamoi.flink.model.JobStates.given_JsonCodec_JobState
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
-import potamoi.flink.model.JobStates.given
 
 /**
  * Flink job overview.

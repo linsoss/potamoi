@@ -1,12 +1,12 @@
 package potamoi.flink
 
+import potamoi.codecs
 import potamoi.common.ScalaVersion
 import potamoi.common.ScalaVersion.Scala212
 import potamoi.common.ScalaVersions.given_JsonCodec_ScalaVersion
-import potamoi.flink.FlinkVersion.extractMajorVer
 import potamoi.flink.FlinkVersion
+import potamoi.flink.FlinkVersion.extractMajorVer
 import potamoi.syntax.contra
-import potamoi.codecs
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 /**

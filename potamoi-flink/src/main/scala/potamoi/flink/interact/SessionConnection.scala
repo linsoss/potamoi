@@ -9,7 +9,7 @@ import potamoi.flink.protocol.FlinkInterpProto
 import potamoi.flink.FlinkInteractErr.*
 import potamoi.rpc.Rpc
 import potamoi.syntax.contra
-import potamoi.times.given_Conversion_ScalaDuration_ZioDuration
+import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
 import potamoi.uuids
 import zio.{durationInt, Chunk, Duration, IO, Ref, Schedule, Task, UIO, ZIO}
 import zio.ZIO.{fail, succeed}

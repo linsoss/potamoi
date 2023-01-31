@@ -6,8 +6,8 @@ import org.scalatest.Ignore
 import potamoi.flink.observer.FlinkObserver
 import potamoi.BaseConf
 import potamoi.debugs.*
-import potamoi.flink.{FlinkConf, InternalRpcService}
-import potamoi.flink.model.interact.{InteractSessionDef, InterpreterPod}
+import potamoi.flink.FlinkConf
+import potamoi.flink.model.interact.InteractSessionDef
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.flink.FlinkMajorVer.*
 import potamoi.kubernetes.{K8sConf, K8sOperator}

@@ -7,10 +7,10 @@ import potamoi.common.Codec
 import potamoi.common.Codec.scalaDurationJsonCodec
 import potamoi.flink.FlinkRestEndpointTypes.given
 import potamoi.fs.refactor.paths
-import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
+import zio.{ZIO, ZLayer}
 import zio.config.magnolia.{descriptor, name}
 import zio.config.read
-import zio.{ZIO, ZLayer}
+import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 
 import scala.concurrent.duration.{Duration, DurationInt}
 

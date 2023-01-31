@@ -108,10 +108,10 @@ lazy val root = (project in file("."))
     potaKubernetes,
     potaServer,
     potaFlink,
-    potaFlinkShare,
-    potaFlinkInterpreterBase,
-    potaFlinkInterpreterV116,
-    potaFlinkInterpreterV115
+//    potaFlinkShare,
+//    potaFlinkInterpreterBase,
+//    potaFlinkInterpreterV116,
+//    potaFlinkInterpreterV115
   )
 
 lazy val potaCommon = (project in file("potamoi-common"))
@@ -189,51 +189,58 @@ lazy val potaServer = (project in file("potamoi-server"))
     )
   )
 
-lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
-  .dependsOn(potaCommon, potaFilesystem, potaKubernetes, potaCluster)
-  .settings(commonSettings)
-  .settings(
-    name := "potamoi-flink-share",
-    libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-table-api-java" % flinkVer % Provided
-    ).map(flinkLibExcludes)
-  )
+// todo remove
+//lazy val potaFlinkShare = (project in file("potamoi-flink-share"))
+//  .dependsOn(potaCommon, potaFilesystem, potaKubernetes, potaCluster)
+//  .settings(commonSettings)
+//  .settings(
+//    name := "potamoi-flink-share",
+//    libraryDependencies ++= Seq(
+//      "org.apache.flink" % "flink-table-api-java" % flinkVer % Provided
+//    ).map(flinkLibExcludes)
+//  )
 
 lazy val potaFlink = (project in file("potamoi-flink"))
-  .dependsOn(potaCommon, potaKubernetes, potaFilesystem, potaCluster, potaFlinkShare)
+  .dependsOn(potaCommon, potaKubernetes, potaFilesystem, potaCluster)
   .settings(commonSettings)
   .settings(
     name := "potamoi-flink",
-    libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-clients"        % flinkVer,
-      "org.apache.flink" % "flink-kubernetes"     % flinkVer,
-      "org.apache.flink" % "flink-table-api-java" % flinkVer
-    ).map(flinkLibExcludes)
+    libraryDependencies ++= flinkDeps(flinkVer).map(_ % Optional).map(flinkLibExcludes)
   )
 
-lazy val potaFlinkInterpreterBase = (project in file("potamoi-flink-interpreter/flink-base"))
-  .dependsOn(potaCommon, potaFilesystem, potaCluster, potaFlinkShare)
-  .settings(commonSettings)
-  .settings(
-    name := "potamoi-flink-interpreter-base",
-    libraryDependencies ++= flinkInterpreterDeps(flinkVer).map(_ % Provided).map(flinkLibExcludes)
-  )
+//lazy val potaFlinkInterpreterBase = (project in file("potamoi-flink-interpreter/flink-base"))
+//  .dependsOn(potaCommon, potaFilesystem, potaCluster, potaFlinkShare)
+//  .settings(commonSettings)
+//  .settings(
+//    name := "potamoi-flink-interpreter-base",
+//    libraryDependencies ++= flinkInterpreterDeps(flinkVer).map(_ % Provided).map(flinkLibExcludes) // todo
+//  )
+//
+//lazy val potaFlinkInterpreterV116 = (project in file("potamoi-flink-interpreter/flink-v116"))
+//  .dependsOn(potaFlinkInterpreterBase)
+//  .settings(commonSettings)
+//  .settings(
+//    name := "potamoi-flink-interpreter-v116",
+//    libraryDependencies ++= flinkInterpreterDeps(flink116Ver).map(flinkLibExcludes) // todo
+//  )
+//
+//lazy val potaFlinkInterpreterV115 = (project in file("potamoi-flink-interpreter/flink-v115"))
+//  .dependsOn(potaFlinkInterpreterBase)
+//  .settings(commonSettings)
+//  .settings(
+//    name := "potamoi-flink-interpreter-v115",
+//    libraryDependencies ++= flinkInterpreterDeps(flink115Ver).map(flinkLibExcludes) // todo
+//  )
 
-lazy val potaFlinkInterpreterV116 = (project in file("potamoi-flink-interpreter/flink-v116"))
-  .dependsOn(potaFlinkInterpreterBase)
-  .settings(commonSettings)
-  .settings(
-    name := "potamoi-flink-interpreter-v116",
-    libraryDependencies ++= flinkInterpreterDeps(flink116Ver).map(flinkLibExcludes)
-  )
-
-lazy val potaFlinkInterpreterV115 = (project in file("potamoi-flink-interpreter/flink-v115"))
-  .dependsOn(potaFlinkInterpreterBase)
-  .settings(commonSettings)
-  .settings(
-    name := "potamoi-flink-interpreter-v115",
-    libraryDependencies ++= flinkInterpreterDeps(flink115Ver).map(flinkLibExcludes)
-  )
+def flinkDeps(version: String) = Seq(
+  "org.apache.flink"   % "flink-clients"              % version,
+  "org.apache.flink"   % "flink-kubernetes"           % version,
+  "org.apache.flink"   % "flink-table-planner-loader" % version,
+  "org.apache.flink"   % "flink-table-runtime"        % version,
+  "org.apache.flink"   % "flink-json"                 % version,
+  "org.apache.flink"   % "flink-sql-parser"           % version,
+  "org.apache.calcite" % "calcite-linq4j"             % "1.26.0" // Keep consistent with flink-sql-parser
+)
 
 def flinkInterpreterDeps(version: String) = Seq(
   "org.apache.flink"   % "flink-clients"              % version,

@@ -2,10 +2,9 @@ package potamoi.flink.protocol
 
 import com.devsisters.shardcake.{EntityType, Replier}
 import potamoi.flink.{FlinkDataStoreErr, FlinkMajorVer}
-import potamoi.flink.model.interact.{InteractSessionDef, SessionDef}
-import potamoi.flink.model.Fcid
 import potamoi.PotaErr
 import potamoi.common.Ack
+import potamoi.flink.model.Fcid
 
 import scala.util.Try
 

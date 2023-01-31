@@ -55,7 +55,7 @@ object FlinkK8sRefTrackerActor {
   sealed trait Cmd
   final case class Start(replier: ActorRef[Ack.type])    extends Cmd
   final case class Stop(replier: ActorRef[Ack.type])     extends Cmd
-  final case object Terminate                            extends Cmd
+  case object Terminate                                  extends Cmd
   final case class IsStarted(replier: ActorRef[Boolean]) extends Cmd
   private case class ShouldAutoStart(rs: Boolean)        extends Cmd
 

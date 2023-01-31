@@ -2,9 +2,9 @@ package potamoi.flink.protocol
 
 import com.devsisters.shardcake.*
 import potamoi.common.Ack
-import potamoi.flink.model.interact.*
 import potamoi.flink.FlinkInteractErr.*
 import potamoi.flink.FlinkMajorVer
+import potamoi.flink.model.interact.*
 import zio.{Cause, UIO}
 
 /**

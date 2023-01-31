@@ -2,8 +2,8 @@ package potamoi.flink
 
 import potamoi.PotaErr
 import potamoi.akka.ActorOpErr
-import potamoi.flink.model.*
 import potamoi.flink.FlinkInterpreterErr.{RetrieveResultNothing, SplitSqlScriptErr}
+import potamoi.flink.model.*
 import potamoi.kubernetes.K8sErr
 import potamoi.rpc.RpcErr
 
