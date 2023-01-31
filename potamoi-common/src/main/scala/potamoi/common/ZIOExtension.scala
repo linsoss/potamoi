@@ -17,7 +17,7 @@ object ZIOExtension {
 
   extension [E, A](zio: IO[E, A]) {
     inline def run: Exit[E, A] = zioRun(zio)
-    inline def runUnsafe: A    = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(zio).getOrThrowFiberFailure() }
+    inline def runUnsafe: A    = zioRunUnsafe(zio)
 
     inline def distPollStream(spaced: Duration): ZStream[Any, E, A] =
       for {
@@ -54,18 +54,6 @@ object ZIOExtension {
       zio.repeat(Schedule.recurWhile[A](f) && Schedule.spaced(spaced)).map(_._1)
   }
 
-  extension [E <: Throwable, A](zio: IO[E, A]) {
-    inline def runToFuture: CancelableFuture[A] = zioRunToFuture(zio)
-
-    /**
-     * Run zio effect inner actor.
-     */
-    def runInsideActor(using ctx: ActorContext[_], logConf: LogConf): CancelableFuture[A] =
-      zioRunToFuture {
-        zio.provide(logConf.asLayer, PotaLogger.live) @@ ZIOAspect.annotated(akkaSourceMdc -> ctx.self.path.toString)
-      }
-  }
-
   extension [R, E, A](zio: ZIO[R, E, Option[A]]) {
     inline def someOrUnit[R1 <: R, E1 >: E](f: A => ZIO[R1, E1, Unit]) =
       zio.flatMap {
@@ -75,11 +63,7 @@ object ZIOExtension {
   }
 
   extension [A](uio: UIO[A]) {
-    inline def runNow: A = Unsafe.unsafe { implicit u =>
-      Runtime.default.unsafe
-        .run(uio)
-        .getOrThrowFiberFailure()
-    }
+    inline def runNow: A = zioRunUnsafe(uio)
   }
 
   /**
@@ -87,6 +71,9 @@ object ZIOExtension {
    */
   inline def zioRun[E, A](zio: IO[E, A]): Exit[E, A] =
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(zio))
+
+  inline def zioRunUnsafe[E, A](zio: IO[E, A]): A =
+    Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(zio).getOrThrowFiberFailure() }
 
   /**
    * Unsafe running ZIO to future.

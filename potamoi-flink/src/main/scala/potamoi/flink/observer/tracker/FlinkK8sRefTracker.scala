@@ -6,6 +6,7 @@ import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityType
 import com.coralogix.zio.k8s.client.model.{label, Added, Deleted, K8sNamespace, Modified, Reseted}
 import potamoi.akka.actors.*
 import potamoi.akka.behaviors.*
+import potamoi.akka.zios.*
 import potamoi.flink.FlinkConf
 import potamoi.flink.model.{Fcid, FlinkK8sPodMetrics, FlinkK8sServiceSnap, FlinkRestSvcEndpoint}
 import potamoi.flink.observer.tracker.K8sEntityConverter.*
@@ -15,9 +16,8 @@ import potamoi.kubernetes.K8sErr.PodNotFound
 import potamoi.logger.LogConf
 import potamoi.syntax.{toPrettyString, valueToSome}
 import potamoi.times.{given_Conversion_ScalaDuration_ZIODuration, given_Conversion_ZIODuration_ScalaDuration}
-import potamoi.zios.runInsideActor
 import potamoi.NodeRoles
-import potamoi.akka.ShardingProxy
+import potamoi.akka.{KryoSerializable, ShardingProxy}
 import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced, succeed}
@@ -52,7 +52,7 @@ object FlinkK8sRefTracker extends ShardingProxy[Fcid, FlinkK8sRefTrackerActor.Cm
  */
 object FlinkK8sRefTrackerActor {
 
-  sealed trait Cmd
+  sealed trait Cmd                                       extends KryoSerializable
   final case class Start(replier: ActorRef[Ack.type])    extends Cmd
   final case class Stop(replier: ActorRef[Ack.type])     extends Cmd
   case object Terminate                                  extends Cmd
@@ -100,7 +100,7 @@ class FlinkK8sRefTrackerActor(
           Behaviors.same
       }
       .beforeIt {
-        ctx.pipeToSelf(snapStore.trackedList.exists(fcid).runInsideActor) {
+        ctx.pipeToSelf(snapStore.trackedList.exists(fcid).runAsync) {
           case Success(r) => ShouldAutoStart(r)
           case Failure(e) => ShouldAutoStart(false)
         }
@@ -116,7 +116,7 @@ class FlinkK8sRefTrackerActor(
       case Start(reply) =>
         if (!isStarted) {
           workProc.map(_.cancel())
-          workProc = Some(launchTrackers.runInsideActor)
+          workProc = Some(launchTrackers.runAsync)
           isStarted = true
           ctx.log.info(s"Flink k8s refs tracker started: ${fcid.show}")
         }

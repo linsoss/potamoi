@@ -13,15 +13,13 @@ import zio.{Duration, IO, UIO, ZIO}
 import scala.annotation.targetName
 import scala.reflect.ClassTag
 
-val actors    = ActorExtension
-val behaviors = BehaviorExtension
 
 case class ActorOpErr(actorPath: String, cause: Throwable) extends PotaErr
 
 /**
  * Actor operation extension.
  */
-object ActorExtension:
+object ActorOpExtension:
   extension [U](actor: ActorRef[U]) {
 
     @targetName("tellZIOSymbol")
@@ -51,24 +49,6 @@ object ActorExtension:
     }
   }
 
-/**
- * Actor Behavior enhancement.
- */
-object BehaviorExtension:
-  extension [U](behavior: Behavior[U]) {
 
-    /**
-     * Behaviors.supervise.onFailure
-     */
-    inline def onFailure[Thr <: Throwable](strategy: SupervisorStrategy)(implicit tag: ClassTag[Thr] = ClassTag(classOf[Throwable])): Behavior[U] = {
-      Behaviors.supervise(behavior).onFailure[Thr](strategy)
-    }
 
-    /**
-     * Execute the function before the behavior begins.
-     */
-    inline def beforeIt(func: => Unit): Behavior[U] = {
-      func
-      behavior
-    }
-  }
+

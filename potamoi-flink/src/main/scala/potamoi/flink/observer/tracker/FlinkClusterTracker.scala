@@ -3,8 +3,9 @@ package potamoi.flink.observer.tracker
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
+import potamoi.akka.{KryoSerializable, ShardingProxy}
 import potamoi.akka.behaviors.*
-import potamoi.akka.ShardingProxy
+import potamoi.akka.zios.*
 import potamoi.flink.{flinkRest, FlinkConf, FlinkRestEndpointRetriever, FlinkRestEndpointType}
 import potamoi.flink.model.*
 import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExecModeKey}
@@ -14,7 +15,6 @@ import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.logger.LogConf
 import potamoi.syntax.toPrettyStr
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
-import potamoi.zios.{runInsideActor, runNow}
 import potamoi.NodeRoles
 import zio.*
 import zio.stream.ZStream
@@ -52,7 +52,7 @@ object FlinkClusterTracker extends ShardingProxy[Fcid, FlinkClusterTrackerActor.
  */
 object FlinkClusterTrackerActor {
 
-  sealed trait Cmd
+  sealed trait Cmd                                     extends KryoSerializable
   final case class Start(reply: ActorRef[Ack.type])    extends Cmd
   final case class Stop(reply: ActorRef[Ack.type])     extends Cmd
   case object Terminate                                extends Cmd
@@ -88,7 +88,7 @@ class FlinkClusterTrackerActor(
   // actor state
   private var isStarted: Boolean                          = false
   private var workProc: Option[CancelableFuture[Unit]]    = None
-  private val eptCache: Ref[Option[FlinkRestSvcEndpoint]] = Ref.make(None).runNow
+  private val eptCache: Ref[Option[FlinkRestSvcEndpoint]] = Ref.make(None).runPureSync
 
   /**
    * Actor start behavior.
@@ -105,7 +105,7 @@ class FlinkClusterTrackerActor(
           Behaviors.same
       }
       .beforeIt {
-        ctx.pipeToSelf(snapStore.trackedList.exists(fcid).runInsideActor) {
+        ctx.pipeToSelf(snapStore.trackedList.exists(fcid).runAsync) {
           case Success(r) => ShouldAutoStart(r)
           case Failure(e) => ShouldAutoStart(false)
         }
@@ -121,7 +121,7 @@ class FlinkClusterTrackerActor(
       case Start(reply) =>
         if (!isStarted) {
           workProc.map(_.cancel())
-          workProc = Some(launchTrackers.runInsideActor)
+          workProc = Some(launchTrackers.runAsync)
           isStarted = true
           ctx.log.info(s"Flink cluster tracker started: ${fcid.show}")
         }
