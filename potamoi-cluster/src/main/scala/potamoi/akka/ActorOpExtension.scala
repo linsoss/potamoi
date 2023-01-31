@@ -13,7 +13,6 @@ import zio.{Duration, IO, UIO, ZIO}
 import scala.annotation.targetName
 import scala.reflect.ClassTag
 
-
 case class ActorOpErr(actorPath: String, cause: Throwable) extends PotaErr
 
 /**
@@ -48,7 +47,3 @@ object ActorOpExtension:
         .mapError(err => ActorOpErr(actor.path.toString, err))
     }
   }
-
-
-
-

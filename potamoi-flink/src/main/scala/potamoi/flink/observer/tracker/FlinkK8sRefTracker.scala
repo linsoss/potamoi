@@ -31,16 +31,14 @@ import scala.util.{Failure, Success}
  * Flink kubernetes ref resource snapshot tracker.
  */
 object FlinkK8sRefTracker extends ShardingProxy[Fcid, FlinkK8sRefTrackerActor.Cmd] {
-
-  val entityKey     = EntityTypeKey[FlinkK8sRefTrackerActor.Cmd]("flink-k8s-tracker")
-  val marshallKey   = marshallFcid
-  val unmarshallKey = unmarshallFcid
-
   /**
    * Actor behavior.
    */
   def apply(logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sOperator: K8sOperator): Behavior[Req] =
     behavior(
+      entityKey = EntityTypeKey[FlinkK8sRefTrackerActor.Cmd]("flink-k8s-tracker"),
+      marshallKey = marshallFcid,
+      unmarshallKey = unmarshallFcid,
       createBehavior = fcid => FlinkK8sRefTrackerActor(fcid, logConf, flinkConf, snapStore, k8sOperator),
       stopMessage = Some(FlinkK8sRefTrackerActor.Terminate),
       bindRole = Some(NodeRoles.flinkService)

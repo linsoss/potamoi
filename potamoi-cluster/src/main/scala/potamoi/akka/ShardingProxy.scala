@@ -21,28 +21,17 @@ import scala.reflect.ClassTag
  */
 trait ShardingProxy[ShardKey, ProxyCmd]:
 
-  /**
-   * Sharding entity key
-   */
-  def entityKey: EntityTypeKey[ProxyCmd]
-
-  /**
-   * Marshall ShardKey type to String.
-   */
-  def marshallKey: ShardKey => String
-
-  /**
-   * Unmarshall String to ShardKey
-   */
-  def unmarshallKey: String => ShardKey
-
   sealed trait Req                                     extends KryoSerializable
   final case class Proxy(key: ShardKey, cmd: ProxyCmd) extends Req
 
   /**
    * Action behavior.
    */
-  protected def behavior(region: (ActorContext[Req], ClusterSharding) => ActorRef[ShardingEnvelope[ProxyCmd]]): Behavior[Req] =
+  protected def behavior(
+      entityKey: EntityTypeKey[ProxyCmd],
+      marshallKey: ShardKey => String,
+      unmarshallKey: String => ShardKey
+    )(region: (ActorContext[Req], ClusterSharding) => ActorRef[ShardingEnvelope[ProxyCmd]]): Behavior[Req] =
     Behaviors.setup { ctx =>
       val sharding    = ClusterSharding(ctx.system)
       val shardRegion = region(ctx, sharding)
@@ -59,10 +48,13 @@ trait ShardingProxy[ShardKey, ProxyCmd]:
    * Simpler action behavior.
    */
   protected def behavior(
+      entityKey: EntityTypeKey[ProxyCmd],
+      marshallKey: ShardKey => String,
+      unmarshallKey: String => ShardKey,
       createBehavior: ShardKey => Behavior[ProxyCmd],
       stopMessage: Option[ProxyCmd] = None,
       bindRole: Option[String] = None,
-      passivation: Option[PassivationStrategySettings] = None): Behavior[Req] = behavior { (ctx, sharding) =>
+      passivation: Option[PassivationStrategySettings] = None): Behavior[Req] = behavior(entityKey, marshallKey, unmarshallKey) { (ctx, sharding) =>
     sharding.init {
       Entity(entityKey)(entityCtx => createBehavior(unmarshallKey(entityCtx.entityId)))
         .contra { it =>

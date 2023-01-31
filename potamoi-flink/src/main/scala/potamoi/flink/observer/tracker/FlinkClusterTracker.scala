@@ -32,15 +32,14 @@ import scala.util.hashing.MurmurHash3
  */
 object FlinkClusterTracker extends ShardingProxy[Fcid, FlinkClusterTrackerActor.Cmd] {
 
-  val entityKey     = EntityTypeKey[FlinkClusterTrackerActor.Cmd]("flink-cluster-tracker")
-  val marshallKey   = marshallFcid
-  val unmarshallKey = unmarshallFcid
-
   /**
-   * Actor behavior.
+   * Sharding actor manager behavior.
    */
   def apply(logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, eptRetriever: FlinkRestEndpointRetriever): Behavior[Req] =
     behavior(
+      entityKey = EntityTypeKey[FlinkClusterTrackerActor.Cmd]("flink-cluster-tracker"),
+      marshallKey = marshallFcid,
+      unmarshallKey = unmarshallFcid,
       createBehavior = fcid => FlinkClusterTrackerActor(fcid, logConf, flinkConf, snapStore, eptRetriever),
       stopMessage = Some(FlinkClusterTrackerActor.Terminate),
       bindRole = Some(NodeRoles.flinkService)
