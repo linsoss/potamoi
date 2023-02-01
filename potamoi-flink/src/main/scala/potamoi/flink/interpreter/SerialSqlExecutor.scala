@@ -141,10 +141,12 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   override def cancel: UIO[Unit] = {
     for {
       // cancel the remaining handle frames
-      _     <- cancelRemainingHandleFrames
+      _ <- cancelRemainingHandleFrames
       // cancel the current handle frame
-      fiber <- curHandleFiber.get
-      _     <- (fiber.get.interrupt *> curHandleFiber.set(None)).when(fiber.isDefined)
+      _ <- curHandleFiber.get.map {
+             case None        => ZIO.unit
+             case Some(fiber) => fiber.interrupt *> curHandleFiber.set(None)
+           }
     } yield ()
   } @@ annotated("sessionId" -> sessionId)
 
