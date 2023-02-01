@@ -54,16 +54,22 @@ object ZIOExtension {
       zio.repeat(Schedule.recurWhile[A](f) && Schedule.spaced(spaced)).map(_._1)
   }
 
-  extension [R, E, A](zio: ZIO[R, E, Option[A]]) {
-    inline def someOrUnit[R1 <: R, E1 >: E](f: A => ZIO[R1, E1, Unit]) =
+  extension [A](uio: UIO[A]) {
+    inline def runNow: A = zioRunUnsafe(uio)
+  }
+
+  extension [E, A](zio: IO[E, Option[A]]) {
+    inline def someOrUnit[E1 >: E](f: A => IO[E1, Unit]) =
       zio.flatMap {
         case None        => ZIO.unit
         case Some(value) => f(value)
       }
-  }
 
-  extension [A](uio: UIO[A]) {
-    inline def runNow: A = zioRunUnsafe(uio)
+    inline def someOrFailUnion[E1](e: => E1): IO[E | E1, A] =
+      zio.flatMap {
+        case None        => ZIO.fail(e)
+        case Some(value) => ZIO.succeed(value)
+      }
   }
 
   /**

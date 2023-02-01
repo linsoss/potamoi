@@ -1,12 +1,12 @@
 package potamoi
 
-import com.devsisters.shardcake.Sharding
+import potamoi.akka.{ActorCradle, AkkaConf}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
-import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf, FlinkSqlInterpreter}
+import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf}
 import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator}
 import potamoi.fs.refactor.backend.S3FsMirrorBackend
 import potamoi.fs.S3FsBackendConfDev
-import potamoi.logger.PotaLogger
+import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.sharding.{ShardingConf, Shardings}
 import potamoi.zios.asLayer
 import zio.{Scope, ZLayer}
@@ -18,14 +18,15 @@ object TestFlinkInterpreterAppV115 extends FlinkInterpBootstrap(FlinkMajorVer.V1
 
   override val bootstrap = PotaLogger.default
 
-  override val run = active.provide(
+  override val run = program.provide(
+    HoconConfig.empty,
+    LogConf.default,
     BaseConf.test,
-    FlinkConf.test,
-    FlinkInterpConf.default,
     S3FsBackendConfDev.asLayer,
     S3FsMirrorBackend.live,
-    ShardingConf.test.project(_.copy(selfPort = 3415)),
-    Shardings.test,
-    FlinkSqlInterpreter.live(shardEntity),
+    AkkaConf.localCluster(3316, List(3300), List(FlinkMajorVer.V116.nodeRole)),
+    ActorCradle.live,
+    FlinkConf.test,
+    FlinkInterpConf.default,
     Scope.default
   )

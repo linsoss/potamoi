@@ -7,7 +7,6 @@ import potamoi.flink.model.Fcid
 import potamoi.flink.storage.{FlinkDataStorage, TrackedFcidStorage}
 import potamoi.flink.FlinkErr.{AkkaErr, FailToConnectShardEntity}
 import potamoi.kubernetes.K8sOperator
-import potamoi.sharding.ShardRegister
 import potamoi.EarlyLoad
 import potamoi.akka.ActorCradle
 import potamoi.flink.observer.tracker.FlinkClusterTracker.ops

@@ -1,6 +1,6 @@
 package potamoi.flink
 
-import potamoi.codecs
+import potamoi.{codecs, NodeRoles}
 import potamoi.common.ScalaVersion
 import potamoi.common.ScalaVersion.Scala212
 import potamoi.common.ScalaVersions.given_JsonCodec_ScalaVersion
@@ -27,9 +27,11 @@ object FlinkVersion:
 /**
  * Flink Major version.
  */
-enum FlinkMajorVer(val value: String):
-  case V116 extends FlinkMajorVer("1.16")
-  case V115 extends FlinkMajorVer("1.15")
+enum FlinkMajorVer(val value: String, val seq: Int):
+  def nodeRole: String = NodeRoles.flinkInterpreter(seq)
+
+  case V116 extends FlinkMajorVer("1.16", 116)
+  case V115 extends FlinkMajorVer("1.15", 115)
 
 object FlinkMajorVers:
   given JsonCodec[FlinkMajorVer] = codecs.stringBasedJsonCodec(e => e.value, s => FlinkMajorVer.values.find(_.value == s))

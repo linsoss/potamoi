@@ -1,16 +1,18 @@
 package potamoi.flink.interact
 
+import akka.actor.typed.ActorRef
 import cats.instances.unit
-import com.devsisters.shardcake.Messenger
+import potamoi.{uuids, PotaErr}
+import potamoi.akka.{ActorCradle, ActorOpErr}
 import potamoi.flink.{FlinkConf, FlinkErr, FlinkInteractErr, FlinkMajorVer}
-import potamoi.flink.FlinkInterpreterErr.{ExecOperationErr, ExecuteSqlErr, RetrieveResultNothing, SplitSqlScriptErr}
+import potamoi.flink.interact.SessionConnection.*
+import potamoi.flink.interpreter.FlinkInterpreter
 import potamoi.flink.model.interact.*
-import potamoi.flink.protocol.FlinkInterpProto
-import potamoi.flink.FlinkInteractErr.*
-import potamoi.rpc.Rpc
+import potamoi.flink.FlinkInteractErr.{FailToSplitSqlScript, SessionHandleNotFound, SessionNotYetStarted}
+import potamoi.flink.interpreter.FlinkInterpreter.ops
+import potamoi.flink.interpreter.FlinkInterpreterActor.*
 import potamoi.syntax.contra
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
-import potamoi.uuids
 import zio.{durationInt, Chunk, Duration, IO, Ref, Schedule, Task, UIO, ZIO}
 import zio.ZIO.{fail, succeed}
 import zio.stream.{Stream, ZStream}
@@ -19,13 +21,13 @@ import zio.ZIOAspect.annotated
 /**
  * Flink interactive session connection.
  */
-trait SessionConnection:
+trait SessionConnection {
 
   def completeSql(sql: String): IO[AttachSessionErr, List[String]]
   def completeSql(sql: String, position: Int): IO[AttachSessionErr, List[String]]
 
   def submitSqlAsync(sql: String): IO[AttachSessionErr, HandleId]
-  def submitSqlScriptAsync(sqlScript: String): IO[FlinkInteractErr, List[ScripSqlSign]]
+  def submitSqlScriptAsync(sqlScript: String): IO[SubmitScriptErr, List[ScripSqlSign]]
 
   def subscribeHandleFrame(handleId: String): HandleFrameWatcher
   def subscribeScriptResultFrame(handleIds: List[String]): ScriptHandleFrameWatcher
@@ -40,15 +42,21 @@ trait SessionConnection:
 
   def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[AttachHandleErr, Option[SqlResultPageView]]
   def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[AttachHandleErr, Option[SqlResultOffsetView]]
-  def subscribeResultStream(handleId: String): UIO[Stream[FlinkInteractErr, RowValue]]
+  def subscribeResultStream(handleId: String): UIO[Stream[AttachHandleErr, RowValue]]
 
   def listHandleId: IO[AttachSessionErr, List[HandleId]]
   def listHandleStatus: IO[AttachSessionErr, List[HandleStatusView]]
   def listHandleFrame: IO[AttachSessionErr, List[HandleFrame]]
-
   def getHandleStatus(handleId: String): IO[AttachHandleErr, HandleStatusView]
   def getHandleFrame(handleId: String): IO[AttachHandleErr, HandleFrame]
-  def overview: IO[RpcFailure, SessionOverview]
+  def overview: IO[ActorOpErr, SessionOverview]
+}
+
+object SessionConnection {
+  type AttachSessionErr = (SessionNotYetStarted | ActorOpErr) with PotaErr
+  type AttachHandleErr  = (SessionNotYetStarted | SessionHandleNotFound | ActorOpErr) with PotaErr
+  type SubmitScriptErr  = (AttachHandleErr | FailToSplitSqlScript) with PotaErr
+}
 
 /**
  * Default implementation.
@@ -56,19 +64,20 @@ trait SessionConnection:
 class SessionConnectionImpl(
     sessionId: String,
     flinkConf: FlinkConf,
-    interpreter: Messenger[FlinkInterpProto])
-    extends SessionConnection:
+    interpreter: ActorRef[FlinkInterpreter.Req]
+  )(using ActorCradle)
+    extends SessionConnection {
 
-  private val streamPollingInterval: Duration            = flinkConf.sqlInteract.streamPollingInterval
+  private val streamPollingInterval: Duration = flinkConf.sqlInteract.streamPollingInterval
+
   private inline def annoTag[R, E, A](zio: ZIO[R, E, A]) = zio @@ annotated("sessionId" -> sessionId)
 
   /**
-   *  Get completion hints for the given statement.
+   * Get completion hints for the given statement.
    */
   override def completeSql(sql: String): IO[AttachSessionErr, List[String]] = annoTag {
-    interpreter
-      .send(sessionId)(FlinkInterpProto.CompleteSql(sql, sql.length, _))
-      .narrowRpcErr
+    interpreter(sessionId)
+      .askZIO(CompleteSql(sql, sql.length, _))
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Right(v: List[String])        => succeed(v)
@@ -79,9 +88,8 @@ class SessionConnectionImpl(
    * Get completion hints for the given statement at the given cursor position.
    */
   override def completeSql(sql: String, position: Int): IO[AttachSessionErr, List[String]] = annoTag {
-    interpreter
-      .send(sessionId)(FlinkInterpProto.CompleteSql(sql, position, _))
-      .narrowRpcErr
+    interpreter(sessionId)
+      .askZIO(CompleteSql(sql, position, _))
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Right(v: List[String])        => succeed(v)
@@ -93,9 +101,8 @@ class SessionConnectionImpl(
    */
   override def submitSqlAsync(sql: String): IO[AttachSessionErr, HandleId] = annoTag {
     succeed(uuids.genUUID16).tap(handleId =>
-      interpreter
-        .send(sessionId)(FlinkInterpProto.SubmitSqlAsync(sql, handleId, _))
-        .narrowRpcErr
+      interpreter(sessionId)
+        .askZIO(SubmitSqlAsync(sql, handleId, _))
         .flatMap {
           case Left(e: SessionNotYetStarted) => fail(e)
           case Right(_)                      => ZIO.unit
@@ -106,10 +113,9 @@ class SessionConnectionImpl(
    * Submit sql script.
    */
   override def submitSqlScriptAsync(
-      sqlScript: String): IO[AttachHandleErr | FailToSplitSqlScript, List[ScripSqlSign]] = annoTag {
-    interpreter
-      .send(sessionId)(FlinkInterpProto.SubmitSqlScriptAsync(sqlScript, _))
-      .narrowRpcErr
+      sqlScript: String): IO[SubmitScriptErr, List[ScripSqlSign]] = annoTag {
+    interpreter(sessionId)
+      .askZIO(SubmitSqlScriptAsync(sqlScript, _))
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Left(e: FailToSplitSqlScript) => fail(e)
@@ -119,8 +125,7 @@ class SessionConnectionImpl(
 
   /**
    * Receive HandleFrame in stream.
-   * Currently using a polling rpc based implementation, the stream rpc implementation
-   * needs to wait for the https://github.com/devsisters/shardcake/issues/45
+   * todo replace with actor event subscription implementation.
    */
   override def subscribeHandleFrame(handleId: String): HandleFrameWatcher = {
     val stream = ZStream
@@ -134,7 +139,8 @@ class SessionConnectionImpl(
           .filter { case (prev, cur) => !prev.contains(cur) }
           .map(_._2)
       }
-      def ending: IO[AttachHandleErr, HandleFrame]       = {
+
+      def ending: IO[AttachHandleErr, HandleFrame] = {
         stream.runLast.map(_.get)
       }
     }
@@ -142,15 +148,16 @@ class SessionConnectionImpl(
 
   /**
    * Receive Sql script's HandleFrame in stream.
-   * Currently using a polling rpc based implementation, the stream rpc implementation
-   * needs to wait for the https://github.com/devsisters/shardcake/issues/45
+   * Currently using a polling rpc based implementation.
+   * todo replace with actor event subscription implementation.
    */
   override def subscribeScriptResultFrame(handleIds: List[String]): ScriptHandleFrameWatcher = {
     new ScriptHandleFrameWatcher {
       override def changing: Stream[AttachHandleErr, HandleFrame] = {
         ZStream.concatAll(Chunk.fromIterable(handleIds.map(subscribeHandleFrame(_).changing)))
       }
-      override def ending: Stream[AttachHandleErr, HandleFrame]   = {
+
+      override def ending: Stream[AttachHandleErr, HandleFrame] = {
         ZStream.fromIterable(handleIds).mapZIO(subscribeHandleFrame(_).ending)
       }
     }
@@ -163,9 +170,8 @@ class SessionConnectionImpl(
    */
   override def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[AttachHandleErr, Option[SqlResultPageView]] =
     annoTag {
-      interpreter
-        .send(sessionId)(FlinkInterpProto.RetrieveResultPage(handleId, page, pageSize, _))
-        .narrowRpcErr
+      interpreter(sessionId)
+        .askZIO(RetrieveResultPage(handleId, page, pageSize, _))
         .flatMap {
           case Left(e: SessionNotYetStarted)       => fail(e)
           case Left(e: SessionHandleNotFound)      => fail(e)
@@ -178,9 +184,8 @@ class SessionConnectionImpl(
    */
   override def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[AttachHandleErr, Option[SqlResultOffsetView]] =
     annoTag {
-      interpreter
-        .send(sessionId)(FlinkInterpProto.RetrieveResultOffset(handleId, offset, chunkSize, _))
-        .narrowRpcErr
+      interpreter(sessionId)
+        .askZIO(RetrieveResultOffset(handleId, offset, chunkSize, _))
         .flatMap {
           case Left(e: SessionNotYetStarted)         => fail(e)
           case Left(e: SessionHandleNotFound)        => fail(e)
@@ -190,10 +195,10 @@ class SessionConnectionImpl(
 
   /**
    * Return sql results in stream.
-   * Currently using a polling rpc based implementation, the stream rpc implementation
-   * needs to wait for the https://github.com/devsisters/shardcake/issues/45
+   * todo replace with actor event subscription implementation.
    */
   override def subscribeResultStream(handleId: String): UIO[Stream[AttachHandleErr, RowValue]] = {
+
     def pollEffect(offsetRef: Ref[Long]): IO[AttachHandleErr, (List[RowValue], Boolean)] =
       for {
         offset   <- offsetRef.get
@@ -217,9 +222,8 @@ class SessionConnectionImpl(
    * List all handle ids, order by submit time asc.
    */
   override def listHandleId: IO[AttachSessionErr, List[HandleId]] = annoTag {
-    interpreter
-      .send(sessionId)(FlinkInterpProto.ListHandleId.apply)
-      .narrowRpcErr
+    interpreter(sessionId)
+      .askZIO(ListHandleId.apply)
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Right(v: List[String])        => succeed(v)
@@ -230,9 +234,8 @@ class SessionConnectionImpl(
    * List all handle status, order by submit time asc.
    */
   override def listHandleStatus: IO[AttachSessionErr, List[HandleStatusView]] = annoTag {
-    interpreter
-      .send(sessionId)(FlinkInterpProto.ListHandleStatus.apply)
-      .narrowRpcErr
+    interpreter(sessionId)
+      .askZIO(ListHandleStatus.apply)
       .flatMap {
         case Left(e: SessionNotYetStarted)    => fail(e)
         case Right(v: List[HandleStatusView]) => succeed(v)
@@ -243,9 +246,8 @@ class SessionConnectionImpl(
    * List all HandleFrame, order by submit time asc.
    */
   override def listHandleFrame: IO[AttachSessionErr, List[HandleFrame]] = annoTag {
-    interpreter
-      .send(sessionId)(FlinkInterpProto.ListHandleFrame.apply)
-      .narrowRpcErr
+    interpreter(sessionId)
+      .askZIO(ListHandleFrame.apply)
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Right(v: List[HandleFrame])   => succeed(v)
@@ -257,9 +259,8 @@ class SessionConnectionImpl(
    */
   override def getHandleStatus(handleId: String): IO[AttachHandleErr, HandleStatusView] =
     annoTag {
-      interpreter
-        .send(sessionId)(FlinkInterpProto.GetHandleStatus(handleId, _))
-        .narrowRpcErr
+      interpreter(sessionId)
+        .askZIO(GetHandleStatus(handleId, _))
         .flatMap {
           case Left(e: SessionNotYetStarted)  => fail(e)
           case Left(e: SessionHandleNotFound) => fail(e)
@@ -272,9 +273,8 @@ class SessionConnectionImpl(
    */
   override def getHandleFrame(handleId: String): IO[AttachHandleErr, HandleFrame] =
     annoTag {
-      interpreter
-        .send(sessionId)(FlinkInterpProto.GetHandleFrame(handleId, _))
-        .narrowRpcErr
+      interpreter(sessionId)
+        .askZIO(GetHandleFrame(handleId, _))
         .flatMap {
           case Left(e: SessionNotYetStarted)  => fail(e)
           case Left(e: SessionHandleNotFound) => fail(e)
@@ -285,8 +285,7 @@ class SessionConnectionImpl(
   /**
    * Get session overview info.
    */
-  override def overview: IO[RpcFailure, SessionOverview] = annoTag {
-    interpreter
-      .send(sessionId)(FlinkInterpProto.GetOverview.apply)
-      .narrowRpcErr
+  override def overview: IO[ActorOpErr, SessionOverview] = annoTag {
+    interpreter(sessionId).askZIO(Overview.apply)
   }
+}

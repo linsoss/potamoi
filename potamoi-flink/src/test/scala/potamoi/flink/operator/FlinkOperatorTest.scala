@@ -17,8 +17,6 @@ import potamoi.flink.storage.FlinkDataStorage
 import potamoi.fs.S3Operator
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.{LogConf, PotaLogger}
-import potamoi.sharding.{ShardingConf, Shardings}
-import potamoi.sharding.LocalShardManager.withLocalShardManager
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.{durationInt, IO, Scope, ZIO}

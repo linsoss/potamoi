@@ -1,11 +1,12 @@
 package potamoi.akka
 
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.Behavior
 import potamoi.zios.*
 import potamoi.HoconConfig
 import potamoi.akka.TickBot.*
 import potamoi.akka.actors.*
+import potamoi.akka.zios.*
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.logger.PotaLogger.akkaSourceMdc
 import zio.{Clock, Schedule, *}
@@ -46,6 +47,9 @@ object TickBot {
     var proc: Option[CancelableFuture[Unit]] = None
     ctx.log.info("TickBot started.")
 
+    given LogConf = LogConf()
+    given ActorContext[_] = ctx
+
     Behaviors.receiveMessage {
       case Start =>
         val effect =
@@ -55,8 +59,7 @@ object TickBot {
             .tap(t => ZIO.logInfo(s"tick: $t"))
             .runDrain
         @@ ZIOAspect.annotated(akkaSourceMdc -> ctx.self.path.toString)
-
-        proc = Some(effect.runInsideActor(using ctx, LogConf()))
+        proc = Some(effect.runAsync)
         Behaviors.same
       case Stop  =>
         proc.map(_.cancel())

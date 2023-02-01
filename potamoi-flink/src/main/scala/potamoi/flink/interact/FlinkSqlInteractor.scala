@@ -1,14 +1,18 @@
 package potamoi.flink.interact
 
-import com.devsisters.shardcake.{EntityType, Messenger, Sharding}
+import potamoi.akka.ActorCradle
 import potamoi.flink.{FlinkConf, FlinkDataStoreErr, FlinkErr, FlinkMajorVer}
 import potamoi.flink.observer.FlinkObserver
-import potamoi.flink.protocol.{FlinkInterpEntity, FlinkInterpProto}
 import potamoi.flink.storage.{FlinkDataStorage, InteractSessionStorage}
 import potamoi.flink.FlinkInteractErr.SessionNotFound
+import potamoi.flink.interact.FlinkSqlInteractor.RetrieveSessionErr
+import potamoi.flink.interpreter.FlinkInterpreterPier
+import potamoi.fs.refactor.RemoteFsOperator
+import potamoi.logger.LogConf
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
-import potamoi.uuids
-import zio.{IO, ZIO, ZLayer}
+import potamoi.{uuids, EarlyLoad}
+import potamoi.zios.someOrFailUnion
+import zio.{IO, URIO, ZIO, ZLayer}
 
 type SessionId = String
 type HandleId  = String
@@ -20,37 +24,34 @@ type HandleId  = String
 trait FlinkSqlInteractor:
 
   def manager: SessionManager
-  def attach(sessionId: SessionId): IO[FlinkErr, SessionConnection]
+  def attach(sessionId: SessionId): IO[RetrieveSessionErr, SessionConnection]
 
-object FlinkSqlInteractor:
+object FlinkSqlInteractor extends EarlyLoad[FlinkSqlInteractor]:
 
-  val live: ZLayer[FlinkDataStorage with Sharding with FlinkObserver with FlinkConf, Nothing, FlinkSqlInteractor] =
-    ZLayer {
-      for {
-        flinkConf     <- ZIO.service[FlinkConf]
-        flinkObserver <- ZIO.service[FlinkObserver]
-        sharding      <- ZIO.service[Sharding]
-        dataStore     <- ZIO.service[FlinkDataStorage].map(_.interact)
-        rpcTimeout     = flinkConf.sqlInteract.rpcTimeout
-        interpreters   = FlinkInterpEntity.adapters.map { case (ver, entity) =>
-                           ver -> sharding.messenger(entity, Some(rpcTimeout))
-                         }
-      } yield Live(flinkConf, flinkObserver, dataStore, interpreters)
+  type RetrieveSessionErr = (SessionNotFound | FlinkDataStoreErr) with FlinkErr
+
+  override def active: URIO[FlinkSqlInteractor, Unit] = ZIO.service[FlinkSqlInteractor].unit
+
+  val live: ZLayer[
+    RemoteFsOperator with FlinkConf with LogConf with ActorCradle with FlinkDataStorage with FlinkObserver,
+    Throwable,
+    FlinkSqlInteractor] = ZLayer {
+    for {
+      actorCradle      <- ZIO.service[ActorCradle]
+      flinkConf        <- ZIO.service[FlinkConf]
+      flinkObserver    <- ZIO.service[FlinkObserver]
+      dataStore        <- ZIO.service[FlinkDataStorage].map(_.interact)
+      interpreters     <- FlinkInterpreterPier.activeAll
+      given ActorCradle = actorCradle
+
+    } yield new FlinkSqlInteractor {
+      lazy val manager: SessionManager = SessionManagerImpl(flinkConf, flinkObserver, dataStore, interpreters)
+
+      def attach(sessionId: SessionId): IO[RetrieveSessionErr, SessionConnection] =
+        for {
+          session    <- dataStore.get(sessionId).someOrFailUnion(SessionNotFound(sessionId))
+          flinkVer    = session.flinkVer
+          interpreter = interpreters(flinkVer)
+        } yield SessionConnectionImpl(sessionId, flinkConf, interpreter)
     }
-
-  class Live(
-      flinkConf: FlinkConf,
-      flinkObserver: FlinkObserver,
-      dataStore: InteractSessionStorage,
-      interpreters: Map[FlinkMajorVer, Messenger[FlinkInterpProto]])
-      extends FlinkSqlInteractor {
-
-    lazy val manager: SessionManager = SessionManagerImpl(flinkConf, flinkObserver, dataStore, interpreters)
-
-    def attach(sessionId: SessionId): IO[SessionNotFound | FlinkDataStoreErr | FlinkErr, SessionConnection] = ???
-//      for {
-//        session    <- dataStore.session.get(sessionId).someOrFail(SessionNotFound(sessionId))
-//        flinkVer    = session.flinkVer
-//        interpreter = interpreters(flinkVer)
-//      } yield SessionConnectionImpl(sessionId, flinkConf, interpreter)
   }

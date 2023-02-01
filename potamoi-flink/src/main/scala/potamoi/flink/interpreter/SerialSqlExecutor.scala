@@ -61,8 +61,9 @@ trait SerialSqlExecutor:
 
   def listHandleId: UIO[List[String]]
   def listHandleStatus: UIO[List[HandleStatusView]]
-  def getHandleStatus(handleId: String): IO[HandleNotFound, HandleStatusView]
   def listHandleFrame: UIO[List[HandleFrame]]
+
+  def getHandleStatus(handleId: String): IO[HandleNotFound, HandleStatusView]
   def getHandleFrame(handleId: String): IO[HandleNotFound, HandleFrame]
 
 /**
@@ -582,5 +583,3 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
     handleStack.get
       .map(_.values.toList.sortBy(_.submitAt))
   } @@ annotated("sessionId" -> sessionId)
-
-end SerialSqlExecutorImpl

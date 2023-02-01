@@ -5,13 +5,11 @@ import potamoi.akka.ActorOpErr
 import potamoi.flink.FlinkInterpreterErr.{RetrieveResultNothing, SplitSqlScriptErr}
 import potamoi.flink.model.*
 import potamoi.kubernetes.K8sErr
-import potamoi.rpc.RpcErr
 
 import scala.concurrent.duration.Duration
 
 /**
  * Flink error.
- * todo split into multi files ?
  */
 sealed trait FlinkErr extends PotaErr
 
@@ -88,14 +86,11 @@ object FlinkK8sEntityConvertErr:
 sealed trait FlinkInteractErr extends FlinkErr
 
 object FlinkInteractErr:
-  sealed trait AttachSessionErr extends FlinkInteractErr
-  sealed trait AttachHandleErr  extends FlinkInteractErr
+  case class RemoteInterpreterNotYetLaunch(flinkVer: FlinkMajorVer)     extends FlinkInteractErr
+  case class SessionNotYetStarted(sessionId: String)                    extends FlinkInteractErr
+  case class SessionNotFound(sessionId: String)                         extends FlinkInteractErr
+  case class SessionHandleNotFound(sessionId: String, handleId: String) extends FlinkInteractErr
 
-  case class InterpreterNotYetRegistered(flinkVer: FlinkMajorVer)           extends FlinkInteractErr
-  case class RpcFailure(cause: RpcErr)                                      extends AttachSessionErr with AttachHandleErr
-  case class SessionNotYetStarted(sessionId: String)                        extends AttachSessionErr with AttachHandleErr
-  case class SessionNotFound(sessionId: String)                             extends FlinkInteractErr
-  case class SessionHandleNotFound(sessionId: String, handleId: String)     extends AttachHandleErr
   case class ResolveFlinkClusterEndpointErr(fcid: Fcid, reason: FlinkErr)   extends FlinkInteractErr
   case class FailToSplitSqlScript(reason: SplitSqlScriptErr, stack: String) extends FlinkInteractErr
 
