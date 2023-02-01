@@ -21,12 +21,13 @@ type HandleId  = String
  * Flink sql interactor that providing flink sql execution and
  * result view interaction.
  */
-trait FlinkSqlInteractor:
+trait FlinkSqlInteractor {
 
   def manager: SessionManager
   def attach(sessionId: SessionId): IO[RetrieveSessionErr, SessionConnection]
+}
 
-object FlinkSqlInteractor extends EarlyLoad[FlinkSqlInteractor]:
+object FlinkSqlInteractor extends EarlyLoad[FlinkSqlInteractor] {
 
   type RetrieveSessionErr = (SessionNotFound | FlinkDataStoreErr) with FlinkErr
 
@@ -55,3 +56,4 @@ object FlinkSqlInteractor extends EarlyLoad[FlinkSqlInteractor]:
         } yield SessionConnectionImpl(sessionId, flinkConf, interpreter)
     }
   }
+}

@@ -14,6 +14,7 @@ import potamoi.flink.interpreter.{FlinkInterpreter, FlinkInterpreterActor}
 import potamoi.flink.interpreter.FlinkInterpreter.ops
 import potamoi.flink.interpreter.FlinkInterpreterActor.*
 import potamoi.flink.storage.{FlinkDataStorage, InteractSessionStorage}
+import potamoi.flink.FlinkErr.AkkaErr
 import potamoi.zios.someOrFailUnion
 import zio.{IO, Task, UIO, ZIO}
 import zio.ZIO.{fail, logDebug, logInfo, succeed, unit}
@@ -33,9 +34,9 @@ trait SessionManager {
 }
 
 object SessionManager {
-  type CreateSessionErr = (RemoteInterpreterNotYetLaunch | ResolveFlinkClusterEndpointErr | ActorOpErr | FlinkDataStoreErr) with PotaErr
-  type UpdateSessionErr = (SessionNotFound | ResolveFlinkClusterEndpointErr | ActorOpErr | FlinkDataStoreErr) with PotaErr
-  type SessionOpErr     = (RetrieveSessionErr | ActorOpErr) with PotaErr
+  type CreateSessionErr = (RemoteInterpreterNotYetLaunch | ResolveFlinkClusterEndpointErr | AkkaErr | FlinkDataStoreErr) with FlinkErr
+  type UpdateSessionErr = (SessionNotFound | ResolveFlinkClusterEndpointErr | AkkaErr | FlinkDataStoreErr) with FlinkErr
+  type SessionOpErr     = (RetrieveSessionErr | AkkaErr) with FlinkErr
 }
 
 /**
@@ -59,7 +60,7 @@ class SessionManagerImpl(
   override def create(sessionDef: InteractSessionDef, flinkVer: FlinkMajorVer): IO[CreateSessionErr, String] = {
     for {
       // check if the corresponding version of the remote interpreter is active.
-      isReady <- cradle.findReceptionist(FlinkInterpreter.ServiceKeys(flinkVer)).map(_.nonEmpty)
+      isReady <- cradle.findReceptionist(FlinkInterpreter.ServiceKeys(flinkVer)).mapBoth(AkkaErr.apply, _.nonEmpty)
       _       <- ZIO.fail(RemoteInterpreterNotYetLaunch(flinkVer)).when(!isReady)
 
       // send create session command to remote interpreter.
@@ -68,7 +69,7 @@ class SessionManagerImpl(
       _         <- dataStore.put(InteractSession(sessionId, flinkVer))
 
       _ <- logDebug("Call remote flink interactive session rpc command: Create(updateConflict=false)")
-      _ <- interpreters(flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = false, _))
+      _ <- interpreters(flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = false, _)).mapError(AkkaErr.apply)
     } yield sessionId
   }
 
@@ -106,7 +107,7 @@ class SessionManagerImpl(
         session <- dataStore.get(sessionId).someOrFailUnion(SessionNotFound(sessionId))
         sessDef <- resolveSessionDef(sessionDef)
         _       <- logDebug("Call remote flink interactive session rpc command: Create(updateConflict=true)")
-        _       <- interpreters(session.flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = true, _))
+        _       <- interpreters(session.flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = true, _)).mapError(AkkaErr.apply)
       } yield ()
     effect @@ annotated("sessionId" -> sessionId)
   }
@@ -119,7 +120,7 @@ class SessionManagerImpl(
       for {
         session <- dataStore.get(sessionId).someOrFailUnion(SessionNotFound(sessionId))
         _       <- logDebug("Call remote flink interactive session rpc command: CancelCurrentHandles")
-        _       <- interpreters(session.flinkVer)(sessionId).askZIO(Cancel.apply)
+        _       <- interpreters(session.flinkVer)(sessionId).askZIO(Cancel.apply).mapError(AkkaErr.apply)
       } yield ()
     effect @@ annotated("sessionId" -> sessionId)
   }
@@ -132,7 +133,7 @@ class SessionManagerImpl(
       for {
         session <- dataStore.get(sessionId).someOrFailUnion(SessionNotFound(sessionId))
         _       <- logDebug("Call remote flink interactive session rpc command: Stop")
-        _       <- interpreters(session.flinkVer)(sessionId).askZIO(Stop.apply)
+        _       <- interpreters(session.flinkVer)(sessionId).askZIO(Stop.apply).mapError(AkkaErr.apply)
         _       <- dataStore.rm(sessionId).retryN(3).ignore
       } yield ()
     effect @@ annotated("sessionId" -> sessionId)

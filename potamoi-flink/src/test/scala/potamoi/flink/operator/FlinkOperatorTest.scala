@@ -1,6 +1,5 @@
 package potamoi.flink.operator
 
-import com.devsisters.shardcake.Sharding
 import potamoi.{BaseConf, HoconConfig, NodeRoles, PotaErr}
 import potamoi.akka.{ActorCradle, AkkaConf}
 import potamoi.common.ScalaVersion.Scala212

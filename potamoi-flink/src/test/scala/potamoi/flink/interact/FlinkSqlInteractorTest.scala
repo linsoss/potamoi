@@ -1,6 +1,5 @@
 package potamoi.flink.interact
 
-import com.devsisters.shardcake.Sharding
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Ignore
 import potamoi.flink.observer.FlinkObserver

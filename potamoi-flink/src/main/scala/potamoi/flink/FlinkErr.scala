@@ -15,10 +15,9 @@ sealed trait FlinkErr extends PotaErr
 
 object FlinkErr:
 
-  case class K8sFailure(err: K8sErr)                                    extends FlinkErr
-  case class WatchTimeout(timeout: Duration)                            extends FlinkErr
-  case class FailToConnectShardEntity(entity: String, cause: Throwable) extends FlinkErr // todo remove
-  case class AkkaErr(reason: ActorOpErr)                                extends FlinkErr
+  case class K8sFailure(err: K8sErr)         extends FlinkErr
+  case class WatchTimeout(timeout: Duration) extends FlinkErr
+  case class AkkaErr(reason: ActorOpErr)     extends FlinkErr
 
   case class ClusterNotFound(fcid: Fcid)                                                     extends FlinkErr
   case class ClusterIsNotYetTracked(fcid: Fcid)                                              extends FlinkErr

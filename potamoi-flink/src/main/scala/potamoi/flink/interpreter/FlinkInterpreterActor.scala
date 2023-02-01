@@ -2,7 +2,6 @@ package potamoi.flink.interpreter
 
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import com.devsisters.shardcake.Replier
 import potamoi.akka.KryoSerializable
 import potamoi.akka.zios.*
 import potamoi.common.Ack

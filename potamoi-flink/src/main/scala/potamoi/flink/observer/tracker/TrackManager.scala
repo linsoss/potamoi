@@ -1,11 +1,10 @@
 package potamoi.flink.observer.tracker
 
 import akka.actor.typed.ActorRef
-import com.devsisters.shardcake.{Messenger, Sharding}
 import potamoi.flink.{FlinkConf, FlinkDataStoreErr, FlinkErr, FlinkRestEndpointRetriever}
 import potamoi.flink.model.Fcid
 import potamoi.flink.storage.{FlinkDataStorage, TrackedFcidStorage}
-import potamoi.flink.FlinkErr.{AkkaErr, FailToConnectShardEntity}
+import potamoi.flink.FlinkErr.AkkaErr
 import potamoi.kubernetes.K8sOperator
 import potamoi.EarlyLoad
 import potamoi.akka.ActorCradle
@@ -92,7 +91,7 @@ class TrackManagerImpl(
   /**
    * UnTracking flink cluster.
    */
-  override def untrack(fcid: Fcid): IO[FlinkDataStoreErr | FailToConnectShardEntity | FlinkErr, Unit] = {
+  override def untrack(fcid: Fcid): IO[FlinkDataStoreErr | FlinkErr, Unit] = {
     for {
       _ <- snapStorage.trackedList.rm(fcid)
       _ <- clusterTrackers(fcid).askZIO(FlinkClusterTrackerActor.Stop.apply).mapError(AkkaErr.apply).unit
