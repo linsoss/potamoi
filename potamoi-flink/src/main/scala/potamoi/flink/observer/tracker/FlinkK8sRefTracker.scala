@@ -4,9 +4,11 @@ import akka.actor.typed.{ActorRef, Behavior, PostStop, SupervisorStrategy}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
 import com.coralogix.zio.k8s.client.model.{label, Added, Deleted, K8sNamespace, Modified, Reseted}
+import potamoi.{KryoSerializable, NodeRoles}
 import potamoi.akka.actors.*
 import potamoi.akka.behaviors.*
 import potamoi.akka.zios.*
+import potamoi.akka.ShardingProxy
 import potamoi.flink.FlinkConf
 import potamoi.flink.model.{Fcid, FlinkK8sPodMetrics, FlinkK8sServiceSnap, FlinkRestSvcEndpoint}
 import potamoi.flink.observer.tracker.K8sEntityConverter.*
@@ -14,10 +16,9 @@ import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.{K8sClient, K8sOperator}
 import potamoi.kubernetes.K8sErr.PodNotFound
 import potamoi.logger.LogConf
+import potamoi.options.unsafeGet
 import potamoi.syntax.{toPrettyString, valueToSome}
 import potamoi.times.{given_Conversion_ScalaDuration_ZIODuration, given_Conversion_ZIODuration_ScalaDuration}
-import potamoi.NodeRoles
-import potamoi.akka.{KryoSerializable, ShardingProxy}
 import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced, succeed}
@@ -31,18 +32,35 @@ import scala.util.{Failure, Success}
  * Flink kubernetes ref resource snapshot tracker.
  */
 object FlinkK8sRefTracker extends ShardingProxy[Fcid, FlinkK8sRefTrackerActor.Cmd] {
+
+  private var logConfInstance: Option[LogConf]                 = None
+  private var flinkConfInstance: Option[FlinkConf]             = None
+  private var flinkDataStoreInstance: Option[FlinkDataStorage] = None
+  private var k8sOperatorInstance: Option[K8sOperator]         = None
+
+  private[tracker] def unsafeLogConf: Option[LogConf]                 = logConfInstance
+  private[tracker] def unsafeFlinkConf: Option[FlinkConf]             = flinkConfInstance
+  private[tracker] def unsafeFlinkDataStore: Option[FlinkDataStorage] = flinkDataStoreInstance
+  private[tracker] def unsafeK8sOperator: Option[K8sOperator]         = k8sOperatorInstance
+
   /**
    * Actor behavior.
    */
-  def apply(logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sOperator: K8sOperator): Behavior[Req] =
+  // noinspection DuplicatedCode
+  def apply(logConf: LogConf, flinkConf: FlinkConf, dataStore: FlinkDataStorage, k8sOperator: K8sOperator): Behavior[Req] = {
+    logConfInstance = Some(logConf)
+    flinkConfInstance = Some(flinkConf)
+    flinkDataStoreInstance = Some(dataStore)
+    k8sOperatorInstance = Some(k8sOperator)
     behavior(
       entityKey = EntityTypeKey[FlinkK8sRefTrackerActor.Cmd]("flink-k8s-tracker"),
       marshallKey = marshallFcid,
       unmarshallKey = unmarshallFcid,
-      createBehavior = fcid => FlinkK8sRefTrackerActor(fcid, logConf, flinkConf, snapStore, k8sOperator),
+      createBehavior = fcid => FlinkK8sRefTrackerActor(fcid),
       stopMessage = Some(FlinkK8sRefTrackerActor.Terminate),
       bindRole = Some(NodeRoles.flinkService)
     )
+  }
 }
 
 /**
@@ -57,24 +75,21 @@ object FlinkK8sRefTrackerActor {
   final case class IsStarted(replier: ActorRef[Boolean]) extends Cmd
   private case class ShouldAutoStart(rs: Boolean)        extends Cmd
 
-  def apply(fcid: Fcid, logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, k8sOperator: K8sOperator): Behavior[Cmd] =
+  def apply(fcid: Fcid): Behavior[Cmd] =
     Behaviors.setup { ctx =>
-      new FlinkK8sRefTrackerActor(fcid, logConf, flinkConf, snapStore, k8sOperator)(using ctx).active
-        .onFailure[Exception](defaultTrackerFailoverStrategy)
+      new FlinkK8sRefTrackerActor(fcid)(using ctx).active.onFailure[Exception](defaultTrackerFailoverStrategy)
     }
 }
 
 import potamoi.flink.observer.tracker.FlinkK8sRefTrackerActor.*
 
-class FlinkK8sRefTrackerActor(
-    fcid: Fcid,
-    logConf: LogConf,
-    flinkConf: FlinkConf,
-    snapStore: FlinkDataStorage,
-    k8sOperator: K8sOperator
-  )(using ctx: ActorContext[Cmd]) {
+class FlinkK8sRefTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
 
-  private given LogConf                  = logConf
+  private given LogConf   = FlinkK8sRefTracker.unsafeLogConf.get
+  private val flinkConf   = FlinkK8sRefTracker.unsafeFlinkConf.unsafeGet
+  private val dataStore   = FlinkK8sRefTracker.unsafeFlinkDataStore.unsafeGet
+  private val k8sOperator = FlinkK8sRefTracker.unsafeK8sOperator.unsafeGet
+
   private val watchEffectRecoverInterval = 1.seconds
   private val watchEffectClock           = ZLayer.succeed(Clock.ClockLive)
   private def appSelector(fcid: Fcid)    = label("app") === fcid.clusterId && label("type") === "flink-native-kubernetes"
@@ -98,7 +113,7 @@ class FlinkK8sRefTrackerActor(
           Behaviors.same
       }
       .beforeIt {
-        ctx.pipeToSelf(snapStore.trackedList.exists(fcid).runAsync) {
+        ctx.pipeToSelf(dataStore.trackedList.exists(fcid).runAsync) {
           case Success(r) => ShouldAutoStart(r)
           case Failure(e) => ShouldAutoStart(false)
         }
@@ -184,10 +199,10 @@ class FlinkK8sRefTrackerActor(
     client.deployments
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
-        case Reseted()        => snapStore.k8sRef.deployment.rm(fcid)
-        case Added(deploy)    => toDeploymentSnap(deploy).flatMap(snapStore.k8sRef.deployment.put)
-        case Modified(deploy) => toDeploymentSnap(deploy).flatMap(snapStore.k8sRef.deployment.put)
-        case Deleted(deploy)  => toDeploymentSnap(deploy).flatMap(e => snapStore.k8sRef.deployment.rm(e.fcid, e.name))
+        case Reseted()        => dataStore.k8sRef.deployment.rm(fcid)
+        case Added(deploy)    => toDeploymentSnap(deploy).flatMap(dataStore.k8sRef.deployment.put)
+        case Modified(deploy) => toDeploymentSnap(deploy).flatMap(dataStore.k8sRef.deployment.put)
+        case Deleted(deploy)  => toDeploymentSnap(deploy).flatMap(e => dataStore.k8sRef.deployment.rm(e.fcid, e.name))
       }
       .autoRetry
   }
@@ -199,10 +214,10 @@ class FlinkK8sRefTrackerActor(
     client.services
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
-        case Reseted()     => snapStore.k8sRef.service.rm(fcid)
-        case Added(svc)    => toServiceSnap(svc).flatMap(e => snapStore.k8sRef.service.put(e) <&> saveRestEndpoint(e))
-        case Modified(svc) => toServiceSnap(svc).flatMap(e => snapStore.k8sRef.service.put(e) <&> saveRestEndpoint(e))
-        case Deleted(svc)  => toServiceSnap(svc).flatMap(e => snapStore.k8sRef.service.rm(e.fcid, e.name) <&> rmRestEndpoint(e))
+        case Reseted()     => dataStore.k8sRef.service.rm(fcid)
+        case Added(svc)    => toServiceSnap(svc).flatMap(e => dataStore.k8sRef.service.put(e) <&> saveRestEndpoint(e))
+        case Modified(svc) => toServiceSnap(svc).flatMap(e => dataStore.k8sRef.service.put(e) <&> saveRestEndpoint(e))
+        case Deleted(svc)  => toServiceSnap(svc).flatMap(e => dataStore.k8sRef.service.rm(e.fcid, e.name) <&> rmRestEndpoint(e))
       }
       .autoRetry
   }
@@ -213,12 +228,12 @@ class FlinkK8sRefTrackerActor(
       .flatMap { e =>
         FlinkRestSvcEndpoint.of(e) match
           case None      => ZIO.unit
-          case Some(ept) => snapStore.restEndpoint.put(e.fcid, ept)
+          case Some(ept) => dataStore.restEndpoint.put(e.fcid, ept)
       }
       .unit
       .when(svc.isFlinkRestSvc)
 
-  private def rmRestEndpoint(svc: FlinkK8sServiceSnap) = snapStore.restEndpoint.rm(svc.fcid).when(svc.isFlinkRestSvc)
+  private def rmRestEndpoint(svc: FlinkK8sServiceSnap) = dataStore.restEndpoint.rm(svc.fcid).when(svc.isFlinkRestSvc)
 
   /**
    * Watch k8s pods api.
@@ -227,10 +242,10 @@ class FlinkK8sRefTrackerActor(
     client.pods
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
-        case Reseted()     => snapStore.k8sRef.pod.rm(fcid)
-        case Added(pod)    => toPodSnap(pod).flatMap(snapStore.k8sRef.pod.put)
-        case Modified(pod) => toPodSnap(pod).flatMap(snapStore.k8sRef.pod.put)
-        case Deleted(pod)  => toPodSnap(pod).flatMap(e => snapStore.k8sRef.pod.rm(e.fcid, e.name))
+        case Reseted()     => dataStore.k8sRef.pod.rm(fcid)
+        case Added(pod)    => toPodSnap(pod).flatMap(dataStore.k8sRef.pod.put)
+        case Modified(pod) => toPodSnap(pod).flatMap(dataStore.k8sRef.pod.put)
+        case Deleted(pod)  => toPodSnap(pod).flatMap(e => dataStore.k8sRef.pod.rm(e.fcid, e.name))
       }
       .autoRetry
   }
@@ -242,10 +257,10 @@ class FlinkK8sRefTrackerActor(
     client.configMaps
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
-        case Reseted()           => snapStore.k8sRef.configmap.rm(fcid)
-        case Added(configMap)    => configMap.getName.flatMap(snapStore.k8sRef.configmap.put(fcid, _))
-        case Modified(configMap) => configMap.getName.flatMap(snapStore.k8sRef.configmap.put(fcid, _))
-        case Deleted(configMap)  => configMap.getName.flatMap(snapStore.k8sRef.configmap.rm(fcid, _))
+        case Reseted()           => dataStore.k8sRef.configmap.rm(fcid)
+        case Added(configMap)    => configMap.getName.flatMap(dataStore.k8sRef.configmap.put(fcid, _))
+        case Modified(configMap) => configMap.getName.flatMap(dataStore.k8sRef.configmap.put(fcid, _))
+        case Deleted(configMap)  => configMap.getName.flatMap(dataStore.k8sRef.configmap.rm(fcid, _))
       }
       .autoRetry
   }
@@ -259,10 +274,10 @@ class FlinkK8sRefTrackerActor(
       client.pods
         .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
         .runForeach {
-          case Reseted()     => podNames.set(mutable.HashSet.empty) *> snapStore.k8sRef.podMetrics.rm(fcid).ignore
+          case Reseted()     => podNames.set(mutable.HashSet.empty) *> dataStore.k8sRef.podMetrics.rm(fcid).ignore
           case Added(pod)    => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ += n))
           case Modified(pod) => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ += n))
-          case Deleted(pod)  => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ -= n) *> snapStore.k8sRef.podMetrics.rm(fcid, n))
+          case Deleted(pod)  => pod.getMetadata.flatMap(_.getName).flatMap(n => podNames.update(_ -= n) *> dataStore.k8sRef.podMetrics.rm(fcid, n))
         }
         .autoRetry
     }
@@ -275,7 +290,7 @@ class FlinkK8sRefTrackerActor(
           .map(metrics => Some(FlinkK8sPodMetrics(fcid.clusterId, fcid.namespace, name, metrics.copy())))
           .catchSome { case PodNotFound(_, _) => ZIO.succeed(None) }
       }
-      .runForeach(m => snapStore.k8sRef.podMetrics.put(m.get).when(m.isDefined))
+      .runForeach(m => dataStore.k8sRef.podMetrics.put(m.get).when(m.isDefined))
 
     for {
       podNames <- Ref.make(mutable.HashSet.empty[String])

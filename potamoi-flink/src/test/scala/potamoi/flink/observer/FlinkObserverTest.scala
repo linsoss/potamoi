@@ -8,16 +8,24 @@ import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.model.FlK8sComponentName.jobmanager
+import potamoi.flink.observer.FlinkObserverTest.fcid1
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.syntax.*
 import potamoi.zios.*
-import zio.{durationInt, IO, Scope, ZIO}
+import zio.{durationInt, IO, Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.Console.printLine
 import zio.Schedule.spaced
+import potamoi.common.TimeExtension.given_Conversion_ZIODuration_ScalaDuration
 
 object FlinkObserverTest:
+
+  val testInMultiNode = true
+
+  val fcid1: Fcid = "app-t1"     -> "fdev"
+  val fcid2: Fcid = "app-t2"     -> "fdev"
+  val fcid3: Fcid = "session-01" -> "fdev"
 
   def testing[E, A](effect: FlinkObserver => IO[E, A]): Unit = {
     ZIO
@@ -32,7 +40,8 @@ object FlinkObserverTest:
         K8sOperator.live,
         FlinkDataStorage.test,
         FlinkObserver.live,
-        AkkaConf.local(List(NodeRoles.flinkService)),
+        if !testInMultiNode then AkkaConf.local(List(NodeRoles.flinkService))
+        else AkkaConf.localCluster(3301, List(3301, 3302)).project(_.copy(defaultAskTimeout = 15.seconds)),
         ActorCradle.live,
         Scope.default,
       )
@@ -41,9 +50,29 @@ object FlinkObserverTest:
       .exitCode
   }
 
-  val fcid1: Fcid = "app-t1"     -> "fdev"
-  val fcid2: Fcid = "app-t2"     -> "fdev"
-  val fcid3: Fcid = "session-01" -> "fdev"
+  @main def launchRemoteFlinkObserverApp: Unit = {
+    for {
+      _ <- ActorCradle.active
+      _ <- FlinkObserver.active
+      _ <- ZIO.never
+    } yield ()
+  }
+    .provide(
+      HoconConfig.empty,
+      LogConf.default,
+      BaseConf.test,
+      FlinkConf.test,
+      K8sConf.default,
+      K8sOperator.live,
+      FlinkDataStorage.test,
+      FlinkObserver.live,
+      AkkaConf.localCluster(3302, List(3301, 3302), List(NodeRoles.flinkService)).project(_.copy(defaultAskTimeout = 15.seconds)),
+      ActorCradle.live,
+      Scope.default,
+    )
+    .provideLayer(PotaLogger.default)
+    .run
+    .exitCode
 
 import potamoi.flink.observer.FlinkObserver.*
 import potamoi.flink.observer.FlinkObserverTest.*
@@ -102,7 +131,7 @@ class TestFlinkClusterQuery extends AnyWordSpec:
 
   "view taskmanager detail" in testing { obr =>
     obr.manager.track(fcid1) *>
-    obr.cluster.tmDetail.list(fcid1).watchPrettyTag("tm-detail").fork *>
+    obr.cluster.tmDetail.list(fcid1).watchPrettyTag("tm-detail").fork
     obr.cluster.tmDetail.listTmId(fcid1).watchPrettyTag("tm-id").fork *>
     ZIO.never
   }

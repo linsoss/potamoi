@@ -8,7 +8,7 @@ import potamoi.akka.{Bot, BotAssign}
 import potamoi.akka.Bot.*
 import potamoi.akka.BotAssign.*
 import potamoi.logger.PotaLogger
-import potamoi.HoconConfig
+import potamoi.{HoconConfig, KryoSerializable}
 import potamoi.akka.actors.*
 import zio.{Duration, Scope, ZIO, ZIOAppDefault}
 

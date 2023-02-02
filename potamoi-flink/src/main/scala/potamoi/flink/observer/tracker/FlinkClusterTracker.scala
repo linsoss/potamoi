@@ -3,7 +3,7 @@ package potamoi.flink.observer.tracker
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
-import potamoi.akka.{KryoSerializable, ShardingProxy}
+import potamoi.akka.ShardingProxy
 import potamoi.akka.behaviors.*
 import potamoi.akka.zios.*
 import potamoi.flink.{flinkRest, FlinkConf, FlinkRestEndpointRetriever, FlinkRestEndpointType}
@@ -15,7 +15,8 @@ import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.logger.LogConf
 import potamoi.syntax.toPrettyStr
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
-import potamoi.NodeRoles
+import potamoi.{KryoSerializable, NodeRoles}
+import potamoi.options.unsafeGet
 import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced}
@@ -32,18 +33,35 @@ import scala.util.hashing.MurmurHash3
  */
 object FlinkClusterTracker extends ShardingProxy[Fcid, FlinkClusterTrackerActor.Cmd] {
 
+  private var logConfInstance: Option[LogConf]                                   = None
+  private var flinkConfInstance: Option[FlinkConf]                               = None
+  private var flinkDataStoreInstance: Option[FlinkDataStorage]                   = None
+  private var flinkEndpointRetrieverInstance: Option[FlinkRestEndpointRetriever] = None
+
+  private[tracker] def unsafeLogConf: Option[LogConf]                                   = logConfInstance
+  private[tracker] def unsafeFlinkConf: Option[FlinkConf]                               = flinkConfInstance
+  private[tracker] def unsafeFlinkDataStore: Option[FlinkDataStorage]                   = flinkDataStoreInstance
+  private[tracker] def unsafeFlinkEndpointRetriever: Option[FlinkRestEndpointRetriever] = flinkEndpointRetrieverInstance
+
   /**
    * Sharding actor manager behavior.
    */
-  def apply(logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, eptRetriever: FlinkRestEndpointRetriever): Behavior[Req] =
+  // noinspection DuplicatedCode
+  def apply(logConf: LogConf, flinkConf: FlinkConf, snapStore: FlinkDataStorage, eptRetriever: FlinkRestEndpointRetriever): Behavior[Req] = {
+    logConfInstance = Some(logConf)
+    flinkConfInstance = Some(flinkConf)
+    flinkDataStoreInstance = Some(snapStore)
+    flinkEndpointRetrieverInstance = Some(eptRetriever)
     behavior(
       entityKey = EntityTypeKey[FlinkClusterTrackerActor.Cmd]("flink-cluster-tracker"),
       marshallKey = marshallFcid,
       unmarshallKey = unmarshallFcid,
-      createBehavior = fcid => FlinkClusterTrackerActor(fcid, logConf, flinkConf, snapStore, eptRetriever),
+      createBehavior = fcid => FlinkClusterTrackerActor(fcid),
       stopMessage = Some(FlinkClusterTrackerActor.Terminate),
       bindRole = Some(NodeRoles.flinkService)
     )
+  }
+
 }
 
 /**
@@ -58,29 +76,20 @@ object FlinkClusterTrackerActor {
   final case class IsStarted(reply: ActorRef[Boolean]) extends Cmd
   private case class ShouldAutoStart(rs: Boolean)      extends Cmd
 
-  def apply(
-      fcid: Fcid,
-      logConf: LogConf,
-      flinkConf: FlinkConf,
-      snapStore: FlinkDataStorage,
-      eptRetriever: FlinkRestEndpointRetriever): Behavior[Cmd] =
-    Behaviors.setup { ctx =>
-      new FlinkClusterTrackerActor(fcid, logConf, flinkConf, snapStore, eptRetriever)(using ctx).active
-        .onFailure[Exception](defaultTrackerFailoverStrategy)
-    }
+  def apply(fcid: Fcid): Behavior[Cmd] = Behaviors.setup { ctx =>
+    new FlinkClusterTrackerActor(fcid)(using ctx).active.onFailure[Exception](defaultTrackerFailoverStrategy)
+  }
 }
 
 import potamoi.flink.observer.tracker.FlinkClusterTrackerActor.*
 
-class FlinkClusterTrackerActor(
-    fcid: Fcid,
-    logConf: LogConf,
-    flinkConf: FlinkConf,
-    snapStore: FlinkDataStorage,
-    eptRetriever: FlinkRestEndpointRetriever
-  )(using ctx: ActorContext[Cmd]) {
+class FlinkClusterTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
 
-  private given LogConf                = logConf
+  private given LogConf    = FlinkClusterTracker.unsafeLogConf.unsafeGet
+  private val flinkConf    = FlinkClusterTracker.unsafeFlinkConf.unsafeGet
+  private val dataStore    = FlinkClusterTracker.unsafeFlinkDataStore.unsafeGet
+  private val eptRetriever = FlinkClusterTracker.unsafeFlinkEndpointRetriever.unsafeGet
+
   private given FlinkRestEndpointType  = flinkConf.restEndpointTypeInternal
   private given logFailReason: Boolean = flinkConf.tracking.logTrackersFailedInfo
 
@@ -104,7 +113,7 @@ class FlinkClusterTrackerActor(
           Behaviors.same
       }
       .beforeIt {
-        ctx.pipeToSelf(snapStore.trackedList.exists(fcid).runAsync) {
+        ctx.pipeToSelf(dataStore.trackedList.exists(fcid).runAsync) {
           case Success(r) => ShouldAutoStart(r)
           case Failure(e) => ShouldAutoStart(false)
         }
@@ -162,7 +171,7 @@ class FlinkClusterTrackerActor(
                     .repeat(recurWhile[Option[FlinkRestSvcEndpoint]](_.isEmpty) && spaced(1.seconds))
                     .map(_._1.get)
       _        <- logInfo(s"Found flink rest endpoint: ${endpoint.show}")
-      _        <- snapStore.restEndpoint.put(fcid, endpoint)
+      _        <- dataStore.restEndpoint.put(fcid, endpoint)
       _        <- eptCache.set(Some(endpoint))
 
       // blocking until the rest api can be connected.
@@ -191,7 +200,7 @@ class FlinkClusterTrackerActor(
    */
   private def syncEptValueCache: UIO[Unit] = loopTrigger(
     flinkConf.tracking.eptCacheSyncInterval,
-    snapStore.restEndpoint
+    dataStore.restEndpoint
       .get(fcid)
       .flatMap(eptCache.set)
       .mapError(err => Exception(s"Fail to sync FlinkSvcEndpoint cache inner tracker: $err", err))
@@ -222,7 +231,7 @@ class FlinkClusterTrackerActor(
       preMur <- mur.get
       curMur  = MurmurHash3.productHash(clusterOv -> execType.toString)
 
-      _ <- snapStore.cluster.overview
+      _ <- dataStore.cluster.overview
              .put(clusterOv.toFlinkClusterOverview(fcid, execType, isFromPotamoi))
              .zip(mur.set(curMur))
              .when(preMur != curMur)
@@ -250,9 +259,9 @@ class FlinkClusterTrackerActor(
       curTmIds     = tmDetails.map(_.tmId).toSet
       removedTmIds = preTmIds diff curTmIds
 
-      _ <- ZIO.foreachDiscard(removedTmIds.map(Ftid(fcid, _)))(snapStore.cluster.tmDetail.rm)
+      _ <- ZIO.foreachDiscard(removedTmIds.map(Ftid(fcid, _)))(dataStore.cluster.tmDetail.rm)
       _ <- tmIds.set(curTmIds)
-      _ <- snapStore.cluster.tmDetail
+      _ <- dataStore.cluster.tmDetail
              .putAll(tmDetails)
              .zip(tmMur.set(curMur))
              .when(preMur != curMur)
@@ -260,7 +269,7 @@ class FlinkClusterTrackerActor(
 
     for {
       tmMur    <- Ref.make(0)
-      tmIds    <- snapStore.cluster.tmDetail
+      tmIds    <- dataStore.cluster.tmDetail
                     .listTmId(fcid)
                     .map(_.map(_.tmId).toSet)
                     .flatMap(Ref.make)
@@ -276,7 +285,7 @@ class FlinkClusterTrackerActor(
     val polling = for {
       restUrl   <- eptCache.get.someOrFail(ClusterNotFound(fcid))
       jmMetrics <- flinkRest(restUrl.chooseUrl).getJmMetrics(FlinkJmMetrics.metricsRawKeys).map(FlinkJmMetrics.fromRaw(fcid, _))
-      _         <- snapStore.cluster.jmMetrics.put(jmMetrics)
+      _         <- dataStore.cluster.jmMetrics.put(jmMetrics)
     } yield ()
     loopTrigger(flinkConf.tracking.jmMetricsPolling, polling)
   }
@@ -291,7 +300,7 @@ class FlinkClusterTrackerActor(
       preTmIds <- tmIds.get
 
       removedTmIds = preTmIds diff curTmIds
-      _           <- ZIO.foreachDiscard(removedTmIds.map(Ftid(fcid, _)))(snapStore.cluster.tmMetrics.rm)
+      _           <- ZIO.foreachDiscard(removedTmIds.map(Ftid(fcid, _)))(dataStore.cluster.tmMetrics.rm)
       _           <- tmIds.set(curTmIds)
 
       _ <- ZStream
@@ -301,11 +310,11 @@ class FlinkClusterTrackerActor(
                  .getTmMetrics(tmId, FlinkTmMetrics.metricsRawKeys)
                  .map(FlinkTmMetrics.fromRaw(Ftid(fcid, tmId), _)) @@ annotated("tmId" -> tmId)
              }
-             .runForeach(snapStore.cluster.tmMetrics.put(_))
+             .runForeach(dataStore.cluster.tmMetrics.put(_))
     } yield ()
 
     for {
-      tmIds    <- snapStore.cluster.tmMetrics
+      tmIds    <- dataStore.cluster.tmMetrics
                     .listTmId(fcid)
                     .map(_.map(_.tmId).toSet)
                     .flatMap(Ref.make)
@@ -329,9 +338,9 @@ class FlinkClusterTrackerActor(
       curJobIds     = jobOvs.map(_.jid)
       deletedJobIds = preJobIds diff curJobIds
 
-      _ <- ZIO.foreachDiscard(deletedJobIds.map(Fjid(fcid, _)))(snapStore.job.overview.rm)
+      _ <- ZIO.foreachDiscard(deletedJobIds.map(Fjid(fcid, _)))(dataStore.job.overview.rm)
       _ <- jobIds.set(curJobIds)
-      _ <- snapStore.job.overview
+      _ <- dataStore.job.overview
              .putAll(jobOvs.map(_.toFlinkJobOverview(fcid)).toList)
              .zip(ovMur.set(curOvMur))
              .when(preOvMur != curOvMur)
@@ -339,7 +348,7 @@ class FlinkClusterTrackerActor(
 
     for {
       ovMur    <- Ref.make(0)
-      jobIds   <- snapStore.job.overview
+      jobIds   <- dataStore.job.overview
                     .listJobId(fcid)
                     .map(_.map(_.jobId).toSet)
                     .flatMap(Ref.make)
@@ -359,7 +368,7 @@ class FlinkClusterTrackerActor(
       preJobIds <- jobIds.get
 
       removedJobIds = preJobIds diff curJobIds
-      _            <- ZIO.foreachDiscard(removedJobIds.map(Fjid(fcid, _)))(snapStore.job.metrics.rm)
+      _            <- ZIO.foreachDiscard(removedJobIds.map(Fjid(fcid, _)))(dataStore.job.metrics.rm)
       _            <- jobIds.set(curJobIds)
 
       _ <- ZStream
@@ -369,11 +378,11 @@ class FlinkClusterTrackerActor(
                  .getJobMetrics(jobId, FlinkJobMetrics.metricsRawKeys)
                  .map(FlinkJobMetrics.fromRaw(Fjid(fcid, jobId), _)) @@ annotated("jobId" -> jobId)
              }
-             .runForeach(snapStore.job.metrics.put(_))
+             .runForeach(dataStore.job.metrics.put(_))
     } yield ()
 
     for {
-      jobIds   <- snapStore.job.metrics
+      jobIds   <- dataStore.job.metrics
                     .listJobId(fcid)
                     .map(_.map(_.jobId).toSet)
                     .flatMap(Ref.make)

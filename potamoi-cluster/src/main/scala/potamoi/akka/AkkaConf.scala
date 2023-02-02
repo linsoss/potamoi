@@ -19,7 +19,6 @@ case class AkkaConf(
     @name("artery-port") arteryPort: Int = 3300,
     @name("seed-addresses") seedAddresses: List[String] = List.empty,
     @name("node-roles") nodeRoles: List[String] = List.empty,
-    @name("debug-logging") debugLogging: Boolean = false,
     @name("log-generated-config") logGeneratedConfig: Boolean = false,
     @name("default-spawn-timeout") defaultSpawnTimeout: Duration = 30.seconds,
     @name("default-ask-timeout") defaultAskTimeout: Duration = 1.minutes,
@@ -30,14 +29,13 @@ case class AkkaConf(
    */
   def toRawAkkaConfig: UIO[String] = ZIO.succeed {
     s"""akka {
-       |  ${when(debugLogging)("loglevel = DEBUG")}
        |  actor {
        |    provider = "cluster"
        |    serializers {
        |      kryo = "io.altoo.akka.serialization.kryo.KryoSerializer"
        |    }
        |    serialization-bindings {
-       |      "potamoi.akka.KryoSerializable" = kryo
+       |      "potamoi.KryoSerializable" = kryo
        |    }
        |  }
        |  remote.artery {
@@ -50,6 +48,7 @@ case class AkkaConf(
        |    downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
        |  }
        |  coordinated-shutdown.exit-jvm = on
+       |  log-dead-letters = 3
        |}
        |""".stripMargin
       .split("\n")

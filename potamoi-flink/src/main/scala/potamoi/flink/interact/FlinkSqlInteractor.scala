@@ -1,5 +1,6 @@
 package potamoi.flink.interact
 
+import potamoi.{uuids, EarlyLoad}
 import potamoi.akka.ActorCradle
 import potamoi.flink.{FlinkConf, FlinkDataStoreErr, FlinkErr, FlinkMajorVer}
 import potamoi.flink.observer.FlinkObserver
@@ -10,7 +11,6 @@ import potamoi.flink.interpreter.FlinkInterpreterPier
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.logger.LogConf
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
-import potamoi.{uuids, EarlyLoad}
 import potamoi.zios.someOrFailUnion
 import zio.{IO, URIO, ZIO, ZLayer}
 

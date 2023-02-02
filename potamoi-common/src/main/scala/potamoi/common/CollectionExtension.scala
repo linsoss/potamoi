@@ -26,3 +26,5 @@ object CollectionExtension:
         case Some(value) => map += (key -> modify(value))
         case None        => map
     }
+    
+  

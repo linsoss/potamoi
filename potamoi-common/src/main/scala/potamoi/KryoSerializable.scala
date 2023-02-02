@@ -1,3 +1,3 @@
-package potamoi.akka
+package potamoi
 
 trait KryoSerializable

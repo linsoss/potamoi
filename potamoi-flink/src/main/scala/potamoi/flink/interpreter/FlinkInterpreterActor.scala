@@ -2,7 +2,6 @@ package potamoi.flink.interpreter
 
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import potamoi.akka.KryoSerializable
 import potamoi.akka.zios.*
 import potamoi.common.Ack
 import potamoi.flink.{FlinkConf, FlinkInteractErr}
@@ -11,6 +10,8 @@ import potamoi.flink.FlinkInteractErr.*
 import potamoi.flink.FlinkInterpreterErr.{HandleNotFound, ResultNotFound, SplitSqlScriptErr}
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.logger.LogConf
+import potamoi.options.unsafeGet
+import potamoi.KryoSerializable
 import zio.{CancelableFuture, Schedule, Scope, ZIO}
 import zio.ZIO.{fail, succeed}
 
@@ -59,17 +60,20 @@ object FlinkInterpreterActor {
   /**
    * Actor behavior.
    */
-  def apply(sessionId: String, logConf: LogConf, remoteFs: RemoteFsOperator): Behavior[Cmd] = Behaviors.setup { ctx =>
+  def apply(sessionId: String): Behavior[Cmd] = Behaviors.setup { ctx =>
     ctx.log.info(s"Flink sql interpreter start: sessionId=$sessionId")
-    new FlinkInterpreterActor(sessionId, logConf, remoteFs)(using ctx).active
+    new FlinkInterpreterActor(sessionId)(using ctx).active
   }
 }
 
 import potamoi.flink.interpreter.FlinkInterpreterActor.*
 
-class FlinkInterpreterActor(sessionId: String, logConf: LogConf, remoteFs: RemoteFsOperator)(using ctx: ActorContext[Cmd]) {
+class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
 
-  private given LogConf                              = logConf
+  private given LogConf = FlinkInterpreter.unsafeLogConf.unsafeGet
+  private val remoteFs  = FlinkInterpreter.unsafeRemoteFs.unsafeGet
+
+  // actor state
   private var curSessDef: Option[SessionDef]         = None
   private var sqlExecutor: Option[SerialSqlExecutor] = None
 

@@ -4,6 +4,7 @@ import akka.actor.typed.{RestartSupervisorStrategy, SupervisorStrategy}
 import potamoi.common.Syntax.toPrettyString
 import potamoi.flink.model.Fcid
 import potamoi.syntax.contra
+import potamoi.KryoSerializable
 import zio.{Duration, IO, Ref, Schedule, UIO}
 import zio.ZIO.{logDebug, logError}
 import zio.direct.*
@@ -42,6 +43,6 @@ package object tracker:
                       .forever
     } yield loopEffect
 
-  case object Ack
+  case object Ack extends KryoSerializable
 
   lazy val defaultTrackerFailoverStrategy: RestartSupervisorStrategy = SupervisorStrategy.restart.withLimit(10, 1.minutes)

@@ -1,6 +1,6 @@
 package potamoi.flink.model
 
-import potamoi.curTs
+import potamoi.{curTs, KryoSerializable}
 import potamoi.kubernetes.model.*
 import potamoi.kubernetes.model.ContainerStates.given
 import potamoi.kubernetes.model.PodPhases.given
@@ -58,6 +58,7 @@ case class FlinkK8sDeploymentSnap(
     updatedReplicas: Int,
     createTime: Long,
     ts: Long = curTs)
+    extends KryoSerializable
     derives JsonCodec:
   lazy val fcid = Fcid(clusterId, namespace)
 
@@ -76,6 +77,7 @@ case class FlinkK8sServiceSnap(
     isFlinkRestSvc: Boolean,
     createTime: Long,
     ts: Long = curTs)
+    extends KryoSerializable
     derives JsonCodec:
   lazy val fcid = Fcid(clusterId, namespace)
 
@@ -127,6 +129,7 @@ case class FlinkK8sPodSnap(
     createTime: Long,
     startTime: Option[Long],
     ts: Long = curTs)
+    extends KryoSerializable
     derives JsonCodec:
   lazy val fcid = Fcid(clusterId, namespace)
 
@@ -151,5 +154,6 @@ case class FlinkK8sPodMetrics(
     namespace: String,
     name: String,
     metrics: PodMetrics)
+    extends KryoSerializable
     derives JsonCodec:
   lazy val fcid = Fcid(clusterId, namespace)

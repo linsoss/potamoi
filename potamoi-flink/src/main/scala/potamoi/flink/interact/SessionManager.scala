@@ -16,9 +16,10 @@ import potamoi.flink.interpreter.FlinkInterpreterActor.*
 import potamoi.flink.storage.{FlinkDataStorage, InteractSessionStorage}
 import potamoi.flink.FlinkErr.AkkaErr
 import potamoi.zios.someOrFailUnion
-import zio.{IO, Task, UIO, ZIO}
+import zio.{durationInt, IO, Task, UIO, ZIO}
 import zio.ZIO.{fail, logDebug, logInfo, succeed, unit}
 import zio.ZIOAspect.annotated
+import zio.stream.ZStream
 
 /**
  * Flink interactive session manager.
@@ -29,6 +30,9 @@ trait SessionManager {
   def update(sessionId: String, sessionDef: InteractSessionDef): IO[UpdateSessionErr, Unit]
   def cancel(sessionId: String): IO[SessionOpErr, Unit]
   def close(sessionId: String): IO[SessionOpErr, Unit]
+
+  def listRemoteInterpreter(flinkVer: FlinkMajorVer): IO[AkkaErr, List[InterpreterNode]]
+  def listAllRemoteInterpreter: IO[AkkaErr, List[InterpreterNode]]
 
   def session: InteractSessionStorage.Query
 }
@@ -60,7 +64,7 @@ class SessionManagerImpl(
   override def create(sessionDef: InteractSessionDef, flinkVer: FlinkMajorVer): IO[CreateSessionErr, String] = {
     for {
       // check if the corresponding version of the remote interpreter is active.
-      isReady <- cradle.findReceptionist(FlinkInterpreter.ServiceKeys(flinkVer)).mapBoth(AkkaErr.apply, _.nonEmpty)
+      isReady <- listRemoteInterpreter(flinkVer).map(_.nonEmpty)
       _       <- ZIO.fail(RemoteInterpreterNotYetLaunch(flinkVer)).when(!isReady)
 
       // send create session command to remote interpreter.
@@ -69,7 +73,8 @@ class SessionManagerImpl(
       _         <- dataStore.put(InteractSession(sessionId, flinkVer))
 
       _ <- logDebug("Call remote flink interactive session rpc command: Create(updateConflict=false)")
-      _ <- interpreters(flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = false, _)).mapError(AkkaErr.apply)
+//      _ <- interpreters(flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = false, _)).mapError(AkkaErr.apply)
+      _ <- interpreters(flinkVer)(sessionId).tellZIO(Start(sessDef, updateConflict = false, cradle.system.ignoreRef)).mapError(AkkaErr.apply)
     } yield sessionId
   }
 
@@ -138,4 +143,35 @@ class SessionManagerImpl(
       } yield ()
     effect @@ annotated("sessionId" -> sessionId)
   }
+
+  /**
+   * List remote interpreter of the given flink version.
+   */
+  override def listRemoteInterpreter(flinkVer: FlinkMajorVer): IO[AkkaErr, List[InterpreterNode]] = {
+    cradle
+      .findReceptionist(FlinkInterpreter.ServiceKeys(flinkVer), timeout = Some(15.seconds))
+      .mapBoth(
+        AkkaErr.apply,
+        { set =>
+          set.map { actorRef =>
+            InterpreterNode(
+              flinkVer = flinkVer,
+              host = actorRef.path.address.host,
+              port = actorRef.path.address.port,
+              actorPath = actorRef.path.toString)
+          }.toList
+        })
+  }
+
+  /**
+   * List all remote interpreter.
+   */
+  override def listAllRemoteInterpreter: IO[AkkaErr, List[InterpreterNode]] = {
+    ZIO
+      .foreachPar(FlinkMajorVer.values)(listRemoteInterpreter)
+      .map { rs =>
+        rs.foldLeft(List.empty[InterpreterNode]) { (acc, list) => acc ++ list }
+      }
+  }
+
 }

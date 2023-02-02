@@ -10,6 +10,7 @@ import akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySe
 import potamoi.akka.actors.*
 import potamoi.akka.behaviors.onFailure
 import potamoi.syntax.contra
+import potamoi.KryoSerializable
 import zio.{Duration, IO}
 
 import scala.jdk.CollectionConverters.*

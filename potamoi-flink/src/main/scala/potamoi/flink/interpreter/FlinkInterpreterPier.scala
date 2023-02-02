@@ -26,7 +26,7 @@ object FlinkInterpreterPier {
       logConf     <- ZIO.service[LogConf]
       flinkConf   <- ZIO.service[FlinkConf]
       remoteFs    <- ZIO.service[RemoteFsOperator]
-      interpreter <- actorCradle.spawn(s"flink-interpreter-mgr-${flinkVer.seq}", FlinkInterpreter(flinkVer, logConf, flinkConf, remoteFs))
+      interpreter <- actorCradle.spawn(s"flink-interpreter-proxy-${flinkVer.seq}", FlinkInterpreter(flinkVer, logConf, flinkConf, remoteFs))
     } yield interpreter
 
   /**
@@ -40,23 +40,32 @@ object FlinkInterpreterPier {
 
 object FlinkInterpreter extends ShardingProxy[String, FlinkInterpreterActor.Cmd] {
 
+  private var logConfInstance: Option[LogConf]           = None
+  private var remoteFsInstance: Option[RemoteFsOperator] = None
+
+  private[interpreter] def unsafeLogConf: Option[LogConf]           = logConfInstance
+  private[interpreter] def unsafeRemoteFs: Option[RemoteFsOperator] = remoteFsInstance
+
   val ServiceKeys: Map[FlinkMajorVer, ServiceKey[FlinkInterpreter.Req]] =
-    FlinkMajorVer.values.map(ver => ver -> ServiceKey[Req](s"flink-interpreter-pod-$ver")).toMap
+    FlinkMajorVer.values.map(ver => ver -> ServiceKey[Req](s"flink-interpreter-svc-$ver")).toMap
 
   def apply(
       flinkVer: FlinkMajorVer,
       logConf: LogConf,
       flinkConf: FlinkConf,
-      remoteFs: RemoteFsOperator): Behavior[Req] =
+      remoteFs: RemoteFsOperator): Behavior[Req] = {
+    logConfInstance = Some(logConf)
+    remoteFsInstance = Some(remoteFs)
     behavior(
       entityKey = EntityTypeKey[FlinkInterpreterActor.Cmd](s"flink-interpreter-${flinkVer.seq}"),
       marshallKey = identity,
       unmarshallKey = identity,
-      createBehavior = sessionId => FlinkInterpreterActor(sessionId, logConf, remoteFs),
+      createBehavior = sessionId => FlinkInterpreterActor(sessionId),
       stopMessage = Some(FlinkInterpreterActor.Terminate),
       bindRole = Some(flinkVer.nodeRole),
       passivation = Some(PassivationStrategySettings.defaults.withIdleEntityPassivation(flinkConf.sqlInteract.maxIdleTimeout)),
       serviceKeyRegister = Some(ServiceKeys(flinkVer)) -> Some(flinkVer.nodeRole)
     )
+  }
 
 }

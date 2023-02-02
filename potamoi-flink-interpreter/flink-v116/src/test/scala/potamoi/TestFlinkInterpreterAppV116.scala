@@ -3,10 +3,11 @@ package potamoi
 import potamoi.akka.{ActorCradle, AkkaConf}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf}
+import potamoi.flink.storage.FlinkDataStorage
 import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator}
 import potamoi.fs.refactor.backend.S3FsMirrorBackend
 import potamoi.fs.S3FsBackendConfDev
-import potamoi.logger.{LogConf, PotaLogger}
+import potamoi.logger.{LogConf, LogsLevel, PotaLogger}
 import potamoi.zios.asLayer
 import zio.{Scope, ZLayer}
 
@@ -15,7 +16,7 @@ import zio.{Scope, ZLayer}
  */
 object TestFlinkInterpreterAppV116 extends FlinkInterpBootstrap(FlinkMajorVer.V116):
 
-  override val bootstrap = PotaLogger.default
+  override val bootstrap = PotaLogger.layer(LogsLevel.Debug)
 
   override val run = program.provide(
     HoconConfig.empty,
@@ -23,7 +24,7 @@ object TestFlinkInterpreterAppV116 extends FlinkInterpBootstrap(FlinkMajorVer.V1
     BaseConf.test,
     S3FsBackendConfDev.asLayer,
     S3FsMirrorBackend.live,
-    AkkaConf.localCluster(3315, List(3300), List(FlinkMajorVer.V115.nodeRole)),
+    AkkaConf.localCluster(3316, List(3300, 3316), List(FlinkMajorVer.V116.nodeRole)),
     ActorCradle.live,
     FlinkConf.test,
     FlinkInterpConf.default,

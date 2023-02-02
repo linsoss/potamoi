@@ -219,3 +219,4 @@ def flinkDeps(version: String) = Seq(
 def flinkLibExcludes(moduleId: ModuleID) = moduleId
   .exclude("org.slf4j", "slf4j-api")
   .exclude("commons-logging", "commons-logging")
+  .exclude("com.esotericsoftware.kryo", "kryo")

@@ -2,6 +2,7 @@ package potamoi.flink.model
 
 import zio.json.JsonCodec
 import FlinkTargetTypes.given_JsonCodec_FlinkTargetType
+import potamoi.KryoSerializable
 
 /**
  * Flink cluster overview.
@@ -16,6 +17,7 @@ case class FlinkClusterOverview(
     slotsAvailable: Int,
     jobs: JobsStats,
     ts: Long)
+    extends KryoSerializable
     derives JsonCodec:
   lazy val fcid = Fcid(clusterId, namespace)
 

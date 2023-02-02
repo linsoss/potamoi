@@ -1,11 +1,12 @@
 package potamoi.flink.model
 
+import potamoi.KryoSerializable
 import zio.json.JsonCodec
 
 /**
  * Unique flink cluster identifier under the same kubernetes cluster.
  */
-case class Fcid(clusterId: String, namespace: String) derives JsonCodec:
+case class Fcid(clusterId: String, namespace: String) extends KryoSerializable derives JsonCodec:
   def toAnno       = Array("flink.clusterId" -> clusterId, "flink.namespace" -> namespace)
   def show: String = s"clusterId=$clusterId, namespace=$namespace"
 
@@ -15,7 +16,7 @@ object Fcid:
 /**
  * Unique flink job identifier under the same kubernetes cluster.
  */
-case class Fjid(clusterId: String, namespace: String, jobId: String) derives JsonCodec:
+case class Fjid(clusterId: String, namespace: String, jobId: String) extends KryoSerializable derives JsonCodec:
   lazy val fcid: Fcid               = Fcid(clusterId, namespace)
   def belongTo(fcid: Fcid): Boolean = fcid.clusterId == clusterId && fcid.namespace == namespace
   def toAnno                        = Array("flink.clusterId" -> clusterId, "flink.namespace" -> namespace, "flink.jobId" -> jobId)
@@ -26,7 +27,7 @@ object Fjid:
 /**
  * Unique flink taskmanager identifier under the same kubernetes cluster.
  */
-case class Ftid(clusterId: String, namespace: String, tmId: String) derives JsonCodec:
+case class Ftid(clusterId: String, namespace: String, tmId: String) extends KryoSerializable derives JsonCodec:
   lazy val fcid: Fcid      = Fcid(clusterId, namespace)
   def belongTo(fcid: Fcid) = fcid.clusterId == clusterId && fcid.namespace == namespace
 

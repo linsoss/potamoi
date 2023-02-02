@@ -1,6 +1,6 @@
 package potamoi.flink.model
 
-import potamoi.curTs
+import potamoi.{curTs, KryoSerializable}
 import potamoi.flink.model.JobStates.given_JsonCodec_JobState
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 
@@ -17,6 +17,7 @@ case class FlinkJobOverview(
     endTs: Long,
     tasks: TaskStats,
     ts: Long)
+    extends KryoSerializable
     derives JsonCodec:
 
   lazy val fjid: Fjid  = Fjid(clusterId, namespace, jobId)
@@ -34,6 +35,7 @@ case class TaskStats(
     failed: Int,
     reconciling: Int,
     initializing: Int)
+    extends KryoSerializable
     derives JsonCodec
 
 /**

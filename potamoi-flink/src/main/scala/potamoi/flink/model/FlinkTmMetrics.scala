@@ -1,6 +1,6 @@
 package potamoi.flink.model
 
-import potamoi.curTs
+import potamoi.{curTs, KryoSerializable}
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 /**
@@ -46,7 +46,9 @@ case class FlinkTmMetrics(
     jvmMemoryNonHeapMax: Option[Long] = None,
     jvmMemoryNonHeapUsed: Option[Long] = None,
     jvmThreadsCount: Option[Long] = None,
-    ts: Long = curTs) derives JsonCodec
+    ts: Long = curTs)
+    extends KryoSerializable
+    derives JsonCodec
 
 object FlinkTmMetrics:
 

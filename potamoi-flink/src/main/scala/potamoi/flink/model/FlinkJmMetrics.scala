@@ -1,6 +1,6 @@
 package potamoi.flink.model
 
-import potamoi.curTs
+import potamoi.{curTs, KryoSerializable}
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 /**
@@ -41,6 +41,7 @@ case class FlinkJmMetrics(
     taskSlotsAvailable: Option[Long] = None,
     taskSlotsTotal: Option[Long] = None,
     ts: Long = curTs)
+    extends KryoSerializable
     derives JsonCodec
 
 object FlinkJmMetrics:

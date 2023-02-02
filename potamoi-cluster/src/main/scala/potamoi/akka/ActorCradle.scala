@@ -13,6 +13,7 @@ import zio.{durationInt, Duration, IO, Scope, Task, URIO, ZIO, ZLayer}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContextExecutor
+import scala.jdk.CollectionConverters.*
 
 /**
  * Typed actor system wrapper.
@@ -31,6 +32,10 @@ object ActorCradle extends EarlyLoad[ActorCradle]:
                       .tapErrorCause(ZIO.logErrorCause("Failed to terminate actor system", _))
                       .ignore
                   }
+      _        <- ZIO
+                    .attempt(system.settings.config.getStringList("akka.cluster.roles").asScala.mkString(","))
+                    .flatMap(s => ZIO.logInfo(s"Actor system roles: $s"))
+                    .ignore
     } yield ActorCradle(akkaConf, system)
   }.tapErrorCause(ZIO.logErrorCause("Failed to create actor system", _))
 
@@ -79,12 +84,13 @@ class ActorCradle(akkaConf: AkkaConf, val system: ActorSystem[ActorCradleActor.E
   /**
    * Find receptionist from system.
    */
-  def findReceptionist[U](key: ServiceKey[U], includeUnreachable: Boolean = false): IO[ActorOpErr, Set[ActorRef[U]]] = {
+  def findReceptionist[U](
+      key: ServiceKey[U],
+      includeUnreachable: Boolean = false,
+      timeout: Option[Duration] = None): IO[ActorOpErr, Set[ActorRef[U]]] = {
     system.receptionist
-      .askZIO(Receptionist.Find(key))
-      .map { listing =>
-        if includeUnreachable then listing.allServiceInstances(key) else listing.serviceInstances(key)
-      }
+      .askZIO(Receptionist.Find(key), timeout)
+      .map { listing => if includeUnreachable then listing.allServiceInstances(key) else listing.serviceInstances(key) }
   }
 
 /**

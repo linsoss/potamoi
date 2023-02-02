@@ -7,6 +7,7 @@ import akka.cluster.ddata.Replicator.{GetResponse, UpdateResponse}
 import akka.cluster.ddata.typed.scaladsl.{DistributedData, Replicator}
 import potamoi.akka.actors.*
 import potamoi.akka.behaviors.*
+import potamoi.KryoSerializable
 import zio.{Duration, IO}
 
 /**

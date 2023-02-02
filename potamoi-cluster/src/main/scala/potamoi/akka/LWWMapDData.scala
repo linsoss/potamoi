@@ -9,6 +9,7 @@ import akka.util.Timeout
 import potamoi.akka.actors.*
 import potamoi.akka.behaviors.*
 import potamoi.times.given_Conversion_ScalaDuration_Timeout
+import potamoi.KryoSerializable
 import zio.{Duration, IO}
 
 /**
@@ -120,6 +121,7 @@ trait LWWMapDData[Key, Value](cacheId: String):
                   case ListKeys(reply)    => reply ! List.empty
                   case ListValues(reply)  => reply ! List.empty
                   case ListAll(reply)     => reply ! Map.empty
+                  case Select(_, reply)   => reply ! List.empty
                   case Size(reply)        => reply ! 0
               case _                                            => ctx.log.error(s"Get data replica failed: ${rsp.toString}")
             }
