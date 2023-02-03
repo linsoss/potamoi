@@ -22,6 +22,7 @@ case class AkkaConf(
     @name("seed-addresses") seedAddresses: List[String] = List.empty,
     @name("node-roles") nodeRoles: List[String] = List.empty,
     @name("log-generated-config") logGeneratedConfig: Boolean = false,
+    @name("dead-letter-log-freq") deadLettersLogFreq: Int = 3,
     @name("default-spawn-timeout") defaultSpawnTimeout: Duration = 30.seconds,
     @name("default-ask-timeout") defaultAskTimeout: Duration = 1.minutes,
     @name("default-ddata") defaultDDataConf: DDataConf = DDataConf())
@@ -51,7 +52,7 @@ case class AkkaConf(
        |    downing-provider-class = "akka.cluster.sbr.SplitBrainResolverProvider"
        |  }
        |  coordinated-shutdown.exit-jvm = on
-       |  log-dead-letters = 3
+       |  log-dead-letters = ${deadLettersLogFreq}
        |}
        |""".stripMargin
       .split("\n")

@@ -131,8 +131,9 @@ object ActorMatrixActor {
 
   def apply(): Behavior[Event] = Behaviors.setup { ctx =>
     ctx.log.info("Potamoi ActorCradle started.")
+
+    ctx.spawnAnonymous(PlaceholderDData())
     val cluster = Cluster(ctx.system)
-    cluster.manager
 
     Behaviors.receiveMessage {
       case Spawn(behavior, name, props, reply) =>
@@ -162,4 +163,7 @@ object ActorMatrixActor {
         Behaviors.same
     }
   }
+
+  private object PlaceholderDData extends ORSetDData[Long]("placeholder"):
+    def apply() = behavior(DDataConf.default)
 }

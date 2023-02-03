@@ -1,7 +1,7 @@
 package potamoi.flink.interpreter
 
 import potamoi.{BaseConf, HoconConfig}
-import potamoi.akka.{AkkaMatrix, AkkaConf}
+import potamoi.akka.{AkkaConf, AkkaMatrix, DDataConf, ORSetDData}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator}
 import potamoi.logger.{LogConf, PotaLogger}
@@ -20,19 +20,19 @@ abstract class FlinkInterpBootstrap(flinkVer: FlinkMajorVer) extends ZIOAppDefau
   override val bootstrap = LogConf.live >>> PotaLogger.live
 
   def program = for {
-    _           <- logInfo(s"Flink interpreter launching, flink-version: ${flinkVer.value}")
+    _          <- logInfo(s"Flink interpreter launching, flink-version: ${flinkVer.value}")
     // active akka actor system
-    interpConf  <- ZIO.service[FlinkInterpConf]
-    _           <- AkkaMatrix.active
-    interpreter <- FlinkInterpreterPier.active(flinkVer)
+    interpConf <- ZIO.service[FlinkInterpConf]
+    _          <- AkkaMatrix.active
+    _          <- FlinkInterpreterPier.active(flinkVer)
     // launch health http api
-    _           <- Server
-                     .serve(healthApi)
-                     .provide(
-                       ServerConfig.live ++ ServerConfig.live.project(_.binding(InetSocketAddress(interpConf.httpPort))),
-                       Server.live
-                     )
-    _           <- ZIO.never
+    _          <- Server
+                    .serve(healthApi)
+                    .provide(
+                      ServerConfig.live ++ ServerConfig.live.project(_.binding(InetSocketAddress(interpConf.httpPort))),
+                      Server.live
+                    )
+    _          <- ZIO.never
   } yield ()
 
   lazy val healthApi = Http.collectHttp[Request] {
@@ -52,3 +52,7 @@ abstract class FlinkInterpBootstrap(flinkVer: FlinkMajorVer) extends ZIOAppDefau
     FlinkInterpConf.live,
     Scope.default
   )
+
+object EmptyDData extends ORSetDData[Int]("empty") {
+  def apply() = behavior(DDataConf.default)
+}
