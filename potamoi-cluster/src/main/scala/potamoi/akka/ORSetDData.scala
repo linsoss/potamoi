@@ -44,7 +44,7 @@ trait ORSetDData[Value](cacheId: String):
     val readConsistency           = conf.readConsistency
     given node: SelfUniqueAddress = DistributedData(ctx.system).selfUniqueAddress
 
-    ctx.log.info(s"ORSet DData [$cacheId] started.")
+    if conf.logSetupInfo then ctx.log.info(s"ORSet DData [$cacheId] started.")
 
     DistributedData.withReplicatorMessageAdapter[Req, ORSet[Value]] { replicator =>
 

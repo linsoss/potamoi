@@ -12,8 +12,9 @@ import zio.{Duration, IO, UIO, ZIO}
 
 import scala.annotation.targetName
 import scala.reflect.ClassTag
+import scala.util.Try
 
-case class ActorOpErr(actorPath: String, cause: Throwable) extends PotaErr
+case class ActorOpErr(actorPath: String, message: String = "", cause: Throwable) extends PotaErr
 
 /**
  * Actor operation extension.
@@ -34,16 +35,35 @@ object ActorOpExtension:
     inline def tellZIO(message: U): IO[ActorOpErr, Unit] = {
       ZIO
         .attempt(actor.tell(message))
-        .mapError(err => ActorOpErr(actor.path.toString, err))
+        .mapError { err =>
+          ActorOpErr(
+            actorPath = actor.path.toString,
+            message = Try(message.toString()).getOrElse(""),
+            cause = err
+          )
+        }
     }
 
     /**
      * Ask with zio.
      */
-    inline def askZIO[Res](reply: ActorRef[Res] => U, timeout: Option[Duration] = None)(using matrix: AkkaMatrix): IO[ActorOpErr, Res] = {
+    inline def askZIO[Res](
+        reply: ActorRef[Res] => U,
+        timeout: Option[Duration] = None
+      )(using matrix: AkkaMatrix): IO[ActorOpErr, Res] = {
+
       val askTimeout = timeout.map(given_Conversion_ZIODuration_Timeout).getOrElse(matrix.askTimeout)
-      ZIO
+      val askEffect  = ZIO
         .fromFutureInterrupt { implicit ec => actor.ask[Res](reply)(askTimeout, matrix.scheduler) }
-        .mapError(err => ActorOpErr(actor.path.toString, err))
+        .mapError { err =>
+          ActorOpErr(
+            actorPath = actor.path.toString,
+            message = Try(reply(null).toString).getOrElse(""),
+            cause = err
+          )
+        }
+      ZIO.blocking(askEffect)
     }
+
   }
+

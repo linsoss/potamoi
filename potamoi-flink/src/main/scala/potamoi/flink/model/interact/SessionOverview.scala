@@ -1,5 +1,6 @@
 package potamoi.flink.model.interact
 
+import potamoi.KryoSerializable
 import zio.json.JsonCodec
 
 /**
@@ -10,4 +11,5 @@ case class SessionOverview(
     isStarted: Boolean,
     isBusy: Boolean,
     sessionDef: Option[SessionDef])
+    extends KryoSerializable
     derives JsonCodec

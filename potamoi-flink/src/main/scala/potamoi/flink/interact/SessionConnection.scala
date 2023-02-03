@@ -3,7 +3,7 @@ package potamoi.flink.interact
 import akka.actor.typed.ActorRef
 import cats.instances.unit
 import potamoi.{uuids, PotaErr}
-import potamoi.akka.{AkkaMatrix, ActorOpErr}
+import potamoi.akka.*
 import potamoi.flink.{FlinkConf, FlinkErr, FlinkInteractErr, FlinkMajorVer}
 import potamoi.flink.interact.SessionConnection.*
 import potamoi.flink.interpreter.FlinkInterpreter
@@ -78,8 +78,8 @@ class SessionConnectionImpl(
    */
   override def completeSql(sql: String): IO[AttachSessionErr, List[String]] = annoTag {
     interpreter(sessionId)
-      .askZIO(CompleteSql(sql, sql.length, _))
-      .mapError(AkkaErr.apply)
+      .askZIO[EitherPack[SessionNotYetStarted, List[String]]](CompleteSql(sql, sql.length, _))
+      .mapBoth(AkkaErr.apply, _.value)
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Right(v: List[String])        => succeed(v)
@@ -91,8 +91,8 @@ class SessionConnectionImpl(
    */
   override def completeSql(sql: String, position: Int): IO[AttachSessionErr, List[String]] = annoTag {
     interpreter(sessionId)
-      .askZIO(CompleteSql(sql, position, _))
-      .mapError(AkkaErr.apply)
+      .askZIO[EitherPack[SessionNotYetStarted, List[String]]](CompleteSql(sql, position, _))
+      .mapBoth(AkkaErr.apply, _.value)
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Right(v: List[String])        => succeed(v)
@@ -105,8 +105,8 @@ class SessionConnectionImpl(
   override def submitSqlAsync(sql: String): IO[AttachSessionErr, HandleId] = annoTag {
     succeed(uuids.genUUID16).tap(handleId =>
       interpreter(sessionId)
-        .askZIO(SubmitSqlAsync(sql, handleId, _))
-        .mapError(AkkaErr.apply)
+        .askZIO[EitherPack[SessionNotYetStarted, Ack.type]](SubmitSqlAsync(sql, handleId, _))
+        .mapBoth(AkkaErr.apply, _.value)
         .flatMap {
           case Left(e: SessionNotYetStarted) => fail(e)
           case Right(_)                      => ZIO.unit
@@ -119,8 +119,8 @@ class SessionConnectionImpl(
   override def submitSqlScriptAsync(
       sqlScript: String): IO[SubmitScriptErr, List[ScripSqlSign]] = annoTag {
     interpreter(sessionId)
-      .askZIO(SubmitSqlScriptAsync(sqlScript, _))
-      .mapError(AkkaErr.apply)
+      .askZIO[EitherPack[InternalSubmitScriptErr, List[ScripSqlSign]]](SubmitSqlScriptAsync(sqlScript, _))
+      .mapBoth(AkkaErr.apply, _.value)
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Left(e: FailToSplitSqlScript) => fail(e)
@@ -176,8 +176,8 @@ class SessionConnectionImpl(
   override def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[AttachHandleErr, Option[SqlResultPageView]] =
     annoTag {
       interpreter(sessionId)
-        .askZIO(RetrieveResultPage(handleId, page, pageSize, _))
-        .mapError(AkkaErr.apply)
+        .askZIO[EitherPack[InternalAttachHandleErr, Option[SqlResultPageView]]](RetrieveResultPage(handleId, page, pageSize, _))
+        .mapBoth(AkkaErr.apply, _.value)
         .flatMap {
           case Left(e: SessionNotYetStarted)       => fail(e)
           case Left(e: SessionHandleNotFound)      => fail(e)
@@ -191,8 +191,8 @@ class SessionConnectionImpl(
   override def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[AttachHandleErr, Option[SqlResultOffsetView]] =
     annoTag {
       interpreter(sessionId)
-        .askZIO(RetrieveResultOffset(handleId, offset, chunkSize, _))
-        .mapError(AkkaErr.apply)
+        .askZIO[EitherPack[InternalAttachHandleErr, Option[SqlResultOffsetView]]](RetrieveResultOffset(handleId, offset, chunkSize, _))
+        .mapBoth(AkkaErr.apply, _.value)
         .flatMap {
           case Left(e: SessionNotYetStarted)         => fail(e)
           case Left(e: SessionHandleNotFound)        => fail(e)
@@ -230,8 +230,8 @@ class SessionConnectionImpl(
    */
   override def listHandleId: IO[AttachSessionErr, List[HandleId]] = annoTag {
     interpreter(sessionId)
-      .askZIO(ListHandleId.apply)
-      .mapError(AkkaErr.apply)
+      .askZIO[EitherPack[SessionNotYetStarted, List[String]]](ListHandleId.apply)
+      .mapBoth(AkkaErr.apply, _.value)
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Right(v: List[String])        => succeed(v)
@@ -243,8 +243,8 @@ class SessionConnectionImpl(
    */
   override def listHandleStatus: IO[AttachSessionErr, List[HandleStatusView]] = annoTag {
     interpreter(sessionId)
-      .askZIO(ListHandleStatus.apply)
-      .mapError(AkkaErr.apply)
+      .askZIO[EitherPack[SessionNotYetStarted, List[HandleStatusView]]](ListHandleStatus.apply)
+      .mapBoth(AkkaErr.apply, _.value)
       .flatMap {
         case Left(e: SessionNotYetStarted)    => fail(e)
         case Right(v: List[HandleStatusView]) => succeed(v)
@@ -256,8 +256,8 @@ class SessionConnectionImpl(
    */
   override def listHandleFrame: IO[AttachSessionErr, List[HandleFrame]] = annoTag {
     interpreter(sessionId)
-      .askZIO(ListHandleFrame.apply)
-      .mapError(AkkaErr.apply)
+      .askZIO[EitherPack[SessionNotYetStarted, List[HandleFrame]]](ListHandleFrame.apply)
+      .mapBoth(AkkaErr.apply, _.value)
       .flatMap {
         case Left(e: SessionNotYetStarted) => fail(e)
         case Right(v: List[HandleFrame])   => succeed(v)
@@ -270,8 +270,8 @@ class SessionConnectionImpl(
   override def getHandleStatus(handleId: String): IO[AttachHandleErr, HandleStatusView] =
     annoTag {
       interpreter(sessionId)
-        .askZIO(GetHandleStatus(handleId, _))
-        .mapError(AkkaErr.apply)
+        .askZIO[EitherPack[InternalAttachHandleErr, HandleStatusView]](GetHandleStatus(handleId, _))
+        .mapBoth(AkkaErr.apply, _.value)
         .flatMap {
           case Left(e: SessionNotYetStarted)  => fail(e)
           case Left(e: SessionHandleNotFound) => fail(e)
@@ -285,8 +285,8 @@ class SessionConnectionImpl(
   override def getHandleFrame(handleId: String): IO[AttachHandleErr, HandleFrame] =
     annoTag {
       interpreter(sessionId)
-        .askZIO(GetHandleFrame(handleId, _))
-        .mapError(AkkaErr.apply)
+        .askZIO[EitherPack[InternalAttachHandleErr, HandleFrame]](GetHandleFrame(handleId, _))
+        .mapBoth(AkkaErr.apply, _.value)
         .flatMap {
           case Left(e: SessionNotYetStarted)  => fail(e)
           case Left(e: SessionHandleNotFound) => fail(e)
@@ -299,7 +299,7 @@ class SessionConnectionImpl(
    */
   override def overview: IO[AkkaErr, SessionOverview] = annoTag {
     interpreter(sessionId)
-      .askZIO(Overview.apply)
-      .mapError(AkkaErr.apply)
+      .askZIO[ValuePack[SessionOverview]](Overview.apply)
+      .mapBoth(AkkaErr.apply, _.value)
   }
 }

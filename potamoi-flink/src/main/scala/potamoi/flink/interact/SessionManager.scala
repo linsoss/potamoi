@@ -74,8 +74,7 @@ class SessionManagerImpl(
       _         <- dataStore.put(InteractSession(sessionId, flinkVer))
 
       _ <- logDebug("Call remote flink interactive session rpc command: Create(updateConflict=false)")
-//      _ <- interpreters(flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = false, _)).mapError(AkkaErr.apply)
-      _ <- interpreters(flinkVer)(sessionId).tellZIO(Start(sessDef, updateConflict = false, matrix.system.ignoreRef)).mapError(AkkaErr.apply)
+      _ <- interpreters(flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = false, _)).mapError(AkkaErr.apply)
     } yield sessionId
   }
 

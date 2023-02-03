@@ -1,6 +1,6 @@
 package potamoi
 
-import potamoi.akka.{AkkaMatrix, AkkaConf}
+import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf}
 import potamoi.flink.storage.FlinkDataStorage
@@ -16,7 +16,7 @@ import zio.{Scope, ZLayer}
  */
 object TestFlinkInterpreterAppV116 extends FlinkInterpBootstrap(FlinkMajorVer.V116):
 
-  override val bootstrap = PotaLogger.layer(LogsLevel.Debug)
+  override val bootstrap = PotaLogger.default
 
   override val run = program.provide(
     HoconConfig.empty,

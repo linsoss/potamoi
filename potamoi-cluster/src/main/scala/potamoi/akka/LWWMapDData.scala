@@ -52,7 +52,7 @@ trait LWWMapDData[Key, Value](cacheId: String):
     val readConsistency           = conf.readConsistency
     given node: SelfUniqueAddress = DistributedData(ctx.system).selfUniqueAddress
 
-    ctx.log.info(s"LWWMap DData [$cacheId] started.")
+    if conf.logSetupInfo then ctx.log.info(s"LWWMap DData [$cacheId] started.")
 
     DistributedData.withReplicatorMessageAdapter[Req, LWWMap[Key, Value]] { replicator =>
 

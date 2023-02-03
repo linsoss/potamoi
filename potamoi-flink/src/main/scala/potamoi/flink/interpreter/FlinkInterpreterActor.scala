@@ -3,7 +3,6 @@ package potamoi.flink.interpreter
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import potamoi.akka.zios.*
-import potamoi.common.Ack
 import potamoi.flink.{FlinkConf, FlinkInteractErr}
 import potamoi.flink.model.interact.*
 import potamoi.flink.FlinkInteractErr.*
@@ -12,6 +11,8 @@ import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.logger.LogConf
 import potamoi.options.unsafeGet
 import potamoi.KryoSerializable
+import potamoi.akka.*
+import potamoi.flink.model.{FlinkRuntimeMode, FlinkTargetType}
 import zio.{CancelableFuture, Schedule, Scope, ZIO}
 import zio.ZIO.{fail, succeed}
 
@@ -20,42 +21,41 @@ import zio.ZIO.{fail, succeed}
  */
 object FlinkInterpreterActor {
 
-  type Reply[E, A]             = ActorRef[Either[E, A]]
   type InternalSubmitScriptErr = (SessionNotYetStarted | FailToSplitSqlScript) with FlinkInteractErr
   type InternalAttachHandleErr = (SessionNotYetStarted | SessionHandleNotFound) with FlinkInteractErr
 
   sealed trait Cmd extends KryoSerializable
 
-  final case class Start(sessionDef: SessionDef, updateConflict: Boolean = false, reply: ActorRef[Ack.type]) extends Cmd
-  final case class Cancel(reply: ActorRef[Ack.type])                                                         extends Cmd
-  final case class Stop(reply: ActorRef[Ack.type])                                                           extends Cmd
+  final case class Start(sessionDef: SessionDef, updateConflict: Boolean = false, reply: ValueReply[Ack.type]) extends Cmd
+  final case class Cancel(reply: ValueReply[Ack.type])                                                         extends Cmd
+  final case class Stop(reply: ValueReply[Ack.type])                                                           extends Cmd
 
   case object Terminate extends Cmd
 
-  final case class CompleteSql(sql: String, position: Int, reply: Reply[SessionNotYetStarted, List[String]])          extends Cmd
-  final case class SubmitSqlAsync(sql: String, handleId: String, reply: Reply[SessionNotYetStarted, Ack.type])        extends Cmd
-  final case class SubmitSqlScriptAsync(sqlScript: String, reply: Reply[InternalSubmitScriptErr, List[ScripSqlSign]]) extends Cmd
+  final case class CompleteSql(sql: String, position: Int, reply: EitherReply[SessionNotYetStarted, List[String]])          extends Cmd
+  final case class SubmitSqlAsync(sql: String, handleId: String, reply: EitherReply[SessionNotYetStarted, Ack.type])        extends Cmd
+  final case class SubmitSqlScriptAsync(sqlScript: String, reply: EitherReply[InternalSubmitScriptErr, List[ScripSqlSign]]) extends Cmd
 
   final case class RetrieveResultPage(
       handleId: String,
       page: Int,
       pageSize: Int,
-      reply: Reply[InternalAttachHandleErr, Option[SqlResultPageView]])
+      reply: EitherReply[InternalAttachHandleErr, Option[SqlResultPageView]])
       extends Cmd
 
   final case class RetrieveResultOffset(
       handleId: String,
       offset: Long,
       chunkSize: Int,
-      reply: Reply[InternalAttachHandleErr, Option[SqlResultOffsetView]])
+      reply: EitherReply[InternalAttachHandleErr, Option[SqlResultOffsetView]])
       extends Cmd
 
-  final case class Overview(reply: ActorRef[SessionOverview])                                                 extends Cmd
-  final case class ListHandleId(reply: Reply[SessionNotYetStarted, List[String]])                             extends Cmd
-  final case class ListHandleStatus(reply: Reply[SessionNotYetStarted, List[HandleStatusView]])               extends Cmd
-  final case class ListHandleFrame(reply: Reply[SessionNotYetStarted, List[HandleFrame]])                     extends Cmd
-  final case class GetHandleStatus(handleId: String, reply: Reply[InternalAttachHandleErr, HandleStatusView]) extends Cmd
-  final case class GetHandleFrame(handleId: String, reply: Reply[InternalAttachHandleErr, HandleFrame])       extends Cmd
+  final case class Overview(reply: ValueReply[SessionOverview])                                                     extends Cmd
+  final case class ListHandleId(reply: EitherReply[SessionNotYetStarted, List[String]])                             extends Cmd
+  final case class ListHandleStatus(reply: EitherReply[SessionNotYetStarted, List[HandleStatusView]])               extends Cmd
+  final case class ListHandleFrame(reply: EitherReply[SessionNotYetStarted, List[HandleFrame]])                     extends Cmd
+  final case class GetHandleStatus(handleId: String, reply: EitherReply[InternalAttachHandleErr, HandleStatusView]) extends Cmd
+  final case class GetHandleFrame(handleId: String, reply: EitherReply[InternalAttachHandleErr, HandleFrame])       extends Cmd
 
   /**
    * Actor behavior.
@@ -93,18 +93,18 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
           sqlExecutor.foreach(_.stop.runPureSync)
           launchSqlExecutor(sessDef)
         }
-        reply ! Ack
+        reply ! pack(Ack)
         Behaviors.same
 
       case Stop(reply) =>
         sqlExecutor.foreach(_.stop.runPureSync)
         sqlExecutor = None
-        reply ! Ack
+        reply ! pack(Ack)
         Behaviors.stopped
 
       case Cancel(reply) =>
         sqlExecutor.foreach(_.cancel.runPureSync)
-        reply ! Ack
+        reply ! pack(Ack)
         Behaviors.same
 
       case Terminate =>
@@ -117,53 +117,56 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
           case None           => false -> false
           case Some(executor) => (executor.isStarted <&> executor.isBusy).runPureSync
         }
-        reply ! SessionOverview(sessionId, isStarted, isBusy, curSessDef)
+        reply ! pack(SessionOverview(sessionId, isStarted, isBusy, curSessDef))
         Behaviors.same
 
       case ListHandleId(reply) =>
-        sqlExecutor match
-          case None           => reply ! Left(SessionNotYetStarted(sessionId))
-          case Some(executor) => reply ! Right(executor.listHandleId.runPureSync)
+        val rs = sqlExecutor match
+          case None           => Left(SessionNotYetStarted(sessionId))
+          case Some(executor) => Right(executor.listHandleId.runPureSync)
+        reply ! packEither(rs)
         Behaviors.same
 
       case ListHandleStatus(reply) =>
-        sqlExecutor match
-          case None           => reply ! Left(SessionNotYetStarted(sessionId))
-          case Some(executor) => reply ! Right(executor.listHandleStatus.runPureSync)
+        val rs = sqlExecutor match
+          case None           => Left(SessionNotYetStarted(sessionId))
+          case Some(executor) => Right(executor.listHandleStatus.runPureSync)
+        reply ! packEither(rs)
         Behaviors.same
 
       case ListHandleFrame(reply) =>
-        sqlExecutor match
-          case None           => reply ! Left(SessionNotYetStarted(sessionId))
-          case Some(executor) => reply ! Right(executor.listHandleFrame.runPureSync)
+        val rs = sqlExecutor match
+          case None           => Left(SessionNotYetStarted(sessionId))
+          case Some(executor) => Right(executor.listHandleFrame.runPureSync)
+        reply ! packEither(rs)
         Behaviors.same
 
       case GetHandleStatus(handleId, reply) =>
         val rs = sqlExecutor match
           case None           => Left(SessionNotYetStarted(sessionId))
           case Some(executor) => executor.getHandleStatus(handleId).mapError(e => SessionHandleNotFound(sessionId, e.handleId)).runSync
-        reply ! rs
+        reply ! packEither(rs)
         Behaviors.same
 
       case GetHandleFrame(handleId, reply) =>
         val rs = sqlExecutor match
           case None           => Left(SessionNotYetStarted(sessionId))
           case Some(executor) => executor.getHandleFrame(handleId).mapError(e => SessionHandleNotFound(sessionId, e.handleId)).runSync
-        reply ! rs
+        reply ! packEither(rs)
         Behaviors.same
 
       case CompleteSql(sql, position, reply) =>
         val rs = sqlExecutor match
           case None           => Left(SessionNotYetStarted(sessionId))
           case Some(executor) => executor.completeSql(sql, position).map(Right(_)).runPureSync
-        reply ! rs
+        reply ! packEither(rs)
         Behaviors.same
 
       case SubmitSqlAsync(sql, handleId, reply) =>
         val rs = sqlExecutor match
           case None           => Left(SessionNotYetStarted(sessionId))
           case Some(executor) => executor.submitSqlAsync(sql, handleId).as(Ack).runSync
-        reply ! rs
+        reply ! packEither(rs)
         Behaviors.same
 
       case SubmitSqlScriptAsync(sqlScript, reply) =>
@@ -174,7 +177,7 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
               .submitSqlScriptAsync(sqlScript)
               .foldCauseZIO(cause => fail(FailToSplitSqlScript(cause.failures.head, cause.prettyPrint)), rs => succeed(rs.map(_._1)))
               .runSync
-        reply ! rs
+        reply ! packEither(rs)
         Behaviors.same
 
       case RetrieveResultPage(handleId, page, pageSize, reply) =>
@@ -187,7 +190,7 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
               .catchSome { case ResultNotFound(_) => succeed(None) }
               .orElseFail(SessionHandleNotFound(sessionId, handleId))
               .runSync
-        reply ! rs
+        reply ! packEither(rs)
         Behaviors.same
 
       case RetrieveResultOffset(handleId, offset, chunkSize, reply) =>
@@ -200,7 +203,7 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
               .catchSome { case ResultNotFound(_) => succeed(None) }
               .orElseFail(SessionHandleNotFound(sessionId, handleId))
               .runSync
-        reply ! rs
+        reply ! packEither(rs)
         Behaviors.same
 
     }
@@ -213,8 +216,9 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
 
   private def launchSqlExecutor(sessDef: SessionDef): Unit = {
     val executor = SerialSqlExecutor.create(sessionId, sessDef, remoteFs).runPureSync
-    executor.start.provideLayer(Scope.default).runSync
+    // question
     sqlExecutor = Some(executor)
+    (executor.start *> ZIO.never).provideLayer(Scope.default).runAsync
     curSessDef = Some(sessDef)
   }
 

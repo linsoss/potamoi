@@ -192,8 +192,6 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       .onInterrupt { _ =>
         ZIO.logInfo(s"Serial sql handle worker is interrupted, sessionId=$sessionId.") *> cancel
       }
-    // ensure Flink TableEnvironment work on the same Thread
-//      .onExecutionContext(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
   } @@ annotated("sessionId" -> sessionId)
 
   /**

@@ -1,6 +1,6 @@
 package potamoi.flink.model.interact
 
-import potamoi.codecs
+import potamoi.{codecs, KryoSerializable}
 import potamoi.common.ScalaVersion
 import potamoi.flink.model.{FlinkRuntimeMode, FlinkTargetType, InteractSupport}
 import potamoi.flink.model.interact.ResultDropStrategies.given

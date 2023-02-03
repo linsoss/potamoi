@@ -1,5 +1,7 @@
 package potamoi.flink.model.interact
 
+import potamoi.KryoSerializable
+
 /**
  * The flink sql execution results presented as nano offsets.
  */
@@ -7,6 +9,7 @@ case class SqlResultOffsetView(
     lastOffset: Long,
     hasNextRow: Boolean,
     payload: PlainSqlRs)
+    extends KryoSerializable
 
 object SqlResultOffsetView:
 

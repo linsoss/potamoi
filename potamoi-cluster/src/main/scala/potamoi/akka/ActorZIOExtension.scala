@@ -23,6 +23,10 @@ object ActorZIOExtension:
       zio.either
         .provide(logConf.asLayer, PotaLogger.live) @@ annotated(akkaSourceMdc -> ctx.self.path.toString)
     }
+
+    inline def runSyncUnion: E | A = runSync match
+      case Left(e)  => e
+      case Right(a) => a
   }
 
   extension [A](zio: UIO[A])(using ctx: ActorContext[_], logConf: LogConf) {

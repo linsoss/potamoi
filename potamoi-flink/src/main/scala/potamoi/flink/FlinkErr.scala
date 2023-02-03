@@ -1,6 +1,6 @@
 package potamoi.flink
 
-import potamoi.PotaErr
+import potamoi.{KryoSerializable, PotaErr}
 import potamoi.akka.ActorOpErr
 import potamoi.flink.FlinkInterpreterErr.{RetrieveResultNothing, SplitSqlScriptErr}
 import potamoi.flink.model.*
@@ -11,7 +11,7 @@ import scala.concurrent.duration.Duration
 /**
  * Flink error.
  */
-sealed trait FlinkErr extends PotaErr
+sealed trait FlinkErr extends PotaErr with KryoSerializable
 
 object FlinkErr:
 
@@ -96,7 +96,7 @@ object FlinkInteractErr:
 /**
  * Flink sql interpreter error.
  */
-sealed trait FlinkInterpreterErr extends PotaErr
+sealed trait FlinkInterpreterErr extends PotaErr with KryoSerializable
 
 object FlinkInterpreterErr:
   case class SplitSqlScriptErr(cause: Throwable) extends FlinkInterpreterErr

@@ -1,6 +1,6 @@
 package potamoi.flink.model.interact
 
-import potamoi.curTs
+import potamoi.{curTs, KryoSerializable}
 import potamoi.flink.FlinkInterpreterErr
 import zio.Cause
 
@@ -17,10 +17,11 @@ case class HandleFrame(
     jobId: Option[String] = None,
     result: Option[SqlResultView] = None,
     error: Option[HandleErr] = None)
+    extends KryoSerializable
 
 case class HandleErr(err: FlinkInterpreterErr, stack: String)
 
-case class HandleStatusView(handleId: String, status: HandleStatus, submitAt: Long)
+case class HandleStatusView(handleId: String, status: HandleStatus, submitAt: Long) extends KryoSerializable
 
 enum HandleStatus:
   case Wait

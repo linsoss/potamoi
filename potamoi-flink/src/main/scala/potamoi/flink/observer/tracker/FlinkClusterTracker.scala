@@ -221,7 +221,7 @@ class FlinkClusterTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
       isFromPotamoi = clusterConfig.exists(_ == InjectedDeploySourceConf)
       execType      = clusterConfig
                         .get(InjectedExecModeKey)
-                        .flatMap(e => FlinkTargetTypes.values.find(_.toString == e))
+                        .flatMap(e => FlinkTargetTypes.effectValues.find(_.toString == e))
                         .getOrElse(
                           FlinkTargetTypes.ofRawValue(clusterConfig.getOrElse("execution.target", "unknown")) match
                             case FlinkTargetType.Embedded => FlinkTargetType.K8sApplication

@@ -17,7 +17,8 @@ import scala.concurrent.duration.{Duration, DurationInt}
 case class DDataConf(
     @name("read-level") readLevel: DDataReadLevel = DDataReadLevel.Local,
     @name("write-level") writeLevel: DDataWriteLevel = DDataWriteLevel.Majority,
-    @name("replica-timeout") replicaTimeout: Duration = 30.seconds)
+    @name("replica-timeout") replicaTimeout: Duration = 30.seconds,
+    @name("log-setup-info") logSetupInfo: Boolean = true)
     derives JsonCodec:
 
   lazy val writeConsistency: Replicator.WriteConsistency = readLevel match {
@@ -33,7 +34,7 @@ case class DDataConf(
   }
 
 object DDataConf:
-  lazy val default = DDataConf()
+  lazy val default = DDataConf(logSetupInfo = false)
 
 /**
  * Akka distributed data write level.

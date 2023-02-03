@@ -10,26 +10,20 @@ import zio.json.JsonCodec
  * https://nightlies.apache.org/flink/flink-docs-master/docs/deployment/config/#execution-target
  */
 enum FlinkTargetType(val rawValue: String):
-  case Local                                extends FlinkTargetType("local") with InteractSupport
-  case Remote                               extends FlinkTargetType("remote") with InteractSupport
-  case Embedded                             extends FlinkTargetType("embedded")
-  case K8sSession                           extends FlinkTargetType("kubernetes-session") with DeploySupport
-  case K8sApplication                       extends FlinkTargetType("kubernetes-application") with DeploySupport
-  case Other(override val rawValue: String) extends FlinkTargetType(rawValue)
+  case Local           extends FlinkTargetType("local") with InteractSupport
+  case Remote          extends FlinkTargetType("remote") with InteractSupport
+  case Embedded        extends FlinkTargetType("embedded")
+  case K8sSession      extends FlinkTargetType("kubernetes-session") with DeploySupport
+  case K8sApplication  extends FlinkTargetType("kubernetes-application") with DeploySupport
+  case YarnSession     extends FlinkTargetType("yarn-session")
+  case YarnApplication extends FlinkTargetType("yarn-application")
+  case YarnPerJob      extends FlinkTargetType("yarn-per-job")
+  case Unknown         extends FlinkTargetType("unknown")
 
 object FlinkTargetTypes:
-  lazy val values: Array[FlinkTargetType] = Array(Local, Remote, Embedded, K8sSession, K8sApplication)
-
-  given JsonCodec[FlinkTargetType] =
-    codecs.stringBasedJsonCodec(
-      decode = s => values.find(_.toString == s).orElse(Some(Other(s))),
-      encode = _ match
-        case Other(rawValue) => rawValue
-        case mode            => mode.toString
-    )
-
-  def ofRawValue(raw: String): FlinkTargetType =
-    values.find(_.rawValue == raw).getOrElse(FlinkTargetType.Other(raw))
+  given JsonCodec[FlinkTargetType]             = codecs.simpleEnumJsonCodec(FlinkTargetType.values)
+  lazy val effectValues                        = Set(Local, Remote, Embedded, K8sSession, K8sApplication, YarnSession, YarnApplication, YarnPerJob)
+  def ofRawValue(raw: String): FlinkTargetType = values.find(_.rawValue == raw).getOrElse(Unknown)
 
 /**
  * Flink target types of interactive execution supported.
