@@ -45,9 +45,9 @@ object ZIOExtension {
 
     inline def debugPrettyWithTag(tag: String): ZIO[R, E, A] =
       zio
-        .tap(value => ZIO.succeed(println(s"<$tag> ${toPrettyString(value)}")))
+        .tap(value => ZIO.succeed(println(s"$tag: ${toPrettyString(value)}")))
         .tapErrorCause { case cause =>
-          ZIO.succeed(println(s"[$tag] <FAIL> ${cause.prettyPrint}"))
+          ZIO.succeed(println(s"<FAIL> $tag: ${cause.prettyPrint}"))
         }
 
     inline def repeatWhileWithSpaced(f: A => Boolean, spaced: Duration): ZIO[R, E, A] =
