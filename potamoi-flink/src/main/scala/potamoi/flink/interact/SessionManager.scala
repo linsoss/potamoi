@@ -2,7 +2,8 @@ package potamoi.flink.interact
 
 import akka.actor.typed.ActorRef
 import potamoi.{uuids, PotaErr}
-import potamoi.akka.{AkkaMatrix, ActorOpErr}
+import potamoi.akka.{ActorOpErr, AkkaMatrix}
+import potamoi.cluster.Address
 import potamoi.flink.*
 import potamoi.flink.model.interact.*
 import potamoi.flink.model.FlinkTargetType
@@ -31,8 +32,8 @@ trait SessionManager {
   def cancel(sessionId: String): IO[SessionOpErr, Unit]
   def close(sessionId: String): IO[SessionOpErr, Unit]
 
-  def listRemoteInterpreter(flinkVer: FlinkMajorVer): IO[AkkaErr, List[InterpreterNode]]
-  def listAllRemoteInterpreter: IO[AkkaErr, List[InterpreterNode]]
+  def listRemoteInterpreter(flinkVer: FlinkMajorVer): IO[AkkaErr, Set[InterpreterNode]]
+  def listAllRemoteInterpreter: IO[AkkaErr, Set[InterpreterNode]]
 
   def session: InteractSessionStorage.Query
 }
@@ -147,31 +148,23 @@ class SessionManagerImpl(
   /**
    * List remote interpreter of the given flink version.
    */
-  // todo refactor with cluster member
-  override def listRemoteInterpreter(flinkVer: FlinkMajorVer): IO[AkkaErr, List[InterpreterNode]] = {
+  override def listRemoteInterpreter(flinkVer: FlinkMajorVer): IO[AkkaErr, Set[InterpreterNode]] = {
     matrix
       .findReceptionist(FlinkInterpreter.ServiceKeys(flinkVer), timeout = Some(15.seconds))
       .mapBoth(
         AkkaErr.apply,
-        { set =>
-          set.map { actorRef =>
-            InterpreterNode(
-              flinkVer = flinkVer,
-              host = actorRef.path.address.host,
-              port = actorRef.path.address.port,
-              actorPath = actorRef.path.toString)
-          }.toList
-        })
+        { set => set.map { actorRef => InterpreterNode(flinkVer, Address(actorRef.path.address), actorRef.path.toString) } }
+      )
   }
 
   /**
    * List all remote interpreter.
    */
-  override def listAllRemoteInterpreter: IO[AkkaErr, List[InterpreterNode]] = {
+  override def listAllRemoteInterpreter: IO[AkkaErr, Set[InterpreterNode]] = {
     ZIO
       .foreachPar(FlinkMajorVer.values)(listRemoteInterpreter)
       .map { rs =>
-        rs.foldLeft(List.empty[InterpreterNode]) { (acc, list) => acc ++ list }
+        rs.foldLeft(Set.empty[InterpreterNode]) { (acc, list) => acc ++ list }
       }
   }
 

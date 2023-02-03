@@ -15,3 +15,5 @@ object NodeRoles:
    * number of flink, e.g. "flink-intr-116" for version 1.16.
    */
   def flinkInterpreter(majorVerSeq: Int) = s"flink-intr-$majorVerSeq"
+
+  def isFlinkInterpreter(role: String): Boolean = role.startsWith("flink-intr-")
