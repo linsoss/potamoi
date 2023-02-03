@@ -2,7 +2,7 @@ package potamoi.flink.interact
 
 import akka.actor.typed.ActorRef
 import potamoi.{uuids, PotaErr}
-import potamoi.akka.{ActorCradle, ActorOpErr}
+import potamoi.akka.{AkkaMatrix, ActorOpErr}
 import potamoi.flink.*
 import potamoi.flink.model.interact.*
 import potamoi.flink.model.FlinkTargetType
@@ -51,7 +51,7 @@ class SessionManagerImpl(
     observer: FlinkObserver,
     dataStore: InteractSessionStorage,
     interpreters: Map[FlinkMajorVer, ActorRef[FlinkInterpreter.Req]]
-  )(using cradle: ActorCradle)
+  )(using matrix: AkkaMatrix)
     extends SessionManager {
 
   private given FlinkRestEndpointType = flinkConf.restEndpointTypeInternal
@@ -74,7 +74,7 @@ class SessionManagerImpl(
 
       _ <- logDebug("Call remote flink interactive session rpc command: Create(updateConflict=false)")
 //      _ <- interpreters(flinkVer)(sessionId).askZIO(Start(sessDef, updateConflict = false, _)).mapError(AkkaErr.apply)
-      _ <- interpreters(flinkVer)(sessionId).tellZIO(Start(sessDef, updateConflict = false, cradle.system.ignoreRef)).mapError(AkkaErr.apply)
+      _ <- interpreters(flinkVer)(sessionId).tellZIO(Start(sessDef, updateConflict = false, matrix.system.ignoreRef)).mapError(AkkaErr.apply)
     } yield sessionId
   }
 
@@ -147,8 +147,9 @@ class SessionManagerImpl(
   /**
    * List remote interpreter of the given flink version.
    */
+  // todo refactor with cluster member
   override def listRemoteInterpreter(flinkVer: FlinkMajorVer): IO[AkkaErr, List[InterpreterNode]] = {
-    cradle
+    matrix
       .findReceptionist(FlinkInterpreter.ServiceKeys(flinkVer), timeout = Some(15.seconds))
       .mapBoth(
         AkkaErr.apply,

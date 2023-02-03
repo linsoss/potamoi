@@ -17,9 +17,9 @@ object BotApp1 extends ZIOAppDefault {
   override val bootstrap = PotaLogger.default
 
   val effect = for {
-    cradle           <- ZIO.service[ActorCradle]
-    given ActorCradle = cradle
-    ticker           <- cradle.spawn("bot-assign", BotAssign())
+    matrix           <- ZIO.service[AkkaMatrix]
+    given AkkaMatrix = matrix
+    ticker           <- matrix.spawn("bot-assign", BotAssign())
     _                <- ticker !> Proxy("t-1", Bot.Touch("hello world"))
     reply            <- ticker.?>[String](res => Proxy("t-1", Bot.Echo("hello world", res)))
     _                <- ZIO.logInfo(reply)
@@ -30,7 +30,7 @@ object BotApp1 extends ZIOAppDefault {
     Scope.default,
     HoconConfig.empty,
     AkkaConf.localCluster(3301, List(3301, 3302)),
-    ActorCradle.live
+    AkkaMatrix.live
   )
 
 }
@@ -40,8 +40,8 @@ object BotApp2 extends ZIOAppDefault {
   override val bootstrap = PotaLogger.default
 
   val effect = for {
-    cradle <- ZIO.service[ActorCradle]
-    _      <- cradle.spawn("bot-assign", BotAssign())
+    matrix <- ZIO.service[AkkaMatrix]
+    _      <- matrix.spawn("bot-assign", BotAssign())
     _      <- ZIO.never
   } yield ()
 
@@ -50,7 +50,7 @@ object BotApp2 extends ZIOAppDefault {
       Scope.default,
       HoconConfig.empty,
       AkkaConf.localCluster(3302, List(3301, 3302), List("ticker")),
-      ActorCradle.live
+      AkkaMatrix.live
     )
 }
 

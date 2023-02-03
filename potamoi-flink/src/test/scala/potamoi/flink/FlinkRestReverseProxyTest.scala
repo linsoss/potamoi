@@ -1,7 +1,7 @@
 package potamoi.flink
 
 import potamoi.{BaseConf, HoconConfig, NodeRoles}
-import potamoi.akka.{ActorCradle, AkkaConf}
+import potamoi.akka.{AkkaMatrix, AkkaConf}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.FlinkOperator
 import potamoi.flink.storage.FlinkDataStorage
@@ -43,7 +43,7 @@ object FlinkRestReverseProxyTest extends ZIOAppDefault:
       FlinkOperator.live,
       FlinkRestProxyProvider.live,
       AkkaConf.local(List(NodeRoles.flinkService)),
-      ActorCradle.live,
+      AkkaMatrix.live,
       Server.default,
       Client.default,
       Scope.default

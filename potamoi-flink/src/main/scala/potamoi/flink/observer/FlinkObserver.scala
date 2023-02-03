@@ -2,7 +2,7 @@ package potamoi.flink.observer
 
 import com.coralogix.zio.k8s.model.apps.v1.DeploymentSpec
 import com.coralogix.zio.k8s.model.core.v1.{PodSpec, ServiceSpec}
-import potamoi.akka.ActorCradle
+import potamoi.akka.AkkaMatrix
 import potamoi.flink.{FlinkConf, FlinkErr, FlinkRestEndpointRetriever}
 import potamoi.flink.model.{Fcid, Fjid, FlinkRestSvcEndpoint, FlinkSptTriggerStatus}
 import potamoi.flink.observer.query.*
@@ -30,12 +30,12 @@ trait FlinkObserver {
 
 object FlinkObserver extends EarlyLoad[FlinkObserver] {
 
-  val live: ZLayer[FlinkDataStorage with K8sOperator with ActorCradle with FlinkConf with LogConf, Throwable, FlinkObserver] =
+  val live: ZLayer[FlinkDataStorage with K8sOperator with AkkaMatrix with FlinkConf with LogConf, Throwable, FlinkObserver] =
     ZLayer {
       for {
         logConf           <- ZIO.service[LogConf]
         flinkConf         <- ZIO.service[FlinkConf]
-        actorCradle       <- ZIO.service[ActorCradle]
+        actorCradle       <- ZIO.service[AkkaMatrix]
         k8sOperator       <- ZIO.service[K8sOperator]
         snapStorage       <- ZIO.service[FlinkDataStorage]
         k8sClient         <- k8sOperator.client

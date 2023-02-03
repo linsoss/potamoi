@@ -2,7 +2,7 @@ package potamoi.flink.storage.mem
 
 import akka.actor.typed.Behavior
 import akka.cluster.ddata.LWWMap
-import potamoi.akka.{ActorCradle, DDataConf, LWWMapDData, ORSetDData}
+import potamoi.akka.{AkkaMatrix, DDataConf, LWWMapDData, ORSetDData}
 import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.*
 import potamoi.flink.storage.*
@@ -35,14 +35,14 @@ object K8sRefSnapMemStorage:
   private object ConfigmapNamesStg extends ORSetDData[K8sRsKey]("flink-k8s-configmap-names-stg"):
     def apply(): Behavior[Req] = behavior(DDataConf.default)
 
-  def make: ZIO[ActorCradle, Throwable, K8sRefSnapStorage] = for {
-    cradle           <- ZIO.service[ActorCradle]
-    deploySnapStg    <- cradle.spawn("flink-k8s-deploy-snap-store", DeploySnapStg())
-    svcSnapStg       <- cradle.spawn("flink-k8s-svc-snap-store", SvcSnapStg())
-    podSnapStg       <- cradle.spawn("flink-k8s-pod-snap-store", PodSnapStg())
-    podMetricsStg    <- cradle.spawn("flink-k8s-pod-metrics-store", PodMetricsStg())
-    configmapStg     <- cradle.spawn("flink-k8s-configmap-names-store", ConfigmapNamesStg())
-    given ActorCradle = cradle
+  def make: ZIO[AkkaMatrix, Throwable, K8sRefSnapStorage] = for {
+    matrix           <- ZIO.service[AkkaMatrix]
+    deploySnapStg    <- matrix.spawn("flink-k8s-deploy-snap-store", DeploySnapStg())
+    svcSnapStg       <- matrix.spawn("flink-k8s-svc-snap-store", SvcSnapStg())
+    podSnapStg       <- matrix.spawn("flink-k8s-pod-snap-store", PodSnapStg())
+    podMetricsStg    <- matrix.spawn("flink-k8s-pod-metrics-store", PodMetricsStg())
+    configmapStg     <- matrix.spawn("flink-k8s-configmap-names-store", ConfigmapNamesStg())
+    given AkkaMatrix = matrix
 
   } yield new K8sRefSnapStorage {
 

@@ -1,7 +1,7 @@
 package potamoi.flink.interact
 
 import potamoi.{uuids, EarlyLoad}
-import potamoi.akka.ActorCradle
+import potamoi.akka.AkkaMatrix
 import potamoi.flink.{FlinkConf, FlinkDataStoreErr, FlinkErr, FlinkMajorVer}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.storage.{FlinkDataStorage, InteractSessionStorage}
@@ -34,16 +34,16 @@ object FlinkSqlInteractor extends EarlyLoad[FlinkSqlInteractor] {
   override def active: URIO[FlinkSqlInteractor, Unit] = ZIO.service[FlinkSqlInteractor].unit
 
   val live: ZLayer[
-    RemoteFsOperator with FlinkConf with LogConf with ActorCradle with FlinkDataStorage with FlinkObserver,
+    RemoteFsOperator with FlinkConf with LogConf with AkkaMatrix with FlinkDataStorage with FlinkObserver,
     Throwable,
     FlinkSqlInteractor] = ZLayer {
     for {
-      actorCradle      <- ZIO.service[ActorCradle]
+      actorCradle      <- ZIO.service[AkkaMatrix]
       flinkConf        <- ZIO.service[FlinkConf]
       flinkObserver    <- ZIO.service[FlinkObserver]
       dataStore        <- ZIO.service[FlinkDataStorage].map(_.interact)
       interpreters     <- FlinkInterpreterPier.activeAll
-      given ActorCradle = actorCradle
+      given AkkaMatrix = actorCradle
 
     } yield new FlinkSqlInteractor {
       lazy val manager: SessionManager = SessionManagerImpl(flinkConf, flinkObserver, dataStore, interpreters)

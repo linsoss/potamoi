@@ -3,9 +3,11 @@ package potamoi.akka
 import com.typesafe.config.{Config, ConfigFactory}
 import potamoi.akka.AkkaConf.{when, wrapQuote}
 import potamoi.HoconConfig
+import potamoi.codecs.scalaDurationJsonCodec
 import zio.{UIO, ULayer, ZIO, ZLayer}
 import zio.config.{read, ReadError}
 import zio.config.magnolia.{descriptor, name}
+import zio.json.JsonCodec
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.jdk.CollectionConverters.*
@@ -22,7 +24,8 @@ case class AkkaConf(
     @name("log-generated-config") logGeneratedConfig: Boolean = false,
     @name("default-spawn-timeout") defaultSpawnTimeout: Duration = 30.seconds,
     @name("default-ask-timeout") defaultAskTimeout: Duration = 1.minutes,
-    @name("default-ddata") defaultDDataConf: DDataConf = DDataConf()):
+    @name("default-ddata") defaultDDataConf: DDataConf = DDataConf())
+    derives JsonCodec:
 
   /**
    * Convert to raw akka hocon configuration.

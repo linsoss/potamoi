@@ -2,6 +2,9 @@ package potamoi.akka
 
 import akka.cluster.ddata.Replicator
 import potamoi.{codecs, common}
+import potamoi.akka.DDataReadLevels.given_JsonCodec_DDataReadLevel
+import potamoi.akka.DDataWriteLevels.given_JsonCodec_DDataWriteLevel
+import potamoi.codecs.scalaDurationJsonCodec
 import potamoi.times.given_Conversion_ScalaDuration_FiniteDuration
 import zio.config.magnolia.name
 import zio.json.{DeriveJsonCodec, JsonCodec}
@@ -14,7 +17,8 @@ import scala.concurrent.duration.{Duration, DurationInt}
 case class DDataConf(
     @name("read-level") readLevel: DDataReadLevel = DDataReadLevel.Local,
     @name("write-level") writeLevel: DDataWriteLevel = DDataWriteLevel.Majority,
-    @name("replica-timeout") replicaTimeout: Duration = 30.seconds):
+    @name("replica-timeout") replicaTimeout: Duration = 30.seconds)
+    derives JsonCodec:
 
   lazy val writeConsistency: Replicator.WriteConsistency = readLevel match {
     case DDataReadLevel.Local    => Replicator.WriteLocal

@@ -1,7 +1,7 @@
 package potamoi.flink.operator
 
 import potamoi.{BaseConf, HoconConfig, NodeRoles, PotaErr}
-import potamoi.akka.{ActorCradle, AkkaConf}
+import potamoi.akka.{AkkaMatrix, AkkaConf}
 import potamoi.common.ScalaVersion.Scala212
 import potamoi.common.Syntax.toPrettyString
 import potamoi.debugs.*
@@ -49,7 +49,7 @@ object FlinkOperatorTest {
         FlinkObserver.live,
         FlinkOperator.live,
         AkkaConf.local(List(NodeRoles.flinkService)),
-        ActorCradle.live,
+        AkkaMatrix.live,
         Scope.default)
       .provideLayer(PotaLogger.default)
       .run

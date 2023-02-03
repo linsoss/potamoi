@@ -111,7 +111,7 @@ trait ShardingProxy[ShardKey, ProxyCmd]:
    */
   type AIO[A] = IO[ActorOpErr, A]
 
-  implicit class ops(actor: ActorRef[Req])(implicit cradle: ActorCradle) {
+  implicit class ops(actor: ActorRef[Req])(implicit matrix: AkkaMatrix) {
 
     def apply(key: ShardKey): ProxyPartiallyApplied = ProxyPartiallyApplied(key)
 

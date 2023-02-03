@@ -3,7 +3,7 @@ package potamoi.flink.interact
 import akka.actor.typed.ActorRef
 import cats.instances.unit
 import potamoi.{uuids, PotaErr}
-import potamoi.akka.{ActorCradle, ActorOpErr}
+import potamoi.akka.{AkkaMatrix, ActorOpErr}
 import potamoi.flink.{FlinkConf, FlinkErr, FlinkInteractErr, FlinkMajorVer}
 import potamoi.flink.interact.SessionConnection.*
 import potamoi.flink.interpreter.FlinkInterpreter
@@ -66,7 +66,7 @@ class SessionConnectionImpl(
     sessionId: String,
     flinkConf: FlinkConf,
     interpreter: ActorRef[FlinkInterpreter.Req]
-  )(using ActorCradle)
+  )(using AkkaMatrix)
     extends SessionConnection {
 
   private val streamPollingInterval: Duration = flinkConf.sqlInteract.streamPollingInterval

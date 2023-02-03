@@ -141,7 +141,7 @@ trait LWWMapDData[Key, Value](cacheId: String):
    */
   type AIO[A] = IO[ActorOpErr, A]
 
-  implicit class ops(actor: ActorRef[Req])(implicit cradle: ActorCradle) {
+  implicit class ops(actor: ActorRef[Req])(implicit matrix: AkkaMatrix) {
 
     inline def get(key: Key, timeout: Option[Duration] = None): AIO[Option[Value]] = actor.askZIO(Get(key, _), timeout)
     inline def contains(key: Key, timeout: Option[Duration] = None): AIO[Boolean]  = actor.askZIO(Contains(key, _), timeout)

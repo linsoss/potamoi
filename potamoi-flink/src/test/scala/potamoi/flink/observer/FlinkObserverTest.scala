@@ -2,7 +2,7 @@ package potamoi.flink.observer
 
 import org.scalatest.wordspec.AnyWordSpec
 import potamoi.{BaseConf, HoconConfig, NodeRoles, PotaErr}
-import potamoi.akka.{ActorCradle, AkkaConf}
+import potamoi.akka.{AkkaMatrix, AkkaConf}
 import potamoi.common.Syntax.toPrettyString
 import potamoi.debugs.*
 import potamoi.flink.*
@@ -21,7 +21,7 @@ import potamoi.common.TimeExtension.given_Conversion_ZIODuration_ScalaDuration
 
 object FlinkObserverTest:
 
-  val testInMultiNode = true
+  val testInMultiNode = false
 
   val fcid1: Fcid = "app-t1"     -> "fdev"
   val fcid2: Fcid = "app-t2"     -> "fdev"
@@ -42,7 +42,7 @@ object FlinkObserverTest:
         FlinkObserver.live,
         if !testInMultiNode then AkkaConf.local(List(NodeRoles.flinkService))
         else AkkaConf.localCluster(3301, List(3301, 3302)).project(_.copy(defaultAskTimeout = 15.seconds)),
-        ActorCradle.live,
+        AkkaMatrix.live,
         Scope.default,
       )
       .provideLayer(PotaLogger.default)
@@ -52,7 +52,7 @@ object FlinkObserverTest:
 
   @main def launchRemoteFlinkObserverApp: Unit = {
     for {
-      _ <- ActorCradle.active
+      _ <- AkkaMatrix.active
       _ <- FlinkObserver.active
       _ <- ZIO.never
     } yield ()
@@ -67,7 +67,7 @@ object FlinkObserverTest:
       FlinkDataStorage.test,
       FlinkObserver.live,
       AkkaConf.localCluster(3302, List(3301, 3302), List(NodeRoles.flinkService)).project(_.copy(defaultAskTimeout = 15.seconds)),
-      ActorCradle.live,
+      AkkaMatrix.live,
       Scope.default,
     )
     .provideLayer(PotaLogger.default)

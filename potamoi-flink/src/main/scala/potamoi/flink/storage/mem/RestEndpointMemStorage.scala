@@ -1,7 +1,7 @@
 package potamoi.flink.storage.mem
 
 import akka.actor.typed.Behavior
-import potamoi.akka.{ActorCradle, DDataConf, LWWMapDData}
+import potamoi.akka.{AkkaMatrix, DDataConf, LWWMapDData}
 import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.RestEndpointStorage
@@ -19,10 +19,10 @@ object RestEndpointMemStorage:
     def apply(): Behavior[Req] = behavior(DDataConf.default)
   }
 
-  def make: ZIO[ActorCradle, Throwable, RestEndpointStorage] = for {
-    cradle           <- ZIO.service[ActorCradle]
-    stg              <- cradle.spawn("rest-endpoint-store", DData())
-    given ActorCradle = cradle
+  def make: ZIO[AkkaMatrix, Throwable, RestEndpointStorage] = for {
+    matrix           <- ZIO.service[AkkaMatrix]
+    stg              <- matrix.spawn("rest-endpoint-store", DData())
+    given AkkaMatrix = matrix
 
   } yield new RestEndpointStorage {
     def put(fcid: Fcid, endpoint: FlinkRestSvcEndpoint): DIO[Unit] = stg.put(fcid, endpoint).uop

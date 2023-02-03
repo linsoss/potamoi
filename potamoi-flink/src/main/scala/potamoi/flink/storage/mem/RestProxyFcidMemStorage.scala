@@ -1,7 +1,7 @@
 package potamoi.flink.storage.mem
 
 import akka.actor.typed.Behavior
-import potamoi.akka.{ActorCradle, DDataConf, ORSetDData}
+import potamoi.akka.{AkkaMatrix, DDataConf, ORSetDData}
 import potamoi.flink.model.Fcid
 import potamoi.flink.storage.RestProxyFcidStorage
 import potamoi.flink.FlinkDataStoreErr
@@ -19,10 +19,10 @@ object RestProxyFcidMemStorage:
     def apply(): Behavior[Req] = behavior(DDataConf.default)
   }
 
-  def make: ZIO[ActorCradle, Throwable, RestProxyFcidStorage] = for {
-    cradle           <- ZIO.service[ActorCradle]
-    stg              <- cradle.spawn("rest-proxy-fcid-store", DData())
-    given ActorCradle = cradle
+  def make: ZIO[AkkaMatrix, Throwable, RestProxyFcidStorage] = for {
+    matrix           <- ZIO.service[AkkaMatrix]
+    stg              <- matrix.spawn("rest-proxy-fcid-store", DData())
+    given AkkaMatrix = matrix
 
   } yield new RestProxyFcidStorage {
     def put(fcid: Fcid): DIO[Unit]       = stg.put(fcid).uop

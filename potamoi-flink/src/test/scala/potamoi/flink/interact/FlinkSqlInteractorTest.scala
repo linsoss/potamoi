@@ -3,7 +3,7 @@ package potamoi.flink.interact
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Ignore
 import potamoi.{BaseConf, HoconConfig, NodeRoles}
-import potamoi.akka.{ActorCradle, AkkaConf}
+import potamoi.akka.{AkkaMatrix, AkkaConf}
 import potamoi.debugs.*
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.FlinkConf
@@ -17,14 +17,18 @@ import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.{LogConf, LogsLevel, PotaLogger}
 import potamoi.times.given_Conversion_ZIODuration_ScalaDuration
 import potamoi.zios.*
+import potamoi.NodeRoles.{flinkInterpreter, flinkService}
 import zio.{durationInt, IO, Schedule, Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.ZIO.logInfo
 
-/**
- * Need to launch standalone remote [[potamoi.TestFlinkInterpreterAppV116]] app.
- */
-// @Ignore
-class FlinkSqlInteractorTest extends AnyWordSpec:
+object FlinkSqlInteractorTest:
+  // Need to launch standalone remote [[potamoi.TestFlinkInterpreterAppV116]] app.
+  val testWithRemote = true
+
+  val akkaConf = {
+    if !testWithRemote then AkkaConf.local(List(flinkService, flinkInterpreter(V116.seq)))
+    else AkkaConf.localCluster(3300, List(3300, 3316), List(flinkService))
+  }.project(_.copy(defaultAskTimeout = 20.seconds))
 
   def testing[E, A](effect: FlinkSqlInteractor => IO[E, A]): Unit = {
     ZIO
@@ -47,8 +51,8 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
         S3FsMirrorBackend.live,
         K8sConf.default,
         K8sOperator.live,
-        AkkaConf.localCluster(3300, List(3300, 3316), List(NodeRoles.flinkService)).project(_.copy(defaultAskTimeout = 20.seconds)),
-        ActorCradle.live,
+        akkaConf,
+        AkkaMatrix.live,
         FlinkConf.test,
         FlinkDataStorage.test,
         FlinkObserver.live,
@@ -59,6 +63,51 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
       .run
       .exitCode
   }
+
+import potamoi.flink.interact.FlinkSqlInteractorTest.*
+
+// @Ignore
+class FlinkSqlInteractorTest extends AnyWordSpec:
+
+  val dataGenTableSql =
+    """CREATE TABLE Orders (
+      |    order_number BIGINT,
+      |    price        DECIMAL(32,2),
+      |    buyer        ROW<first_name STRING, last_name STRING>,
+      |    mset        MULTISET<STRING>,
+      |    order_time   TIMESTAMP(3)
+      |) WITH (
+      |  'connector' = 'datagen',
+      |  'number-of-rows' = '20'
+      |)
+      |""".stripMargin
+
+  val dataGenEndlessTableSql =
+    """CREATE TABLE Orders (
+      |    order_number BIGINT,
+      |    price        DECIMAL(32,2),
+      |    buyer        ROW<first_name STRING, last_name STRING>,
+      |    mset        MULTISET<STRING>,
+      |    order_time   TIMESTAMP(3)
+      |) WITH (
+      |  'connector' = 'datagen',
+      |  'rows-per-second'='2'
+      |)
+      |""".stripMargin
+
+  val dataFakerTableSql =
+    """CREATE TABLE Heros (
+      |  h_name STRING,
+      |  h_power STRING,
+      |  h_age INT
+      |) WITH (
+      |  'connector' = 'faker',
+      |  'fields.h_name.expression' = '#{superhero.name}',
+      |  'fields.h_power.expression' = '#{superhero.power}',
+      |  'fields.h_power.null-rate' = '0.05',
+      |  'fields.h_age.expression' = '#{number.numberBetween ''0'',''1000''}'
+      |);
+      |""".stripMargin
 
   "session management" in testing { interact =>
     for {

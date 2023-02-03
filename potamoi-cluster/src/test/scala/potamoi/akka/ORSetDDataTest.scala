@@ -16,11 +16,11 @@ object ORSetDDataTest extends ZIOAppDefault {
 
   import DemoSetCache.ops
 
-  val effect: RIO[ActorCradle, Unit] =
+  val effect: RIO[AkkaMatrix, Unit] =
     for {
-      cradle           <- ZIO.service[ActorCradle]
-      cache            <- cradle.spawnAnonymous(DemoSetCache())
-      given ActorCradle = cradle
+      matrix           <- ZIO.service[AkkaMatrix]
+      cache            <- matrix.spawnAnonymous(DemoSetCache())
+      given AkkaMatrix = matrix
       _                <- cache.size().debugPretty
       _                <- cache.put("a")
       _                <- cache.put("a")
@@ -38,6 +38,6 @@ object ORSetDDataTest extends ZIOAppDefault {
     Scope.default,
     HoconConfig.empty,
     AkkaConf.local(),
-    ActorCradle.live
+    AkkaMatrix.live
   )
 }

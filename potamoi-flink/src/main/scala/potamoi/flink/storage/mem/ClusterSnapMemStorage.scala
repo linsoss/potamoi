@@ -1,7 +1,7 @@
 package potamoi.flink.storage.mem
 
 import akka.actor.typed.Behavior
-import potamoi.akka.{ActorCradle, DDataConf, LWWMapDData}
+import potamoi.akka.{AkkaMatrix, DDataConf, LWWMapDData}
 import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.*
 import potamoi.flink.storage.*
@@ -27,13 +27,13 @@ object ClusterSnapMemStorage:
   private object TmMetricStg extends LWWMapDData[Ftid, FlinkTmMetrics]("flink-tm-metric-stg"):
     def apply(): Behavior[Req] = behavior(DDataConf.default)
 
-  def make: ZIO[ActorCradle, Throwable, ClusterSnapStorage] = for {
-    cradle           <- ZIO.service[ActorCradle]
-    clusterOvStg     <- cradle.spawn("flink-cluster-ov-store", ClusterOvStg())
-    jmMetricStg      <- cradle.spawn("flink-jm-metric-store", JmMetricsStg())
-    tmDetailStg      <- cradle.spawn("flink-tm-detail-store", TmDetailStg())
-    tmMetricStg      <- cradle.spawn("flink-tm-metric-store", TmMetricStg())
-    given ActorCradle = cradle
+  def make: ZIO[AkkaMatrix, Throwable, ClusterSnapStorage] = for {
+    matrix           <- ZIO.service[AkkaMatrix]
+    clusterOvStg     <- matrix.spawn("flink-cluster-ov-store", ClusterOvStg())
+    jmMetricStg      <- matrix.spawn("flink-jm-metric-store", JmMetricsStg())
+    tmDetailStg      <- matrix.spawn("flink-tm-detail-store", TmDetailStg())
+    tmMetricStg      <- matrix.spawn("flink-tm-metric-store", TmMetricStg())
+    given AkkaMatrix = matrix
 
   } yield new ClusterSnapStorage {
 

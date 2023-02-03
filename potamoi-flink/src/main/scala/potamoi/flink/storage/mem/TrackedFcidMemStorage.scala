@@ -1,7 +1,7 @@
 package potamoi.flink.storage.mem
 
 import akka.actor.typed.Behavior
-import potamoi.akka.{ActorCradle, DDataConf, ORSetDData}
+import potamoi.akka.{AkkaMatrix, DDataConf, ORSetDData}
 import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
 import potamoi.flink.storage.{RestEndpointStorage, TrackedFcidStorage}
 import potamoi.flink.FlinkDataStoreErr
@@ -17,10 +17,10 @@ object TrackedFcidMemStorage:
     def apply(): Behavior[Req] = behavior(DDataConf.default)
   }
 
-  def make: ZIO[ActorCradle, Throwable, TrackedFcidStorage] = for {
-    cradle           <- ZIO.service[ActorCradle]
-    stg              <- cradle.spawn("tracked-fcid-store", DData())
-    given ActorCradle = cradle
+  def make: ZIO[AkkaMatrix, Throwable, TrackedFcidStorage] = for {
+    matrix           <- ZIO.service[AkkaMatrix]
+    stg              <- matrix.spawn("tracked-fcid-store", DData())
+    given AkkaMatrix = matrix
 
   } yield new TrackedFcidStorage {
     def put(fcid: Fcid): DIO[Unit]       = stg.put(fcid).uop

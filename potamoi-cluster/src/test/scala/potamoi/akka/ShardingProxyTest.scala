@@ -13,11 +13,11 @@ object ShardingProxyTest extends ZIOAppDefault {
   override val bootstrap = PotaLogger.default
 
   val effect = for {
-    cradle           <- ZIO.service[ActorCradle]
-    given ActorCradle = cradle
-    proxy            <- cradle.spawn("bot-proxy", BotProxy())
+    matrix           <- ZIO.service[AkkaMatrix]
+    given AkkaMatrix = matrix
+    proxy            <- matrix.spawn("bot-proxy", BotProxy())
     _                <- proxy("b1").tellZIO(Bot.Touch("hello"))
-    proxy2           <- cradle.spawn("bot-proxy2", BotProxy())
+    proxy2           <- matrix.spawn("bot-proxy2", BotProxy())
     _                <- proxy2("b2").tellZIO(Bot.Touch("hello"))
     _                <- ZIO.never
   } yield ()
@@ -27,7 +27,7 @@ object ShardingProxyTest extends ZIOAppDefault {
       Scope.default,
       HoconConfig.empty,
       AkkaConf.local(),
-      ActorCradle.live
+      AkkaMatrix.live
     )
 }
 

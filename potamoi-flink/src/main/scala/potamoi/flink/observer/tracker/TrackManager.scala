@@ -7,7 +7,7 @@ import potamoi.flink.storage.{FlinkDataStorage, TrackedFcidStorage}
 import potamoi.flink.FlinkErr.AkkaErr
 import potamoi.kubernetes.K8sOperator
 import potamoi.EarlyLoad
-import potamoi.akka.ActorCradle
+import potamoi.akka.AkkaMatrix
 import potamoi.flink.observer.tracker.FlinkClusterTracker.ops
 import potamoi.flink.observer.tracker.FlinkK8sRefTracker.ops
 import potamoi.logger.LogConf
@@ -54,16 +54,16 @@ trait TrackManager {
 
 object TrackerManager {
   def make(
-      logConf: LogConf,
-      flinkConf: FlinkConf,
-      actorCradle: ActorCradle,
-      snapStorage: FlinkDataStorage,
-      eptRetriever: FlinkRestEndpointRetriever,
-      k8sOperator: K8sOperator): ZIO[Any, Throwable, TrackManager] =
+            logConf: LogConf,
+            flinkConf: FlinkConf,
+            actorCradle: AkkaMatrix,
+            snapStorage: FlinkDataStorage,
+            eptRetriever: FlinkRestEndpointRetriever,
+            k8sOperator: K8sOperator): ZIO[Any, Throwable, TrackManager] =
     for {
       clusterTrackerProxy <- actorCradle.spawn("flink-cluster-trackers", FlinkClusterTracker(logConf, flinkConf, snapStorage, eptRetriever))
       k8sRefTrackerProxy  <- actorCradle.spawn("flink-k8s-trackers", FlinkK8sRefTracker(logConf, flinkConf, snapStorage, k8sOperator))
-      given ActorCradle    = actorCradle
+      given AkkaMatrix    = actorCradle
     } yield new TrackManagerImpl(snapStorage, clusterTrackerProxy, k8sRefTrackerProxy)
 }
 
@@ -74,7 +74,7 @@ class TrackManagerImpl(
     snapStorage: FlinkDataStorage,
     clusterTrackers: ActorRef[FlinkClusterTracker.Req],
     k8sRefTrackers: ActorRef[FlinkK8sRefTracker.Req]
-  )(using ActorCradle)
+  )(using AkkaMatrix)
     extends TrackManager {
 
   /**

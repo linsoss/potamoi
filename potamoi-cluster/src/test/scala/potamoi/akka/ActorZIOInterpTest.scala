@@ -20,8 +20,8 @@ object ActorZIOInterpTest extends ZIOAppDefault {
 
   val effect =
     for {
-      cradle <- ZIO.service[ActorCradle]
-      bot    <- cradle.spawnAnonymous(TickBot())
+      matrix <- ZIO.service[AkkaMatrix]
+      bot    <- matrix.spawnAnonymous(TickBot())
 
       _ <- bot !> Start
       _ <- ZIO.sleep(10.seconds)
@@ -32,7 +32,7 @@ object ActorZIOInterpTest extends ZIOAppDefault {
     Scope.default,
     HoconConfig.empty,
     AkkaConf.local(),
-    ActorCradle.live
+    AkkaMatrix.live
   )
 }
 

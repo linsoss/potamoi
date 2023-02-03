@@ -1,6 +1,6 @@
 package potamoi.flink.storage
 
-import potamoi.akka.ActorCradle
+import potamoi.akka.AkkaMatrix
 import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.*
 import potamoi.flink.storage.mem.*
@@ -39,7 +39,7 @@ object FlinkDataStorage extends EarlyLoad[FlinkDataStorage]:
   /**
    * In-memory Akka DData storage.
    */
-  lazy val memory: ZLayer[ActorCradle, Throwable, FlinkDataStorage] = ZLayer {
+  lazy val memory: ZLayer[AkkaMatrix, Throwable, FlinkDataStorage] = ZLayer {
     for {
       trackedLists  <- TrackedFcidMemStorage.make
       restEndpoints <- RestEndpointMemStorage.make

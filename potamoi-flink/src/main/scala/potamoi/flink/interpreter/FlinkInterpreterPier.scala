@@ -4,7 +4,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.receptionist.ServiceKey
 import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings
-import potamoi.akka.{behaviors, ActorCradle, ShardingProxy}
+import potamoi.akka.{behaviors, AkkaMatrix, ShardingProxy}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.logger.LogConf
@@ -20,9 +20,9 @@ object FlinkInterpreterPier {
   /**
    * Activate the corresponding version of the flink interactor management actor.
    */
-  def active(flinkVer: FlinkMajorVer): ZIO[RemoteFsOperator with FlinkConf with LogConf with ActorCradle, Throwable, ActorRef[FlinkInterpreter.Req]] =
+  def active(flinkVer: FlinkMajorVer): ZIO[RemoteFsOperator with FlinkConf with LogConf with AkkaMatrix, Throwable, ActorRef[FlinkInterpreter.Req]] =
     for {
-      actorCradle <- ZIO.service[ActorCradle]
+      actorCradle <- ZIO.service[AkkaMatrix]
       logConf     <- ZIO.service[LogConf]
       flinkConf   <- ZIO.service[FlinkConf]
       remoteFs    <- ZIO.service[RemoteFsOperator]
@@ -32,7 +32,7 @@ object FlinkInterpreterPier {
   /**
    * Activate all version of the flink interactor management actor on [[FlinkMajorVer.values]].
    */
-  def activeAll: ZIO[RemoteFsOperator with FlinkConf with LogConf with ActorCradle, Throwable, Map[FlinkMajorVer, ActorRef[FlinkInterpreter.Req]]] =
+  def activeAll: ZIO[RemoteFsOperator with FlinkConf with LogConf with AkkaMatrix, Throwable, Map[FlinkMajorVer, ActorRef[FlinkInterpreter.Req]]] =
     ZIO
       .foreach(FlinkMajorVer.values)(ver => active(ver).map(actor => ver -> actor))
       .map(_.toMap)

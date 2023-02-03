@@ -1,6 +1,6 @@
 package potamoi
 
-import potamoi.akka.{ActorCradle, AkkaConf}
+import potamoi.akka.{AkkaMatrix, AkkaConf}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf}
 import potamoi.flink.storage.FlinkDataStorage
@@ -25,7 +25,7 @@ object TestFlinkInterpreterAppV116 extends FlinkInterpBootstrap(FlinkMajorVer.V1
     S3FsBackendConfDev.asLayer,
     S3FsMirrorBackend.live,
     AkkaConf.localCluster(3316, List(3300, 3316), List(FlinkMajorVer.V116.nodeRole)),
-    ActorCradle.live,
+    AkkaMatrix.live,
     FlinkConf.test,
     FlinkInterpConf.default,
     Scope.default

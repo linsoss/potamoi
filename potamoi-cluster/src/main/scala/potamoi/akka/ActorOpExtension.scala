@@ -25,7 +25,7 @@ object ActorOpExtension:
     inline def !>(message: U): IO[ActorOpErr, Unit] = tellZIO(message)
 
     @targetName("askZIOSymbol")
-    inline def ?>[Res](reply: ActorRef[Res] => U, timeout: Option[Duration] = None)(using cradle: ActorCradle): IO[ActorOpErr, Res] =
+    inline def ?>[Res](reply: ActorRef[Res] => U, timeout: Option[Duration] = None)(using matrix: AkkaMatrix): IO[ActorOpErr, Res] =
       askZIO(reply, timeout)
 
     /**
@@ -40,10 +40,10 @@ object ActorOpExtension:
     /**
      * Ask with zio.
      */
-    inline def askZIO[Res](reply: ActorRef[Res] => U, timeout: Option[Duration] = None)(using cradle: ActorCradle): IO[ActorOpErr, Res] = {
-      val askTimeout = timeout.map(given_Conversion_ZIODuration_Timeout).getOrElse(cradle.askTimeout)
+    inline def askZIO[Res](reply: ActorRef[Res] => U, timeout: Option[Duration] = None)(using matrix: AkkaMatrix): IO[ActorOpErr, Res] = {
+      val askTimeout = timeout.map(given_Conversion_ZIODuration_Timeout).getOrElse(matrix.askTimeout)
       ZIO
-        .fromFutureInterrupt { implicit ec => actor.ask[Res](reply)(askTimeout, cradle.scheduler) }
+        .fromFutureInterrupt { implicit ec => actor.ask[Res](reply)(askTimeout, matrix.scheduler) }
         .mapError(err => ActorOpErr(actor.path.toString, err))
     }
   }

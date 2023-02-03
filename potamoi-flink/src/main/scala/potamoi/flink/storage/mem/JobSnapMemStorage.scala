@@ -1,7 +1,7 @@
 package potamoi.flink.storage.mem
 
 import akka.actor.typed.Behavior
-import potamoi.akka.{ActorCradle, DDataConf, LWWMapDData}
+import potamoi.akka.{AkkaMatrix, DDataConf, LWWMapDData}
 import potamoi.flink.{FlinkDataStoreErr, JobId}
 import potamoi.flink.model.*
 import potamoi.flink.storage.{JobMetricsStorage, JobOverviewStorage, JobSnapStorage, K8sRefSnapStorage}
@@ -21,11 +21,11 @@ object JobSnapMemStorage:
   private object JobMetricStg extends LWWMapDData[Fjid, FlinkJobMetrics]("flink-job-metric-stg"):
     def apply(): Behavior[Req] = behavior(DDataConf.default)
 
-  def make: ZIO[ActorCradle, Throwable, JobSnapStorage] = for {
-    cradle           <- ZIO.service[ActorCradle]
-    ovStg            <- cradle.spawn("flink-job-overview-store", JobOvStg())
-    metricStg        <- cradle.spawn("flink-job-metric-store", JobMetricStg())
-    given ActorCradle = cradle
+  def make: ZIO[AkkaMatrix, Throwable, JobSnapStorage] = for {
+    matrix           <- ZIO.service[AkkaMatrix]
+    ovStg            <- matrix.spawn("flink-job-overview-store", JobOvStg())
+    metricStg        <- matrix.spawn("flink-job-metric-store", JobMetricStg())
+    given AkkaMatrix = matrix
 
   } yield new JobSnapStorage {
     val overview: JobOverviewStorage = new JobOverviewStorage:

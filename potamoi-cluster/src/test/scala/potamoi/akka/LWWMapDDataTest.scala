@@ -15,11 +15,11 @@ object LWWMapDDataTest extends ZIOAppDefault {
   object DemoMapCache extends LWWMapDData[Int, String]("demo-map-cache"):
     def apply(): Behavior[DemoMapCache.Req] = behavior(DDataConf.default)
 
-  val effect: RIO[ActorCradle, Unit] =
+  val effect: RIO[AkkaMatrix, Unit] =
     for {
-      cradle           <- ZIO.service[ActorCradle]
-      cache            <- cradle.spawnAnonymous(DemoMapCache())
-      given ActorCradle = cradle
+      matrix           <- ZIO.service[AkkaMatrix]
+      cache            <- matrix.spawnAnonymous(DemoMapCache())
+      given AkkaMatrix = matrix
       _                <- cache.size().debugPretty
       _                <- cache.put(1, "one")
       _                <- cache.put(2, "two")
@@ -41,6 +41,6 @@ object LWWMapDDataTest extends ZIOAppDefault {
     Scope.default,
     HoconConfig.empty,
     AkkaConf.local(),
-    ActorCradle.live
+    AkkaMatrix.live
   )
 }

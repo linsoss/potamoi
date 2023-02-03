@@ -111,7 +111,7 @@ trait ORSetDData[Value](cacheId: String):
    * ZIO interop.
    */
   type AIO[A] = IO[ActorOpErr, A]
-  implicit class ops(actor: ActorRef[Req])(implicit cradle: ActorCradle) {
+  implicit class ops(actor: ActorRef[Req])(implicit matrix: AkkaMatrix) {
 
     inline def list(timeout: Option[Duration] = None): AIO[Set[Value]]                = actor.askZIO(List.apply, timeout)
     inline def size(timeout: Option[Duration] = None): AIO[Int]                       = actor.askZIO(Size.apply, timeout)

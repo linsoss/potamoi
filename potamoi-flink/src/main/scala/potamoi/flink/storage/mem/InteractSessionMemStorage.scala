@@ -1,7 +1,7 @@
 package potamoi.flink.storage.mem
 
 import akka.actor.typed.Behavior
-import potamoi.akka.{ActorCradle, DDataConf, LWWMapDData}
+import potamoi.akka.{AkkaMatrix, DDataConf, LWWMapDData}
 import potamoi.flink.{FlinkDataStoreErr, FlinkMajorVer}
 import potamoi.flink.model.interact.InteractSession
 import potamoi.flink.storage.{InteractSessionStorage, K8sRefSnapStorage}
@@ -15,10 +15,10 @@ object InteractSessionMemStorage:
   private object DData extends LWWMapDData[String, InteractSession]("flink-interact-session-stg"):
     def apply(): Behavior[Req] = behavior(DDataConf.default)
 
-  def make: ZIO[ActorCradle, Throwable, InteractSessionStorage] = for {
-    cradle           <- ZIO.service[ActorCradle]
-    stg              <- cradle.spawn("flink-interact-session-store", DData())
-    given ActorCradle = cradle
+  def make: ZIO[AkkaMatrix, Throwable, InteractSessionStorage] = for {
+    matrix           <- ZIO.service[AkkaMatrix]
+    stg              <- matrix.spawn("flink-interact-session-store", DData())
+    given AkkaMatrix = matrix
 
   } yield new InteractSessionStorage {
     def put(session: InteractSession): DIO[Unit]             = stg.put(session.sessionId, session).uop

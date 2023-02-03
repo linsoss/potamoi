@@ -15,14 +15,14 @@ object ReceptionistTestApp extends ZIOAppDefault {
   override val bootstrap = PotaLogger.default
 
   val effect = for {
-    cradle  <- ZIO.service[ActorCradle]
-    worker1 <- cradle.spawn("worker-1", Worker("worker-1"))
-    worker2 <- cradle.spawn("worker-2", Worker("worker-2"))
+    matrix  <- ZIO.service[AkkaMatrix]
+    worker1 <- matrix.spawn("worker-1", Worker("worker-1"))
+    worker2 <- matrix.spawn("worker-2", Worker("worker-2"))
     _       <- worker1 !> Touch("hello")
     _       <- worker2 !> Touch("hello")
-    _       <- cradle.findReceptionist(WorkerService).repeatUntil(_.nonEmpty).debugPretty
-    _       <- cradle.stop(worker1)
-    _       <- cradle.findReceptionist(WorkerService).repeatUntil(_.size == 1).debugPretty
+    _       <- matrix.findReceptionist(WorkerService).repeatUntil(_.nonEmpty).debugPretty
+    _       <- matrix.stop(worker1)
+    _       <- matrix.findReceptionist(WorkerService).repeatUntil(_.size == 1).debugPretty
     _       <- ZIO.never
   } yield ()
 
@@ -31,7 +31,7 @@ object ReceptionistTestApp extends ZIOAppDefault {
       Scope.default,
       HoconConfig.empty,
       AkkaConf.local(),
-      ActorCradle.live
+      AkkaMatrix.live
     )
 }
 
