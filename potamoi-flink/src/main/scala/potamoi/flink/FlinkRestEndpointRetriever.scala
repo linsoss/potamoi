@@ -10,24 +10,17 @@ import zio.{IO, UIO, ZIO, ZLayer}
 /**
  * Flink rest endpoint retriever on k8s.
  */
-trait FlinkRestEndpointRetriever {
+object FlinkRestEndpointRetriever:
+
+  val live: ZLayer[K8sClient, Throwable, FlinkRestEndpointRetriever] = ZLayer.service[K8sClient].project(FlinkRestEndpointRetriever(_))
+  def make(k8sClient: K8sClient): UIO[FlinkRestEndpointRetriever]    = ZIO.succeed(FlinkRestEndpointRetriever(k8sClient))
+
+class FlinkRestEndpointRetriever(k8sClient: K8sClient):
 
   /**
    * Retrieve Flink rest endpoint via kubernetes api.
    */
-  def retrieve(fcid: Fcid): IO[RequestK8sApiErr, Option[FlinkRestSvcEndpoint]]
-}
-
-object FlinkRestEndpointRetriever {
-  val live: ZLayer[K8sClient, Throwable, FlinkRestEndpointRetriever]     = ZLayer.service[K8sClient].project(FlinkRestEndpointRetrieverImpl(_))
-  lazy val clive: ZLayer[K8sConf, Throwable, FlinkRestEndpointRetriever] = ZLayer.service[K8sConf] >>> K8sClient.live >>> live
-
-  def make(k8sClient: K8sClient): UIO[FlinkRestEndpointRetriever] = ZIO.succeed(FlinkRestEndpointRetrieverImpl(k8sClient))
-}
-
-class FlinkRestEndpointRetrieverImpl(k8sClient: K8sClient) extends FlinkRestEndpointRetriever {
-
-  override def retrieve(fcid: Fcid): IO[RequestK8sApiErr, Option[FlinkRestSvcEndpoint]] =
+  def retrieve(fcid: Fcid): IO[RequestK8sApiErr, Option[FlinkRestSvcEndpoint]] =
     k8sClient.services
       .get(s"${fcid.clusterId}-rest", fcid.namespace)
       .flatMap { svc =>
@@ -46,4 +39,3 @@ class FlinkRestEndpointRetrieverImpl(k8sClient: K8sClient) extends FlinkRestEndp
       }
       .catchSome { case NotFound => ZIO.succeed(None) }
       .mapError(RequestK8sApiErr.apply)
-}
