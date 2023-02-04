@@ -59,10 +59,10 @@ object ZIOExtension {
   }
 
   extension [E, A](zio: IO[E, Option[A]]) {
-    inline def someOrUnit[E1 >: E](f: A => IO[E1, Unit]) =
+    inline def someOrUnit[E1 >: E](f: A => IO[E1, _]) =
       zio.flatMap {
         case None        => ZIO.unit
-        case Some(value) => f(value)
+        case Some(value) => f(value).unit
       }
 
     inline def someOrFailUnion[E1](e: => E1): IO[E | E1, A] =
@@ -70,6 +70,12 @@ object ZIOExtension {
         case None        => ZIO.fail(e)
         case Some(value) => ZIO.succeed(value)
       }
+  }
+
+  extension [E, A](option: Option[A]) {
+    inline def someOrUnitZIO(whenSome: A => IO[E, _]): IO[E, Unit] = option match
+      case None        => ZIO.unit
+      case Some(value) => whenSome(value).unit
   }
 
   /**

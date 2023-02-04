@@ -175,7 +175,7 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
           case Some(executor) =>
             executor
               .submitSqlScriptAsync(sqlScript)
-              .foldCauseZIO(cause => fail(FailToSplitSqlScript(cause.failures.head, cause.prettyPrint)), rs => succeed(rs.map(_._1)))
+              .foldCauseZIO(cause => fail(FailToSplitSqlScript(cause.failures.head, cause.prettyPrint)), rs => succeed(rs))
               .runSync
         reply ! packEither(rs)
         Behaviors.same

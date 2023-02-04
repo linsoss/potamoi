@@ -17,9 +17,9 @@ import potamoi.flink.model.FlinkTargetType
 import potamoi.flink.model.interact.*
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.contra
-import potamoi.zios.runNow
+import potamoi.zios.{runNow, someOrUnit, someOrUnitZIO}
 import zio.{Fiber, IO, Promise, Queue, Ref, Scope, UIO, URIO, ZIO}
-import zio.ZIO.{attempt, attemptBlocking, attemptBlockingInterrupt, blocking, fail, logInfo, succeed, unit}
+import zio.ZIO.{attempt, attemptBlocking, attemptBlockingInterrupt, blocking, fail, logInfo, logWarning, succeed, unit}
 import zio.ZIOAspect.annotated
 import zio.direct.*
 import zio.stream.{Stream, ZStream}
@@ -53,8 +53,8 @@ trait SerialSqlExecutor:
   def submitSql(sql: String, handleId: String = uuids.genUUID16): IO[ExecuteSqlErr, SqlResult]
   def submitSqlScript(sqlScript: String): IO[SplitSqlScriptErr, SqlScriptResult]
 
-  def submitSqlAsync(sql: String, handleId: String = uuids.genUUID16): UIO[Promise[ExecuteSqlErr, SqlResult]]
-  def submitSqlScriptAsync(sqlScript: String): IO[SplitSqlScriptErr, List[(ScripSqlSign, Promise[ExecuteSqlErr, SqlResult])]]
+  def submitSqlAsync(sql: String, handleId: String = uuids.genUUID16): UIO[Unit]
+  def submitSqlScriptAsync(sqlScript: String): IO[SplitSqlScriptErr, List[ScripSqlSign]]
 
   def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[RetrieveResultNothing, SqlResultPageView]
   def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[RetrieveResultNothing, SqlResultOffsetView]
@@ -90,8 +90,8 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   private def createContext(sessDef: SessionDef) = SessionContext.buildContext(sessionId, remoteFs, sessDef).onExecutionContext(flinkTableEnvEc)
 
   sealed private trait HandleSign
-  private case class ExecuteSqlCmd(handleId: String, sql: String, promise: Promise[ExecuteSqlErr, SqlResult]) extends HandleSign
-  private case class CompleteSqlCmd(sql: String, position: Int, promise: Promise[Nothing, List[String]])      extends HandleSign
+  private case class ExecuteSqlCmd(handleId: String, sql: String, promise: Option[Promise[ExecuteSqlErr, SqlResult]]) extends HandleSign
+  private case class CompleteSqlCmd(sql: String, position: Int, promise: Promise[Nothing, List[String]])              extends HandleSign
   type ContinueRemaining = Boolean
 
   sealed private trait OpRsDesc
@@ -106,10 +106,10 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       isRunning <- handleWorkerFiber.get.map(_.isDefined)
       _         <- {
         if isRunning then
-          ZIO.logInfo(s"Serial sql handle worker is already running, sessionId=$sessionId.") *>
+          ZIO.logInfo(s"Serial sql handle worker is already running, sessionId: $sessionId.") *>
           unit
         else
-          ZIO.logInfo(s"Launch serial sql handle worker, sessionId=$sessionId") *>
+          ZIO.logInfo(s"Launch serial sql handle worker, sessionId: $sessionId") *>
           handleWorker.forkScoped.flatMap(fiber => handleWorkerFiber.set(Some(fiber)))
       }
     } yield ()
@@ -122,14 +122,8 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
     for {
       _ <- logInfo(s"Stop serial sql handle worker: $sessionId")
       _ <- cancel *> handleQueue.shutdown // cancel all handle frame and reply "BeCancelled" to their promise
-      _ <- handleWorkerFiber.get.flatMap {
-             case None        => unit
-             case Some(fiber) => fiber.interrupt *> handleWorkerFiber.set(None)
-           }
-      _ <- context.get.flatMap {
-             case None      => unit
-             case Some(ctx) => ctx.close *> context.set(None)
-           }
+      _ <- handleWorkerFiber.get.someOrUnit { fiber => fiber.interrupt *> handleWorkerFiber.set(None) }
+      _ <- context.get.someOrUnit { ctx => ctx.close *> context.set(None) }
       _ <- handleStack.set(mutable.Map.empty)
       _ <- lastQueryRsStore.clear
     } yield ()
@@ -140,13 +134,11 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
    */
   override def cancel: UIO[Unit] = {
     for {
+      _ <- logInfo(s"Cancel current handle frames: $sessionId")
       // cancel the remaining handle frames
       _ <- cancelRemainingHandleFrames
       // cancel the current handle frame
-      _ <- curHandleFiber.get.map {
-             case None        => ZIO.unit
-             case Some(fiber) => fiber.interrupt *> curHandleFiber.set(None)
-           }
+      _ <- curHandleFiber.get.someOrUnit { fiber => fiber.interrupt *> curHandleFiber.set(None) }
     } yield ()
   } @@ annotated("sessionId" -> sessionId)
 
@@ -156,8 +148,9 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       .runForeach {
         case CompleteSqlCmd(_, _, promise)       => promise.succeed(List.empty)
         case ExecuteSqlCmd(handleId, _, promise) =>
-          promise.fail(BeCancelled(handleId)) *>
-          handleStack.updateWith(handleId, _.copy(status = Cancel))
+          promise.someOrUnitZIO(_.fail(BeCancelled(handleId))) *>
+          handleStack.updateWith(handleId, _.copy(status = Cancel)) *>
+          logInfo(s"Handle frame is cancelled: $handleId")
       }
   }
 
@@ -172,10 +165,14 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       .flatMap { sign =>
         for {
           fiber <- (sign match
-                     case CompleteSqlCmd(sql, position, promise) => handleCompleteSqlCmd(sql, position, promise)
-                     case ExecuteSqlCmd(handleId, sql, promise)  =>
+                     case CompleteSqlCmd(sql, position, promise) =>
+                       ZIO.logInfo(s"Handling sql completion command, sql: $sql") *>
+                       handleCompleteSqlCmd(sql, position, promise)
+
+                     case ExecuteSqlCmd(handleId, sql, promise) =>
                        // When the current frame execution fails, all subsequent
                        // execution plans that have been received would be cancelled.
+                       ZIO.logInfo(s"Handle sql execution command, handleId: ${handleId}, sql: $sql") *>
                        ZIO.scoped {
                          handleExecuteSqlCmd(handleId, sql, promise).flatMap {
                            case true  => unit
@@ -190,7 +187,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       }
       .forever
       .onInterrupt { _ =>
-        ZIO.logInfo(s"Serial sql handle worker is interrupted, sessionId=$sessionId.") *> cancel
+        ZIO.logInfo(s"Serial sql handle worker is interrupted, sessionId: $sessionId.") *> cancel
       }
   } @@ annotated("sessionId" -> sessionId)
 
@@ -213,7 +210,10 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   /**
    * Handle executing sql command: initEnv -> parse sql -> execute sql -> reply result.
    */
-  private def handleExecuteSqlCmd(handleId: String, sql: String, promise: Promise[ExecuteSqlErr, SqlResult]): URIO[Scope, ContinueRemaining] = {
+  private def handleExecuteSqlCmd(
+      handleId: String,
+      sql: String,
+      promise: Option[Promise[ExecuteSqlErr, SqlResult]]): URIO[Scope, ContinueRemaining] = {
     val proc = for {
       // ensure that table environment is initialized
       _         <- handleStack.updateWith(handleId, _.copy(status = Run))
@@ -239,7 +239,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
           case PlainRsDesc(rs, jobId)          =>
             for {
               _ <- handleStack.updateWith(handleId, _.copy(jobId = jobId, status = Finish, result = Some(rs)))
-              _ <- promise.succeed(rs)
+              _ <- promise.someOrUnitZIO(_.succeed(rs))
             } yield ()
           // query operation
           case QueryRsDesc(rs, jobId, collect) =>
@@ -248,7 +248,9 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
               streamChunk <- collect.broadcast(2, 2048)
               workStream   = streamChunk(0)
               watchStream  = streamChunk(1)
-              _           <- promise.succeed(QuerySqlRs(rs, watchStream)) // reply result
+              _           <- promise match
+                               case None    => watchStream.runDrain.forkScoped
+                               case Some(p) => p.succeed(QuerySqlRs(rs, watchStream)) // reply result
               _           <- lastQueryRsStore.bindHandleId(handleId) *> lastQueryRsStore.clear
               _           <- workStream.runDrain
               _           <- handleStack.updateWith(handleId, _.copy(status = Finish))
@@ -260,14 +262,15 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
       .as(true)
       .catchAllCause { cause =>
         // mark status of frame to "Fail" when execution fails.
+        ZIO.logErrorCause(s"Fail to handle frame, handleId=$handleId", cause) *>
         handleStack.updateWith(handleId, _.copy(status = Fail, error = Some(HandleErr(cause.failures.head, cause.prettyPrint)))) *>
-        promise.failCause(cause) *>
+        promise.someOrUnitZIO(_.failCause(cause)) *>
         succeed(false)
       }
       .onInterrupt { _ =>
         // mark status of frame to "Cancel" when frame has been canceled.
         handleStack.updateWith(handleId, _.copy(status = Cancel)) *>
-        promise.fail(BeCancelled(handleId)) *>
+        promise.someOrUnitZIO(_.fail(BeCancelled(handleId))) *>
         // cancel ref remote flink job if necessary
         cancelRemoteJobIfNecessary(handleId).forkDaemon
       }
@@ -426,57 +429,62 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
    */
   override def submitSql(sql: String, handleId: String = uuids.genUUID16): IO[ExecuteSqlErr, SqlResult] = {
     for {
-      promise <- submitSqlAsync(sql, handleId)
+      promise <- Promise.make[ExecuteSqlErr, SqlResult]
+      _       <- submitSqlInternal(sql, handleId, Some(promise))
       reply   <- blocking(promise.await)
     } yield reply
   } @@ annotated("sessionId" -> sessionId)
 
   /**
-   * Submit sql statement.
+   * Submit sql statement async.
    */
-  override def submitSqlAsync(sql: HandleId, handleId: HandleId): UIO[Promise[ExecuteSqlErr, SqlResult]] = {
-    for {
-      promise <- Promise.make[ExecuteSqlErr, SqlResult]
-      _       <- handleStack.update(_ += handleId -> HandleFrame(handleId, sql, status = Wait))
-      _       <- handleQueue.offer(ExecuteSqlCmd(handleId, sql, promise))
-    } yield promise
-  } @@ annotated("handleId" -> handleId)
+  override def submitSqlAsync(sql: HandleId, handleId: HandleId): UIO[Unit] = {
+    submitSqlInternal(sql, handleId, None) @@ annotated("handleId" -> handleId)
+  }
+
+  private def submitSqlInternal(sql: String, handleId: String, promise: Option[Promise[ExecuteSqlErr, SqlResult]]): UIO[Unit] = {
+    for
+      _ <- handleStack.update(_ += handleId -> HandleFrame(handleId, sql, status = Wait))
+      _ <- handleQueue.offer(ExecuteSqlCmd(handleId, sql, promise))
+    yield ()
+  }
 
   /**
    * Submit sql script and wait for the execution result.
    */
   override def submitSqlScript(sqlScript: HandleId): IO[SplitSqlScriptErr, SqlScriptResult] = {
-    for {
-      asyncSigns <- submitSqlScriptAsync(sqlScript)
-      signs       = asyncSigns.map(_._1)
-      promises    = asyncSigns.map(_._2)
-      watchStream = ZStream
-                      .fromIterable(promises)
-                      .mapZIO(promise => blocking(promise.await))
-    } yield SqlScriptResult(signs, watchStream)
+    for
+      sqls       <- FlinkSqlTool.splitSqlScript(sqlScript).mapError(SplitSqlScriptErr.apply)
+      sqlSigns    = sqls.map(sql => ScripSqlSign(uuids.genUUID16, sql))
+      promises   <- ZIO.foreach(sqlSigns) { sign =>
+                      Promise
+                        .make[ExecuteSqlErr, SqlResult]
+                        .tap(promise => submitSqlInternal(sign.sql, sign.handleId, Some(promise)))
+                    }
+      watchStream = ZStream.fromIterable(promises).mapZIO(promise => blocking(promise.await))
+    yield SqlScriptResult(sqlSigns, watchStream)
   } @@ annotated("sessionId" -> sessionId)
 
   /**
    * Submit sql script.
    */
-  override def submitSqlScriptAsync(sqlScript: HandleId): IO[SplitSqlScriptErr, List[(ScripSqlSign, Promise[ExecuteSqlErr, SqlResult])]] = {
-    for {
-      sqls     <- FlinkSqlTool.splitSqlScript(sqlScript).mapError(SplitSqlScriptErr.apply)
-      sqlSigns  = sqls.map(sql => ScripSqlSign(uuids.genUUID16, sql))
-      promises <- ZIO.foreach(sqlSigns)(sign => submitSqlAsync(sign.sql, sign.handleId))
-      rs        = sqlSigns.zip(promises).map { case (sign, promise) => sign -> promise }
-    } yield rs
+  override def submitSqlScriptAsync(sqlScript: HandleId): IO[SplitSqlScriptErr, List[ScripSqlSign]] = {
+    for
+      sqls    <- FlinkSqlTool.splitSqlScript(sqlScript).mapError(SplitSqlScriptErr.apply)
+      sqlSigns = sqls.map(sql => ScripSqlSign(uuids.genUUID16, sql))
+      _       <- ZIO.foreach(sqlSigns)(sign => submitSqlInternal(sign.sql, sign.handleId, None))
+    yield sqlSigns
   } @@ annotated("sessionId" -> sessionId)
 
   /**
    * Get completion hints for the given statement at the given cursor position.
    */
   override def completeSql(sql: HandleId, position: Int): UIO[List[HandleId]] = {
-    for {
+    for
       promise <- Promise.make[Nothing, List[HandleId]]
       _       <- handleQueue.offer(CompleteSqlCmd(sql, position, promise))
       hints   <- promise.await
-    } yield hints
+    yield hints
   } @@ annotated("sessionId" -> sessionId)
 
   override def completeSql(sql: HandleId): UIO[List[HandleId]] = completeSql(sql, sql.length)
