@@ -42,7 +42,7 @@ lazy val quillVer       = "4.6.0"
 lazy val postgresVer    = "42.5.1"
 
 lazy val flinkVer    = flink116Ver
-lazy val flink116Ver = "1.16.0"
+lazy val flink116Ver = "1.16.1"
 lazy val flink115Ver = "1.15.3"
 
 lazy val commonSettings = Seq(
