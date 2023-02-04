@@ -4,6 +4,7 @@ import potamoi.{KryoSerializable, PotaErr}
 import potamoi.akka.ActorOpErr
 import potamoi.flink.FlinkInterpreterErr.{RetrieveResultNothing, SplitSqlScriptErr}
 import potamoi.flink.model.*
+import potamoi.flink.model.snapshot.JobState
 import potamoi.kubernetes.K8sErr
 
 import scala.concurrent.duration.Duration

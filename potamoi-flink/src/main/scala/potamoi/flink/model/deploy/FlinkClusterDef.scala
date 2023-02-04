@@ -1,7 +1,8 @@
-package potamoi.flink.model
+package potamoi.flink.model.deploy
 
-import zio.json.JsonCodec
 import potamoi.flink.FlinkVersion
+import potamoi.flink.model.*
+import zio.json.JsonCodec
 
 /**
  * Flink Kubernetes cluster definition.

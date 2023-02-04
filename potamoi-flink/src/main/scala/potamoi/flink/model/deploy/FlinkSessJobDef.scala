@@ -1,4 +1,7 @@
-package potamoi.flink.model
+package potamoi.flink.model.deploy
+
+import potamoi.flink.model.deploy.SavepointRestoreConfig
+import potamoi.flink.model.Fcid
 
 /**
  * Definition of the job submitted to Flink session cluster.

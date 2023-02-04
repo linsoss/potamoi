@@ -2,9 +2,11 @@ package potamoi.flink
 
 import potamoi.{codecs, curTs}
 import potamoi.flink.model.*
-import potamoi.flink.model.JobStates.given_JsonCodec_JobState
+import potamoi.flink.model.snapshot.JobStates.given_JsonCodec_JobState
 import potamoi.flink.FlinkRestErr.*
 import potamoi.flink.FlinkRestRequest.*
+import potamoi.flink.model.deploy.{FlinkJobSavepointDef, FlinkSessJobDef, SavepointFormatType}
+import potamoi.flink.model.snapshot.{FlinkClusterOverview, FlinkJobOverview, FlinkPipeOprStates, FlinkSptTriggerStatus, FlinkTmDetail, JobsStats, JobState, TaskStats, TmHardware, TmMemoryConfig, TmResource}
 import potamoi.fs.paths
 import potamoi.sttps.*
 import potamoi.syntax.*
@@ -407,7 +409,7 @@ object FlinkRestRequest {
       derives JsonCodec:
 
     def toFlinkJobOverview(fcid: Fcid): FlinkJobOverview =
-      model.FlinkJobOverview(
+      FlinkJobOverview(
         clusterId = fcid.clusterId,
         namespace = fcid.namespace,
         jobId = jid,
@@ -431,7 +433,7 @@ object FlinkRestRequest {
       derives JsonCodec:
 
     def toFlinkClusterOverview(fcid: Fcid, execType: FlinkTargetType, deployByPota: Boolean): FlinkClusterOverview =
-      model.FlinkClusterOverview(
+      FlinkClusterOverview(
         clusterId = fcid.clusterId,
         namespace = fcid.namespace,
         execType = execType,

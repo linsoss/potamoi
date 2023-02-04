@@ -1,7 +1,7 @@
-package potamoi.flink.model
+package potamoi.flink.model.snapshot
 
 import potamoi.codecs
-import potamoi.flink.model.FlinkPipeOprStates.given_JsonCodec_FlinkPipeOprState
+import potamoi.flink.model.snapshot.FlinkPipeOprStates.given
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 
 /**

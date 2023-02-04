@@ -4,7 +4,8 @@ import com.coralogix.zio.k8s.client.model.{label, K8sNamespace}
 import com.coralogix.zio.k8s.model.apps.v1.DeploymentSpec
 import com.coralogix.zio.k8s.model.core.v1.{PodSpec, ServiceSpec}
 import potamoi.flink.{FlinkDataStoreErr, FlinkErr}
-import potamoi.flink.model.*
+import potamoi.flink.model.{snapshot, *}
+import potamoi.flink.model.snapshot.{FlinkK8sDeploymentSnap, FlinkK8sPodSnap, FlinkK8sRef, FlinkK8sRefSnap, FlinkK8sServiceSnap}
 import potamoi.flink.storage.*
 import potamoi.kubernetes.K8sErr.*
 import potamoi.kubernetes.K8sOperator
@@ -166,7 +167,7 @@ class FlinkK8sRefQueryImpl(storage: K8sRefSnapStorage, k8sOperator: K8sOperator)
     service.list(fcid) <&>
     pod.list(fcid)
   } map { case (deploys, services, pods) =>
-    FlinkK8sRefSnap(fcid.clusterId, fcid.namespace, deploys, services, pods)
+    snapshot.FlinkK8sRefSnap(fcid.clusterId, fcid.namespace, deploys, services, pods)
   }
 
   override def viewLog(

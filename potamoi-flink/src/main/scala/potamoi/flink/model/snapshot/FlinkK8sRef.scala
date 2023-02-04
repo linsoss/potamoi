@@ -1,6 +1,7 @@
-package potamoi.flink.model
+package potamoi.flink.model.snapshot
 
 import potamoi.{curTs, KryoSerializable}
+import potamoi.flink.model.*
 import potamoi.kubernetes.model.*
 import potamoi.kubernetes.model.ContainerStates.given
 import potamoi.kubernetes.model.PodPhases.given

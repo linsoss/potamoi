@@ -8,6 +8,7 @@ import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.FlinkRestRequest.{RunJobReq, StopJobSptReq, TriggerSptReq}
 import potamoi.flink.ResolveFlinkJobDefErr.{DownloadRemoteJobJarErr, NotSupportJobJarPath}
 import potamoi.flink.model.*
+import potamoi.flink.model.deploy.{FlinkSessClusterDef, FlinkSessJobDef}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.resolver.{ClusterDefResolver, LogConfigResolver, PodTemplateResolver}
 import potamoi.fs.{lfs, S3Conf, S3Operator}

@@ -1,7 +1,8 @@
 package potamoi.flink.storage
 
 import potamoi.flink.FlinkDataStoreErr
-import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
+import potamoi.flink.model.Fcid
+import potamoi.flink.model.snapshot.FlinkRestSvcEndpoint
 import zio.IO
 import zio.stream.Stream
 

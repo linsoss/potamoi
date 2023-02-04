@@ -3,8 +3,8 @@ package potamoi.flink.observer.tracker
 import com.coralogix.zio.k8s.model.apps.v1.{Deployment, DeploymentCondition}
 import com.coralogix.zio.k8s.model.core.v1.{Container, ContainerStatus, Pod, PodCondition, Service, ServicePort}
 import potamoi.flink.FlinkK8sEntityConvertErr.*
-import potamoi.flink.model.{FlinkK8sDeploymentSnap, FlinkK8sPodSnap, FlinkK8sServiceSnap, PodContainerSnap, SvcPort}
 import potamoi.curTs
+import potamoi.flink.model.snapshot.{FlinkK8sDeploymentSnap, FlinkK8sPodSnap, FlinkK8sServiceSnap, PodContainerSnap, SvcPort}
 import potamoi.kubernetes.*
 import potamoi.kubernetes.model.*
 import zio.{IO, ZIO}

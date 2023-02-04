@@ -6,8 +6,8 @@ import potamoi.akka.{AkkaMatrix, AkkaConf}
 import potamoi.common.Syntax.toPrettyString
 import potamoi.debugs.*
 import potamoi.flink.*
-import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
-import potamoi.flink.model.FlK8sComponentName.jobmanager
+import potamoi.flink.model.Fcid
+import potamoi.flink.model.snapshot.FlK8sComponentName.jobmanager
 import potamoi.flink.observer.FlinkObserverTest.fcid1
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.{K8sConf, K8sOperator}
@@ -18,6 +18,7 @@ import zio.{durationInt, IO, Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.Console.printLine
 import zio.Schedule.spaced
 import potamoi.common.TimeExtension.given_Conversion_ZIODuration_ScalaDuration
+import potamoi.flink.model.snapshot.FlinkRestSvcEndpoint
 
 object FlinkObserverTest:
 

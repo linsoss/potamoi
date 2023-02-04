@@ -1,8 +1,9 @@
-package potamoi.flink.model
+package potamoi.flink.model.snapshot
 
 import potamoi.flink.{FlinkConf, FlinkRestEndpointType}
 import potamoi.flink.FlinkRestEndpointType.*
 import potamoi.KryoSerializable
+import potamoi.flink.model.snapshot.FlinkK8sServiceSnap
 import zio.json.JsonCodec
 
 /**

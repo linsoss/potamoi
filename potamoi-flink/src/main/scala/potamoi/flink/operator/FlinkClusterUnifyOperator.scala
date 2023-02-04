@@ -12,6 +12,7 @@ import potamoi.flink.FlinkErr.{ClusterNotFound, K8sFailure}
 import potamoi.flink.FlinkRestErr.JobNotFound
 import potamoi.flink.FlinkRestRequest.{StopJobSptReq, TriggerSptReq}
 import potamoi.flink.model.*
+import potamoi.flink.model.deploy.{FlinkClusterDef, FlinkJobSavepointDef}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.fs.S3Conf
 import potamoi.kubernetes.{K8sOperator, given}

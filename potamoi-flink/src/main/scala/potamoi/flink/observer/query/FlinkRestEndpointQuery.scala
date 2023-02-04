@@ -1,9 +1,10 @@
 package potamoi.flink.observer.query
 
 import potamoi.flink.{FlinkDataStoreErr, FlinkErr, FlinkRestEndpointRetriever}
-import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
+import potamoi.flink.model.Fcid
 import potamoi.flink.storage.RestEndpointStorage
 import potamoi.flink.FlinkErr.K8sFailure
+import potamoi.flink.model.snapshot.FlinkRestSvcEndpoint
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import zio.{IO, UIO, ZIO, ZIOAspect}
 import zio.stream.Stream

@@ -1,8 +1,9 @@
-package potamoi.flink.model
+package potamoi.flink.model.snapshot
 
-import zio.json.JsonCodec
-import FlinkTargetTypes.given_JsonCodec_FlinkTargetType
 import potamoi.KryoSerializable
+import potamoi.flink.model.{Fcid, FlinkTargetType}
+import potamoi.flink.model.FlinkTargetTypes.given
+import zio.json.JsonCodec
 
 /**
  * Flink cluster overview.

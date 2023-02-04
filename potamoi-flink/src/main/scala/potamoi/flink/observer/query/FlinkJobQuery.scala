@@ -1,10 +1,11 @@
 package potamoi.flink.observer.query
 
 import potamoi.flink.*
-import potamoi.flink.model.{Fjid, FlinkPipeOprState, FlinkSptTriggerStatus}
+import potamoi.flink.model.Fjid
 import potamoi.flink.storage.{JobMetricsStorage, JobOverviewStorage, JobSnapStorage}
 import potamoi.flink.FlinkErr.{ClusterNotFound, WatchTimeout}
 import potamoi.flink.FlinkRestErr.{JobNotFound, RequestApiErr, TriggerNotFound}
+import potamoi.flink.model.snapshot.{FlinkPipeOprState, FlinkSptTriggerStatus}
 import potamoi.flink.observer.query.FlinkJobQuery.GetSavepointErr
 import potamoi.flink.observer.query.FlinkRestEndpointQuery.GetRestEptErr
 import potamoi.kubernetes.K8sErr

@@ -1,4 +1,4 @@
-package potamoi.flink.model
+package potamoi.flink.model.deploy
 
 import potamoi.codecs
 import potamoi.flink.FlinkVersion

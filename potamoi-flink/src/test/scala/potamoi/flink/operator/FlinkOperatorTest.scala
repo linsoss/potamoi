@@ -1,16 +1,18 @@
 package potamoi.flink.operator
 
 import potamoi.{BaseConf, HoconConfig, NodeRoles, PotaErr}
-import potamoi.akka.{AkkaMatrix, AkkaConf}
+import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.common.ScalaVersion.Scala212
 import potamoi.common.Syntax.toPrettyString
 import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.*
-import potamoi.flink.model.CheckpointStorageType.Filesystem
+import potamoi.flink.model.deploy.CheckpointStorageType.Filesystem
 import potamoi.flink.model.FlinkTargetType.K8sSession
-import potamoi.flink.model.FlK8sComponentName.jobmanager
-import potamoi.flink.model.StateBackendType.Rocksdb
+import potamoi.flink.model.snapshot.FlK8sComponentName.jobmanager
+import potamoi.flink.model.deploy.StateBackendType.Rocksdb
+import potamoi.flink.model.deploy.{FlinkAppClusterDef, FlinkJobSavepointDef, FlinkSessClusterDef, FlinkSessJobDef, SavepointRestoreConfig, StateBackendConfig}
+import potamoi.flink.model.snapshot.{JobState, JobStates}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.fs.S3Operator

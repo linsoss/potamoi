@@ -1,8 +1,9 @@
 package potamoi.flink.observer.query
 
-import potamoi.flink.model.{Fjid, FlinkSptTriggerStatus}
+import potamoi.flink.model.Fjid
 import potamoi.flink.storage.*
 import potamoi.flink.FlinkErr
+import potamoi.flink.model.snapshot.FlinkSptTriggerStatus
 import zio.{IO, UIO, ZIO}
 
 import scala.concurrent.duration.Duration

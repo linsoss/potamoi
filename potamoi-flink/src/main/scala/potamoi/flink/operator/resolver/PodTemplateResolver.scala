@@ -7,7 +7,7 @@ import io.circe.yaml.parser.parse as parseYaml
 import io.circe.yaml.syntax.*
 import potamoi.flink.FlinkConf
 import potamoi.flink.ResolveFlinkClusterDefErr.ResolvePodTemplateErr
-import potamoi.flink.model.{FlinkAppClusterDef, FlinkClusterDef}
+import potamoi.flink.model.deploy.{FlinkAppClusterDef, FlinkClusterDef}
 import potamoi.fs.{lfs, S3Conf}
 import potamoi.fs.PathTool.{isS3Path, purePath}
 import zio.{IO, ZIO}

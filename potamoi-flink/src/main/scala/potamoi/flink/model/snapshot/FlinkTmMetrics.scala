@@ -1,23 +1,36 @@
-package potamoi.flink.model
+package potamoi.flink.model.snapshot
 
 import potamoi.{curTs, KryoSerializable}
+import potamoi.flink.model.Ftid
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 /**
- * Flink jobmanager metrics.
+ * Flink taskmanager metrics.
  * see: https://nightlies.apache.org/flink/flink-docs-master/docs/ops/metrics
  */
-case class FlinkJmMetrics(
+case class FlinkTmMetrics(
     clusterId: String,
     namespace: String,
+    tmId: String,
+    FlinkMemoryManagedTotal: Option[Long] = None,
+    FlinkMemoryManagedUsed: Option[Long] = None,
+    NetworkAvailableMemorySegments: Option[Long] = None,
+    NetworkTotalMemorySegments: Option[Long] = None,
+    ShuffleNettyAvailableMemory: Option[Long] = None,
+    ShuffleNettyAvailableMemorySegments: Option[Long] = None,
+    ShuffleNettyRequestedMemoryUsage: Option[Long] = None,
+    ShuffleNettyTotalMemory: Option[Long] = None,
+    ShuffleNettyTotalMemorySegments: Option[Long] = None,
+    ShuffleNettyUsedMemory: Option[Long] = None,
+    ShuffleNettyUsedMemorySegments: Option[Long] = None,
     jvmClassLoaderClassesLoaded: Option[Long] = None,
     jvmClassLoaderClassesUnloaded: Option[Long] = None,
     jvmCpuLoad: Option[Double] = None,
     jvmCpuTime: Option[Long] = None,
-    jvmGarbageCollectorCopyCount: Option[Long] = None,
-    jvmGarbageCollectorCopyTime: Option[Long] = None,
-    jvmGarbageCollectorMarkSweepCompactCount: Option[Long] = None,
-    jvmGarbageCollectorMarkSweepCompactTime: Option[Long] = None,
+    jvmGarbageCollectorG1OldGenerationCount: Option[Long] = None,
+    jvmGarbageCollectorG1OldGenerationTime: Option[Long] = None,
+    jvmGarbageCollectorG1YoungGenerationCount: Option[Long] = None,
+    jvmGarbageCollectorG1YoungGenerationTime: Option[Long] = None,
     jvmMemoryDirectCount: Option[Long] = None,
     jvmMemoryDirectMemoryUsed: Option[Long] = None,
     jvmMemoryDirectTotalCapacity: Option[Long] = None,
@@ -34,27 +47,23 @@ case class FlinkJmMetrics(
     jvmMemoryNonHeapMax: Option[Long] = None,
     jvmMemoryNonHeapUsed: Option[Long] = None,
     jvmThreadsCount: Option[Long] = None,
-    numPendingTaskManagers: Option[Long] = None,
-    numRegisteredTaskManagers: Option[Long] = None,
-    numRunningJobs: Option[Long] = None,
-    startWorkFailurePerSecond: Option[Double] = None,
-    taskSlotsAvailable: Option[Long] = None,
-    taskSlotsTotal: Option[Long] = None,
     ts: Long = curTs)
     extends KryoSerializable
     derives JsonCodec
 
-object FlinkJmMetrics:
+object FlinkTmMetrics:
 
   val metricsRawKeys: Set[String] = Set(
+    "Status.Flink.Memory.Managed.Total",
+    "Status.Flink.Memory.Managed.Used",
     "Status.JVM.CPU.Load",
     "Status.JVM.CPU.Time",
     "Status.JVM.ClassLoader.ClassesLoaded",
     "Status.JVM.ClassLoader.ClassesUnloaded",
-    "Status.JVM.GarbageCollector.Copy.Count",
-    "Status.JVM.GarbageCollector.Copy.Time",
-    "Status.JVM.GarbageCollector.MarkSweepCompact.Count",
-    "Status.JVM.GarbageCollector.MarkSweepCompact.Time",
+    "Status.JVM.GarbageCollector.G1_Old_Generation.Count",
+    "Status.JVM.GarbageCollector.G1_Old_Generation.Time",
+    "Status.JVM.GarbageCollector.G1_Young_Generation.Count",
+    "Status.JVM.GarbageCollector.G1_Young_Generation.Time",
     "Status.JVM.Memory.Direct.Count",
     "Status.JVM.Memory.Direct.MemoryUsed",
     "Status.JVM.Memory.Direct.TotalCapacity",
@@ -71,25 +80,40 @@ object FlinkJmMetrics:
     "Status.JVM.Memory.NonHeap.Max",
     "Status.JVM.Memory.NonHeap.Used",
     "Status.JVM.Threads.Count",
-    "numPendingTaskManagers",
-    "numRegisteredTaskManagers",
-    "numRunningJobs",
-    "startWorkFailurePerSecond",
-    "taskSlotsAvailable",
-    "taskSlotsTotal"
+    "Status.Network.AvailableMemorySegments",
+    "Status.Network.TotalMemorySegments",
+    "Status.Shuffle.Netty.AvailableMemory",
+    "Status.Shuffle.Netty.AvailableMemorySegments",
+    "Status.Shuffle.Netty.RequestedMemoryUsage",
+    "Status.Shuffle.Netty.TotalMemory",
+    "Status.Shuffle.Netty.TotalMemorySegments",
+    "Status.Shuffle.Netty.UsedMemory",
+    "Status.Shuffle.Netty.UsedMemorySegments"
   )
 
-  def fromRaw(fcid: Fcid, raw: Map[String, String]): FlinkJmMetrics = FlinkJmMetrics(
-    clusterId = fcid.clusterId,
-    namespace = fcid.namespace,
+  def fromRaw(ftid: Ftid, raw: Map[String, String]): FlinkTmMetrics = FlinkTmMetrics(
+    clusterId = ftid.clusterId,
+    namespace = ftid.namespace,
+    tmId = ftid.tmId,
+    FlinkMemoryManagedTotal = raw.get("Status.Flink.Memory.Managed.Total").map(_.toLong),
+    FlinkMemoryManagedUsed = raw.get("Status.Flink.Memory.Managed.Used").map(_.toLong),
+    NetworkAvailableMemorySegments = raw.get("Status.Network.AvailableMemorySegments").map(_.toLong),
+    NetworkTotalMemorySegments = raw.get("Status.Network.TotalMemorySegments").map(_.toLong),
+    ShuffleNettyAvailableMemory = raw.get("Status.Shuffle.Netty.AvailableMemory").map(_.toLong),
+    ShuffleNettyAvailableMemorySegments = raw.get("Status.Shuffle.Netty.AvailableMemorySegments").map(_.toLong),
+    ShuffleNettyRequestedMemoryUsage = raw.get("Status.Shuffle.Netty.RequestedMemoryUsage").map(_.toLong),
+    ShuffleNettyTotalMemory = raw.get("Status.Shuffle.Netty.TotalMemory").map(_.toLong),
+    ShuffleNettyTotalMemorySegments = raw.get("Status.Shuffle.Netty.TotalMemorySegments").map(_.toLong),
+    ShuffleNettyUsedMemory = raw.get("Status.Shuffle.Netty.UsedMemory").map(_.toLong),
+    ShuffleNettyUsedMemorySegments = raw.get("Status.Shuffle.Netty.UsedMemorySegments").map(_.toLong),
     jvmClassLoaderClassesLoaded = raw.get("Status.JVM.ClassLoader.ClassesLoaded").map(_.toLong),
     jvmClassLoaderClassesUnloaded = raw.get("Status.JVM.ClassLoader.ClassesUnloaded").map(_.toLong),
     jvmCpuLoad = raw.get("Status.JVM.CPU.Load").map(_.toDouble),
     jvmCpuTime = raw.get("Status.JVM.CPU.Time").map(_.toLong),
-    jvmGarbageCollectorCopyCount = raw.get("Status.JVM.GarbageCollector.Copy.Count").map(_.toLong),
-    jvmGarbageCollectorCopyTime = raw.get("Status.JVM.GarbageCollector.Copy.Time").map(_.toLong),
-    jvmGarbageCollectorMarkSweepCompactCount = raw.get("Status.JVM.GarbageCollector.MarkSweepCompact.Count").map(_.toLong),
-    jvmGarbageCollectorMarkSweepCompactTime = raw.get("Status.JVM.GarbageCollector.MarkSweepCompact.Time").map(_.toLong),
+    jvmGarbageCollectorG1OldGenerationCount = raw.get("Status.JVM.GarbageCollector.G1_Old_Generation.Count").map(_.toLong),
+    jvmGarbageCollectorG1OldGenerationTime = raw.get("Status.JVM.GarbageCollector.G1_Old_Generation.Time").map(_.toLong),
+    jvmGarbageCollectorG1YoungGenerationCount = raw.get("Status.JVM.GarbageCollector.G1_Young_Generation.Count").map(_.toLong),
+    jvmGarbageCollectorG1YoungGenerationTime = raw.get("Status.JVM.GarbageCollector.G1_Young_Generation.Time").map(_.toLong),
     jvmMemoryDirectCount = raw.get("Status.JVM.Memory.Direct.Count").map(_.toLong),
     jvmMemoryDirectMemoryUsed = raw.get("Status.JVM.Memory.Direct.MemoryUsed").map(_.toLong),
     jvmMemoryDirectTotalCapacity = raw.get("Status.JVM.Memory.Direct.TotalCapacity").map(_.toLong),
@@ -105,11 +129,5 @@ object FlinkJmMetrics:
     jvmMemoryNonHeapCommitted = raw.get("Status.JVM.Memory.NonHeap.Committed").map(_.toLong),
     jvmMemoryNonHeapMax = raw.get("Status.JVM.Memory.NonHeap.Max").map(_.toLong),
     jvmMemoryNonHeapUsed = raw.get("Status.JVM.Memory.NonHeap.Used").map(_.toLong),
-    jvmThreadsCount = raw.get("Status.JVM.Threads.Count").map(_.toLong),
-    numPendingTaskManagers = raw.get("numPendingTaskManagers").map(_.toLong),
-    numRegisteredTaskManagers = raw.get("numRegisteredTaskManagers").map(_.toLong),
-    numRunningJobs = raw.get("numRunningJobs").map(_.toLong),
-    startWorkFailurePerSecond = raw.get("startWorkFailurePerSecond").map(_.toDouble),
-    taskSlotsAvailable = raw.get("taskSlotsAvailable").map(_.toLong),
-    taskSlotsTotal = raw.get("taskSlotsTotal").map(_.toLong)
+    jvmThreadsCount = raw.get("Status.JVM.Threads.Count").map(_.toLong)
   )

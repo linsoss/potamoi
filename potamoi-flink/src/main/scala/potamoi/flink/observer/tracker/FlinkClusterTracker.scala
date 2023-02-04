@@ -16,6 +16,7 @@ import potamoi.logger.LogConf
 import potamoi.syntax.toPrettyStr
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
 import potamoi.{KryoSerializable, NodeRoles}
+import potamoi.flink.model.snapshot.{FlinkJmMetrics, FlinkJobMetrics, FlinkRestSvcEndpoint, FlinkTmDetail, FlinkTmMetrics}
 import potamoi.options.unsafeGet
 import zio.*
 import zio.stream.ZStream

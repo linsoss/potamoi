@@ -1,10 +1,11 @@
-package potamoi.flink.model
+package potamoi.flink.model.deploy
 
 import potamoi.codecs
-import potamoi.flink.model.CheckpointStorageTypes.given
-import potamoi.flink.model.FlinkRawConfig.dry
-import potamoi.flink.model.SavepointRestoreModes.given
-import potamoi.flink.model.StateBackendTypes.given
+import potamoi.flink.model.*
+import potamoi.flink.model.deploy.CheckpointStorageTypes.given
+import potamoi.flink.model.deploy.FlinkRawConfig.dry
+import potamoi.flink.model.deploy.SavepointRestoreModes.given
+import potamoi.flink.model.deploy.StateBackendTypes.given
 import potamoi.fs.S3Conf
 import potamoi.fs.refactor.S3AccessStyle
 import potamoi.nums.*

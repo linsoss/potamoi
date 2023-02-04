@@ -10,7 +10,8 @@ import potamoi.akka.behaviors.*
 import potamoi.akka.zios.*
 import potamoi.akka.ShardingProxy
 import potamoi.flink.FlinkConf
-import potamoi.flink.model.{Fcid, FlinkK8sPodMetrics, FlinkK8sServiceSnap, FlinkRestSvcEndpoint}
+import potamoi.flink.model.Fcid
+import potamoi.flink.model.snapshot.{FlinkK8sPodMetrics, FlinkK8sServiceSnap, FlinkRestSvcEndpoint}
 import potamoi.flink.observer.tracker.K8sEntityConverter.*
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.kubernetes.{K8sClient, K8sOperator}

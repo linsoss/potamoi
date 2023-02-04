@@ -1,9 +1,10 @@
 package potamoi.flink.operator
 
 import potamoi.flink.{FlinkDataStoreErr, FlinkErr}
-import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
+import potamoi.flink.model.Fcid
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.flink.FlinkErr.ClusterIsNotYetTracked
+import potamoi.flink.model.snapshot.FlinkRestSvcEndpoint
 import zio.{IO, ZIO}
 import zio.stream.Stream
 

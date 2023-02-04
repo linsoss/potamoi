@@ -2,6 +2,7 @@ package potamoi.flink.storage
 
 import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.*
+import potamoi.flink.model.snapshot.{FlinkClusterOverview, FlinkJmMetrics, FlinkTmDetail, FlinkTmMetrics}
 import zio.IO
 import zio.stream.Stream
 

@@ -2,7 +2,8 @@ package potamoi.flink
 
 import com.coralogix.zio.k8s.client.NotFound
 import potamoi.flink.FlinkErr
-import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
+import potamoi.flink.model.Fcid
+import potamoi.flink.model.snapshot.FlinkRestSvcEndpoint
 import potamoi.kubernetes.{given_Conversion_String_K8sNamespace, K8sClient, K8sConf, K8sOperatorLive}
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import zio.{IO, UIO, ZIO, ZLayer}

@@ -1,6 +1,7 @@
-package potamoi.flink.model
+package potamoi.flink.model.snapshot
 
 import potamoi.{curTs, KryoSerializable}
+import potamoi.flink.model.Ftid
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 /**

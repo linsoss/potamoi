@@ -2,9 +2,10 @@ package potamoi.flink.storage.mem
 
 import akka.actor.typed.Behavior
 import potamoi.akka.{AkkaMatrix, DDataConf, ORSetDData}
-import potamoi.flink.model.{Fcid, FlinkRestSvcEndpoint}
+import potamoi.flink.model.Fcid
 import potamoi.flink.storage.{RestEndpointStorage, TrackedFcidStorage}
 import potamoi.flink.FlinkDataStoreErr
+import potamoi.flink.model.snapshot.FlinkRestSvcEndpoint
 import zio.ZIO
 import zio.stream.ZStream
 

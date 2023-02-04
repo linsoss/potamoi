@@ -1,7 +1,8 @@
-package potamoi.flink.model
+package potamoi.flink.model.snapshot
 
 import potamoi.{curTs, KryoSerializable}
-import potamoi.flink.model.JobStates.given_JsonCodec_JobState
+import potamoi.flink.model.Fjid
+import potamoi.flink.model.snapshot.JobStates.given
 import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 
 /**

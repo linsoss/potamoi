@@ -12,6 +12,8 @@ import potamoi.flink.model.*
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.resolver.{ClusterDefResolver, LogConfigResolver, PodTemplateResolver}
 import potamoi.flink.FlinkRestRequest.{JobStatusInfo, RunJobReq, StopJobSptReq, TriggerSptReq}
+import potamoi.flink.model.deploy.{FlinkAppClusterDef, FlinkJobSavepointDef}
+import potamoi.flink.model.snapshot.JobStates
 import potamoi.fs.{S3Conf, S3Operator}
 import potamoi.fs.PathTool.{getFileName, isS3Path}
 import potamoi.kubernetes.{given_Conversion_String_K8sNamespace, K8sOperator}

@@ -7,8 +7,9 @@ import potamoi.flink.FlinkConf
 import potamoi.flink.FlinkConfigExtension.{ConfigurationPF, given}
 import potamoi.flink.ResolveFlinkClusterDefErr.*
 import potamoi.flink.model.*
-import potamoi.flink.model.FlinkPlugin.{S3Hadoop, S3Presto}
-import potamoi.flink.model.FlinkPlugins.S3aPlugins
+import potamoi.flink.model.deploy.*
+import potamoi.flink.model.deploy.FlinkPlugin.{S3Hadoop, S3Presto}
+import potamoi.flink.model.deploy.FlinkPlugins.S3aPlugins
 import potamoi.flink.operator.resolver.ClusterDefResolver.notAllowCustomRawConfKeys
 import potamoi.fs.S3Conf
 import potamoi.fs.paths.*
@@ -43,8 +44,8 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
       if (c.checkpointDir.exists(isS3Path)) true
       else c.savepointDir.exists(isS3Path)
     }
-    lazy val checkJmHa       = clusterDef.jmHa.exists(c => isS3Path(c.storageDir))
-    lazy val checkInjectDeps = clusterDef.injectedDeps.exists(isS3Path)
+    lazy val checkJmHa         = clusterDef.jmHa.exists(c => isS3Path(c.storageDir))
+    lazy val checkInjectDeps   = clusterDef.injectedDeps.exists(isS3Path)
 
     if (checkStateBackend) true
     else if (checkJmHa) true
@@ -111,14 +112,14 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
       val s3pJar = S3Presto.jarName(clDef.flinkVer)
       if (isS3Required(clDef) && !clDef.builtInPlugins.contains(s3pJar)) s3pJar else ""
     }
-    val extJobS3PluginJar = {
+    val extJobS3PluginJar     = {
       if (clDef.s3.isEmpty) ""
       else {
         val s3aJars = S3aPlugins.map(_.jarName(clDef.flinkVer))
         if ((clDef.builtInPlugins & s3aJars).isEmpty) S3Hadoop.jarName(clDef.flinkVer) else ""
       }
     }
-    val extraPluginJars = Vector(extBuildInS3PluginJar, extJobS3PluginJar).filter(_.nonEmpty)
+    val extraPluginJars       = Vector(extBuildInS3PluginJar, extJobS3PluginJar).filter(_.nonEmpty)
     if (extraPluginJars.nonEmpty) clDef.copyBuiltInPlugins(clDef.builtInPlugins ++ extraPluginJars) else clDef
   }
 
@@ -157,7 +158,7 @@ sealed trait ClusterDefResolver[ClusterDef <: FlinkClusterDef[ClusterDef]] {
             // using s3p raw config and standard s3 raw config to resolve savepoint/checkpoint trigger issues.
             val buildInS3Conf = if isS3Required(clusterDef) then S3AccessConf(s3Conf).contra(f => f.mappingS3p ++ f.mappingS3) else Vector.empty
             // using s3a config for custom job.
-            val jobS3Conf = clusterDef.s3.map(_.mappingS3a).getOrElse(Vector.empty)
+            val jobS3Conf     = clusterDef.s3.map(_.mappingS3a).getOrElse(Vector.empty)
             (buildInS3Conf ++ jobS3Conf).foldLeft(conf)((ac, c) => ac.append(c._1, c._2))
           }
           // built-in plugins raw configs
@@ -208,7 +209,10 @@ object SessClusterDefResolver extends ClusterDefResolver[FlinkSessClusterDef] {
   override def revise(clusterDef: FlinkSessClusterDef): IO[ReviseClusterDefErr, FlinkSessClusterDef] =
     reviseDefinition(clusterDef)
 
-  override def toFlinkRawConfig(clusterDef: FlinkSessClusterDef, flinkConf: FlinkConf, s3Conf: S3Conf): IO[ConvertToFlinkRawConfigErr, Configuration] =
+  override def toFlinkRawConfig(
+      clusterDef: FlinkSessClusterDef,
+      flinkConf: FlinkConf,
+      s3Conf: S3Conf): IO[ConvertToFlinkRawConfigErr, Configuration] =
     convertToFlinkConfig(clusterDef, flinkConf, s3Conf)
 }
 

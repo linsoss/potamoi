@@ -1,6 +1,7 @@
 package potamoi.flink.model
 
 import org.scalatest.wordspec.AnyWordSpec
+import potamoi.flink.model.deploy.{JmHaConfig, MemConfig}
 import potamoi.syntax.*
 
 class FlinkRawConfigsSpec extends AnyWordSpec:

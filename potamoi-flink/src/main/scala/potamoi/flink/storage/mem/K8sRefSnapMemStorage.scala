@@ -7,6 +7,7 @@ import potamoi.flink.FlinkDataStoreErr
 import potamoi.flink.model.*
 import potamoi.flink.storage.*
 import potamoi.KryoSerializable
+import potamoi.flink.model.snapshot.{FlinkK8sDeploymentSnap, FlinkK8sPodMetrics, FlinkK8sPodSnap, FlinkK8sServiceSnap}
 import zio.stream.{Stream, ZSink, ZStream}
 import zio.ZIO
 
