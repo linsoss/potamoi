@@ -29,6 +29,7 @@ enum HandleStatus:
   case Finish
   case Fail
   case Cancel
+  def isEnd: Boolean = HandleStatuses.isEnd(this)
 
 object HandleStatuses:
   import HandleStatus.*

@@ -44,7 +44,7 @@ trait SessionConnection {
 
   def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[AttachHandleErr, Option[SqlResultPageView]]
   def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[AttachHandleErr, Option[SqlResultOffsetView]]
-  def subscribeResultStream(handleId: String): UIO[Stream[AttachHandleErr, RowValue]]
+  def subscribeResultStream(handleId: String): Stream[AttachHandleErr, RowValue]
 
   def listHandleId: IO[AttachSessionErr, List[HandleId]]
   def listHandleStatus: IO[AttachSessionErr, List[HandleStatusView]]
@@ -205,10 +205,10 @@ class SessionConnectionImpl(
    * Return sql results in stream.
    * todo replace with actor event subscription implementation.
    */
-  override def subscribeResultStream(handleId: String): UIO[Stream[AttachHandleErr, RowValue]] = {
+  override def subscribeResultStream(handleId: String): Stream[AttachHandleErr, RowValue] = {
     for {
-      offsetRef <- Ref.make[Long](-1)
-      isEndRef  <- Ref.make[Boolean](false)
+      offsetRef <- ZStream.from(Ref.make[Long](-1))
+      isEndRef  <- ZStream.from(Ref.make[Boolean](false))
       // single pull data effect
       pullData   = for {
                      offset    <- offsetRef.get
@@ -223,12 +223,12 @@ class SessionConnectionImpl(
                                       succeed(List.empty)
                    } yield dataRows
       // pull data stream
-      stream     = ZStream
+      row       <- ZStream
                      .fromZIO(pullData)
                      .repeat(Schedule.spaced(streamPollingInterval))
                      .takeUntilZIO(_ => isEndRef.get)
                      .flattenIterables
-    } yield stream
+    } yield row
   }
 
   /**
