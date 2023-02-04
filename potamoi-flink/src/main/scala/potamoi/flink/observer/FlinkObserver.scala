@@ -21,11 +21,32 @@ import scala.concurrent.duration.Duration
  * Flink cluster on kubernetes observer.
  */
 trait FlinkObserver {
+
+  /**
+   * Flink cluster tracker management.
+   */
   def manager: TrackManager
+
+  /**
+   * Flink cluster rest endpoint info query.
+   */
   def restEndpoint: FlinkRestEndpointQuery
+
+  /**
+   * Flink clusters information snapshot query.
+   */
   def cluster: FlinkClusterQuery
+
+  /**
+   * Flink jobs snapshot query.
+   */
   def job: FlinkJobQuery
+
+  /**
+   * Flink cluster kubernetes info snapshot query.
+   */
   def k8s: FlinkK8sRefQuery
+
 }
 
 object FlinkObserver extends EarlyLoad[FlinkObserver] {
@@ -46,7 +67,7 @@ object FlinkObserver extends EarlyLoad[FlinkObserver] {
         k8sRefQuery       <- FlinkK8sRefQuery.make(snapStorage.k8sRef, k8sOperator)
         trackerManager    <- TrackerManager.make(logConf, flinkConf, actorCradle, snapStorage, eptRetriever, k8sOperator)
       } yield new FlinkObserver:
-        val manager           = trackerManager // should not be lazy
+        val manager           = trackerManager // should not be delayed loading!
         lazy val restEndpoint = restEndpointQuery
         lazy val cluster      = clusterQuery
         lazy val job          = jobQuery

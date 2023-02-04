@@ -23,37 +23,41 @@ type HandleId  = String
  */
 trait FlinkSqlInteractor {
 
+  /**
+   * Remote flink sql interpreters manager.
+   */
   def manager: SessionManager
-  def attach(sessionId: SessionId): IO[RetrieveSessionErr, SessionConnection]
+
+  /**
+   * Connect to the flink interpreter for the given session id.
+   */
+  def attach(sessionId: SessionId): IO[(SessionNotFound | FlinkDataStoreErr) with FlinkErr, SessionConnection]
 }
 
 object FlinkSqlInteractor extends EarlyLoad[FlinkSqlInteractor] {
 
-  type RetrieveSessionErr = (SessionNotFound | FlinkDataStoreErr) with FlinkErr
+  val live
+      : ZLayer[RemoteFsOperator with FlinkConf with LogConf with AkkaMatrix with FlinkDataStorage with FlinkObserver, Throwable, FlinkSqlInteractor] =
+    ZLayer {
+      for {
+        actorCradle     <- ZIO.service[AkkaMatrix]
+        flinkConf       <- ZIO.service[FlinkConf]
+        flinkObserver   <- ZIO.service[FlinkObserver]
+        dataStore       <- ZIO.service[FlinkDataStorage].map(_.interact)
+        interpreters    <- FlinkInterpreterPier.activeAll
+        given AkkaMatrix = actorCradle
+
+      } yield new FlinkSqlInteractor {
+        lazy val manager: SessionManager = SessionManagerImpl(flinkConf, flinkObserver, dataStore, interpreters)
+
+        def attach(sessionId: SessionId): IO[RetrieveSessionErr, SessionConnection] =
+          for {
+            session    <- dataStore.get(sessionId).someOrFailUnion(SessionNotFound(sessionId))
+            flinkVer    = session.flinkVer
+            interpreter = interpreters(flinkVer)
+          } yield SessionConnectionImpl(sessionId, flinkConf, interpreter)
+      }
+    }
 
   override def active: URIO[FlinkSqlInteractor, Unit] = ZIO.service[FlinkSqlInteractor].unit
-
-  val live: ZLayer[
-    RemoteFsOperator with FlinkConf with LogConf with AkkaMatrix with FlinkDataStorage with FlinkObserver,
-    Throwable,
-    FlinkSqlInteractor] = ZLayer {
-    for {
-      actorCradle      <- ZIO.service[AkkaMatrix]
-      flinkConf        <- ZIO.service[FlinkConf]
-      flinkObserver    <- ZIO.service[FlinkObserver]
-      dataStore        <- ZIO.service[FlinkDataStorage].map(_.interact)
-      interpreters     <- FlinkInterpreterPier.activeAll
-      given AkkaMatrix = actorCradle
-
-    } yield new FlinkSqlInteractor {
-      lazy val manager: SessionManager = SessionManagerImpl(flinkConf, flinkObserver, dataStore, interpreters)
-
-      def attach(sessionId: SessionId): IO[RetrieveSessionErr, SessionConnection] =
-        for {
-          session    <- dataStore.get(sessionId).someOrFailUnion(SessionNotFound(sessionId))
-          flinkVer    = session.flinkVer
-          interpreter = interpreters(flinkVer)
-        } yield SessionConnectionImpl(sessionId, flinkConf, interpreter)
-    }
-  }
 }

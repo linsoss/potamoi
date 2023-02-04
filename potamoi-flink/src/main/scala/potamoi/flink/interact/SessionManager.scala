@@ -27,15 +27,41 @@ import zio.stream.ZStream
  */
 trait SessionManager {
 
+  /**
+   * Create flink sql interactive session.
+   */
   def create(sessionDef: InteractSessionDef, flinkVer: FlinkMajorVer): IO[CreateSessionErr, SessionId]
+
+  /**
+   * Create SessionDef of interactive session entity.
+   */
   def update(sessionId: String, sessionDef: InteractSessionDef): IO[UpdateSessionErr, Unit]
+
+  /**
+   * Cancel current sqls execution plan of given session entity.
+   */
   def cancel(sessionId: String): IO[SessionOpErr, Unit]
+
+  /**
+   * Close remote session entity of given session id.
+   */
   def close(sessionId: String): IO[SessionOpErr, Unit]
 
+  /**
+   * List remote physical interpreter node of the given flink version.
+   */
   def listRemoteInterpreter(flinkVer: FlinkMajorVer): IO[AkkaErr, Set[InterpreterNode]]
+
+  /**
+   * List all remote physical interpreter node.
+   */
   def listAllRemoteInterpreter: IO[AkkaErr, Set[InterpreterNode]]
 
+  /**
+   * Interpreter session information query.
+   */
   def session: InteractSessionStorage.Query
+
 }
 
 object SessionManager {

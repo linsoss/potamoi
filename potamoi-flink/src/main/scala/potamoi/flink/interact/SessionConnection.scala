@@ -25,35 +25,91 @@ import zio.ZIOAspect.annotated
  */
 trait SessionConnection {
 
-  def completeSql(sql: String): IO[AttachSessionErr, List[String]]
+  /**
+   * Get session overview info.
+   */
+  def overview: IO[AkkaErr, SessionOverview]
+
+  /**
+   * Get completion hints for the given statement at the given cursor position.
+   */
   def completeSql(sql: String, position: Int): IO[AttachSessionErr, List[String]]
 
+  /**
+   * Submit sql statement.
+   */
   def submitSqlAsync(sql: String): IO[AttachSessionErr, HandleId]
+
+  /**
+   * Submit sql script.
+   */
   def submitSqlScriptAsync(sqlScript: String): IO[SubmitScriptErr, List[ScripSqlSign]]
 
+  /**
+   * Subscribe to handle frame information by given handle id.
+   */
   def subscribeHandleFrame(handleId: String): HandleFrameWatcher
-  def subscribeScriptResultFrame(handleIds: List[String]): ScriptHandleFrameWatcher
 
   trait HandleFrameWatcher:
     def changing: Stream[AttachHandleErr, HandleFrame]
     def ending: IO[AttachHandleErr, HandleFrame]
     def hybridChanging: Stream[AttachHandleErr, (HandleFrame, Option[Stream[AttachHandleErr, RowValue]])]
 
+  /**
+   * Subscribe to script result frame information by given handle ids.
+   */
+  def subscribeScriptResultFrame(handleIds: List[String]): ScriptHandleFrameWatcher
+
   trait ScriptHandleFrameWatcher:
     def changing: Stream[AttachHandleErr, HandleFrame]
     def ending: Stream[AttachHandleErr, HandleFrame]
     def hybridChanging: Stream[AttachHandleErr, (HandleFrame, Option[Stream[AttachHandleErr, RowValue]])]
 
+  /**
+   * Returns sql results in a paged manner.
+   * @param page is from 1 on.
+   */
   def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[AttachHandleErr, Option[SqlResultPageView]]
+
+  /**
+   * Return sql results as row minimum timestamp offset.
+   */
   def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[AttachHandleErr, Option[SqlResultOffsetView]]
+
+  /**
+   * Return sql results as a stream.
+   */
   def subscribeResultStream(handleId: String): Stream[AttachHandleErr, RowValue]
 
+  /**
+   * Get completion hints for the given statement.
+   */
+  def completeSql(sql: String): IO[AttachSessionErr, List[String]]
+
+  /**
+   * List all handle ids, order by submit time asc.
+   */
   def listHandleId: IO[AttachSessionErr, List[HandleId]]
+
+  /**
+   * List all handle status, order by submit time asc.
+   */
   def listHandleStatus: IO[AttachSessionErr, List[HandleStatusView]]
+
+  /**
+   * List all HandleFrame, order by submit time asc.
+   */
   def listHandleFrame: IO[AttachSessionErr, List[HandleFrame]]
+
+  /**
+   * Get handle status of given handleId
+   */
   def getHandleStatus(handleId: String): IO[AttachHandleErr, HandleStatusView]
+
+  /**
+   * Get HandleFrame of given handle id.
+   */
   def getHandleFrame(handleId: String): IO[AttachHandleErr, HandleFrame]
-  def overview: IO[AkkaErr, SessionOverview]
 }
 
 object SessionConnection {
@@ -177,8 +233,6 @@ class SessionConnectionImpl(
 
   /**
    * Returns sql results in a paged manner.
-   *
-   * @param page is from 1 on.
    */
   override def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[AttachHandleErr, Option[SqlResultPageView]] =
     annoTag {
@@ -208,7 +262,7 @@ class SessionConnectionImpl(
     }
 
   /**
-   * Return sql results in stream.
+   * Return sql results as a stream.
    * todo replace with actor event subscription implementation.
    */
   override def subscribeResultStream(handleId: String): Stream[AttachHandleErr, RowValue] = {
