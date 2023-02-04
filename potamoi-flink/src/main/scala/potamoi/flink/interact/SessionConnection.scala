@@ -14,9 +14,10 @@ import potamoi.flink.interpreter.FlinkInterpreterActor.*
 import potamoi.flink.FlinkErr.AkkaErr
 import potamoi.syntax.contra
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
-import zio.{durationInt, Chunk, Duration, IO, Ref, Schedule, Task, UIO, ZIO}
-import zio.ZIO.{fail, succeed}
+import zio.{durationInt, Chunk, Duration, IO, Ref, Schedule, Task, UIO, ZIO, ZIOAppDefault}
+import zio.ZIO.{fail, logInfo, succeed}
 import zio.stream.{Stream, ZStream}
+import zio.Console.printLine
 import zio.ZIOAspect.annotated
 
 /**
@@ -205,24 +206,29 @@ class SessionConnectionImpl(
    * todo replace with actor event subscription implementation.
    */
   override def subscribeResultStream(handleId: String): UIO[Stream[AttachHandleErr, RowValue]] = {
-
-    def pollEffect(offsetRef: Ref[Long]): IO[AttachHandleErr, (List[RowValue], Boolean)] =
-      for {
-        offset   <- offsetRef.get
-        sqlRs    <- retrieveResultOffset(handleId, offset, chunkSize = 200)
-        rowsFlag <- sqlRs match
-                      case None     => getHandleStatus(handleId).map(e => List.empty -> !HandleStatuses.isEnd(e.status))
-                      case Some(rs) => offsetRef.set(rs.lastOffset) *> succeed(rs.payload.data -> rs.hasNextRow)
-      } yield rowsFlag
-
-    Ref.make[Long](-1).map { offsetRef =>
-      ZStream
-        .fromZIO(pollEffect(offsetRef))
-        .repeat(Schedule.spaced(streamPollingInterval))
-        .takeWhile(_._2)
-        .map(_._1)
-        .flattenIterables
-    }
+    for {
+      offsetRef <- Ref.make[Long](-1)
+      isEndRef  <- Ref.make[Boolean](false)
+      // single pull data effect
+      pullData   = for {
+                     offset    <- offsetRef.get
+                     sqlResult <- retrieveResultOffset(handleId, offset, chunkSize = 200)
+                     dataRows  <- sqlResult match
+                                    case Some(data) =>
+                                      offsetRef.set(data.lastOffset) *>
+                                      isEndRef.set(!data.hasNextRow) *>
+                                      succeed(data.payload.data)
+                                    case None       =>
+                                      getHandleStatus(handleId).flatMap(s => isEndRef.set(HandleStatuses.isEnd(s.status))) *>
+                                      succeed(List.empty)
+                   } yield dataRows
+      // pull data stream
+      stream     = ZStream
+                     .fromZIO(pullData)
+                     .repeat(Schedule.spaced(streamPollingInterval))
+                     .takeUntilZIO(_ => isEndRef.get)
+                     .flattenIterables
+    } yield stream
   }
 
   /**
