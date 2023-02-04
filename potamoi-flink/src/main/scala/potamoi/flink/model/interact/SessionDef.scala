@@ -86,7 +86,7 @@ object SessionDef:
     "execution.shutdown-on-attached-exit",
     "pipeline.jars"
   )
-  def defaultJobName(sessionId: String) = s"potamoi-interp@$sessionId"
+  def defaultJobName(sessionId: String) = s"potamoi-interpreter@$sessionId"
 
 case class RemoteClusterEndpoint(address: String, port: Int) derives JsonCodec
 
