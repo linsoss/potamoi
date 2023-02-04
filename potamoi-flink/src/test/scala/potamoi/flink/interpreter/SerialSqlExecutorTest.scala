@@ -183,7 +183,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "execute add set sql on local" in testing(SessionDef.local(resultStore = ResultStoreConf(10, DropTail))) { executor =>
+  "execute set sql on local" in testing(SessionDef.local(resultStore = ResultStoreConf(10, DropTail))) { executor =>
     for {
       _ <- executor.submitSql(dataFakerTableSql).debugPretty
       _ <- executor.submitSql("show tables;").debugPretty
