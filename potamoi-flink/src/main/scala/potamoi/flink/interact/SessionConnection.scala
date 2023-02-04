@@ -37,10 +37,12 @@ trait SessionConnection {
   trait HandleFrameWatcher:
     def changing: Stream[AttachHandleErr, HandleFrame]
     def ending: IO[AttachHandleErr, HandleFrame]
+    def hybridChanging: Stream[AttachHandleErr, (HandleFrame, Option[Stream[AttachHandleErr, RowValue]])]
 
   trait ScriptHandleFrameWatcher:
     def changing: Stream[AttachHandleErr, HandleFrame]
     def ending: Stream[AttachHandleErr, HandleFrame]
+    def hybridChanging: Stream[AttachHandleErr, (HandleFrame, Option[Stream[AttachHandleErr, RowValue]])]
 
   def retrieveResultPage(handleId: String, page: Int, pageSize: Int): IO[AttachHandleErr, Option[SqlResultPageView]]
   def retrieveResultOffset(handleId: String, offset: Long, chunkSize: Int): IO[AttachHandleErr, Option[SqlResultOffsetView]]
@@ -134,22 +136,24 @@ class SessionConnectionImpl(
    * todo replace with actor event subscription implementation.
    */
   override def subscribeHandleFrame(handleId: String): HandleFrameWatcher = {
+
     val stream = ZStream
       .fromZIO(getHandleFrame(handleId))
       .repeat(Schedule.spaced(streamPollingInterval))
       .takeUntil(e => HandleStatuses.isEnd(e.status))
 
-    new HandleFrameWatcher {
-      def changing: Stream[AttachHandleErr, HandleFrame] = {
-        stream.zipWithPrevious
-          .filter { case (prev, cur) => !prev.contains(cur) }
-          .map(_._2)
-      }
+    new HandleFrameWatcher:
+      import HandleStatus.*
 
-      def ending: IO[AttachHandleErr, HandleFrame] = {
-        stream.runLast.map(_.get)
-      }
-    }
+      def changing: Stream[AttachHandleErr, HandleFrame] = stream.changes
+      def ending: IO[AttachHandleErr, HandleFrame]       = stream.runLast.map(_.get)
+
+      def hybridChanging: Stream[AttachHandleErr, (HandleFrame, Option[Stream[AttachHandleErr, RowValue]])] =
+        stream.changes.mapZIO { frame =>
+          (frame.status, frame.result) match
+            case (Run | Finish | Cancel, Some(_: QuerySqlRsDescriptor)) => succeed(frame, Some(subscribeResultStream(handleId)))
+            case _                                                      => succeed(frame, None)
+        }
   }
 
   /**
@@ -158,15 +162,17 @@ class SessionConnectionImpl(
    * todo replace with actor event subscription implementation.
    */
   override def subscribeScriptResultFrame(handleIds: List[String]): ScriptHandleFrameWatcher = {
-    new ScriptHandleFrameWatcher {
-      override def changing: Stream[AttachHandleErr, HandleFrame] = {
-        ZStream.concatAll(Chunk.fromIterable(handleIds.map(subscribeHandleFrame(_).changing)))
-      }
+    new ScriptHandleFrameWatcher:
 
-      override def ending: Stream[AttachHandleErr, HandleFrame] = {
+      def changing: Stream[AttachHandleErr, HandleFrame] =
+        ZStream.concatAll(Chunk.fromIterable(handleIds.map(subscribeHandleFrame(_).changing)))
+
+      def ending: Stream[AttachHandleErr, HandleFrame] =
         ZStream.fromIterable(handleIds).mapZIO(subscribeHandleFrame(_).ending)
-      }
-    }
+
+      def hybridChanging: Stream[AttachHandleErr, (HandleFrame, Option[Stream[AttachHandleErr, RowValue]])] =
+        ZStream.concatAll(Chunk.fromIterable(handleIds.map(subscribeHandleFrame(_).hybridChanging)))
+
   }
 
   /**
