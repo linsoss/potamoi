@@ -131,7 +131,7 @@ class TestFlinkClusterQuery extends AnyWordSpec:
 
   "view taskmanager detail" in testing { obr =>
     obr.manager.track(fcid1) *>
-    obr.cluster.tmDetail.list(fcid1).watchPrettyTag("tm-detail").fork
+    obr.cluster.tmDetail.list(fcid1).watchPrettyTag("tm-detail").fork *>
     obr.cluster.tmDetail.listTmId(fcid1).watchPrettyTag("tm-id").fork *>
     ZIO.never
   }
