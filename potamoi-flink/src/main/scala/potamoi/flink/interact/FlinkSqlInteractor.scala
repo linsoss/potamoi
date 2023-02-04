@@ -31,10 +31,14 @@ trait FlinkSqlInteractor {
   /**
    * Connect to the flink interpreter for the given session id.
    */
-  def attach(sessionId: SessionId): IO[(SessionNotFound | FlinkDataStoreErr) with FlinkErr, SessionConnection]
+  def attach(sessionId: SessionId): IO[RetrieveSessionErr, SessionConnection]
 }
 
 object FlinkSqlInteractor extends EarlyLoad[FlinkSqlInteractor] {
+
+  type RetrieveSessionErr = (SessionNotFound | FlinkDataStoreErr) with FlinkErr
+
+  override def active: URIO[FlinkSqlInteractor, Unit] = ZIO.service[FlinkSqlInteractor].unit
 
   val live
       : ZLayer[RemoteFsOperator with FlinkConf with LogConf with AkkaMatrix with FlinkDataStorage with FlinkObserver, Throwable, FlinkSqlInteractor] =
@@ -59,5 +63,4 @@ object FlinkSqlInteractor extends EarlyLoad[FlinkSqlInteractor] {
       }
     }
 
-  override def active: URIO[FlinkSqlInteractor, Unit] = ZIO.service[FlinkSqlInteractor].unit
 }

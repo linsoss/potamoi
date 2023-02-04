@@ -11,9 +11,25 @@ import scala.concurrent.duration.Duration
  * Flink cluster observer.
  */
 trait FlinkClusterQuery {
+
+  /**
+   * Flink cluster overview snapshot query.
+   */
   def overview: ClusterOverviewStorage.Query
+
+  /**
+   * Flink task-manager snapshot query.
+   */
   def tmDetail: TmDetailStorage.Query
+
+  /**
+   * Flink job-manager metrics query.
+   */
   def jmMetrics: JmMetricsStorage.Query
+
+  /**
+   * Flink task-manager metrics query.
+   */
   def tmMetrics: TmMetricStorage.Query
 }
 

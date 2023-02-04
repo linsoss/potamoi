@@ -17,10 +17,29 @@ import zio.stream.{Stream, ZStream}
  */
 trait FlinkK8sRefQuery {
 
+  /**
+   * Query flink k8s deployment snapshots.
+   */
   def deployment: FlinkK8sDeploymentQuery
+
+  /**
+   * Query flink k8s service snapshots.
+   */
   def service: FlinkK8sServiceQuery
+
+  /**
+   * Query flink k8s pods snapshots.
+   */
   def pod: FlinkK8sPodQuery
+
+  /**
+   * Query flink k8s metrics snapshots.
+   */
   def podMetrics: K8sPodMetricsStorage.Query
+
+  /**
+   * Query flink k8s configmap snapshots.
+   */
   def configmap: FlinkConfigmapQuery
 
   /**
@@ -36,7 +55,7 @@ trait FlinkK8sRefQuery {
   /**
    * Scan for potential flink clusters on the specified kubernetes namespace.
    */
-  def scanK8sNamespace(namespace: String): Stream[FlinkErr, Fcid]
+  def scanK8sNamespace(namespace: String): Stream[FlinkErr.K8sFailure, Fcid]
 
   /**
    * Only for getting flink-main-container logs, side-car container logs should be obtained
@@ -47,7 +66,7 @@ trait FlinkK8sRefQuery {
       podName: String,
       follow: Boolean = false,
       tailLines: Option[Int] = None,
-      sinceSec: Option[Int] = None): ZStream[Any, FlinkErr, String]
+      sinceSec: Option[Int] = None): Stream[FlinkErr.K8sFailure, String]
 }
 
 trait FlinkK8sDeploymentQuery(stg: K8sDeploymentSnapStorage) extends K8sDeploymentSnapStorage.Query {
@@ -119,7 +138,7 @@ class FlinkK8sRefQueryImpl(storage: K8sRefSnapStorage, k8sOperator: K8sOperator)
 
   lazy val podMetrics: K8sPodMetricsStorage.Query = storage.podMetrics
 
-  override def scanK8sNamespace(namespace: String): Stream[FlinkErr, Fcid] =
+  override def scanK8sNamespace(namespace: String): Stream[FlinkErr.K8sFailure, Fcid] =
     ZStream
       .fromZIO(k8sOperator.client)
       .flatMap { client =>
@@ -155,7 +174,7 @@ class FlinkK8sRefQueryImpl(storage: K8sRefSnapStorage, k8sOperator: K8sOperator)
       podName: String,
       follow: Boolean,
       tailLines: Option[Int],
-      sinceSec: Option[Int]): ZStream[Any, FlinkErr, String] =
+      sinceSec: Option[Int]): Stream[FlinkErr.K8sFailure, String] =
     k8sOperator
       .getPodLog(
         podName = podName,
