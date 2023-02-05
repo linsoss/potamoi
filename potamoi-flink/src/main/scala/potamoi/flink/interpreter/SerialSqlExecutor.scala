@@ -36,7 +36,7 @@ import scala.jdk.OptionConverters.RichOptional
  * It would execute all received statements serially.
  */
 object SerialSqlExecutor:
-  def create(sessionId: String, sessionDef: SessionDef, remoteFs: RemoteFsOperator): UIO[SerialSqlExecutor] =
+  def create(sessionId: String, sessionDef: SessionSpec, remoteFs: RemoteFsOperator): UIO[SerialSqlExecutor] =
     ZIO.succeed(SerialSqlExecutorImpl(sessionId, sessionDef, remoteFs))
 
 trait SerialSqlExecutor:
@@ -69,7 +69,7 @@ trait SerialSqlExecutor:
 /**
  * Default implementation.
  */
-class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs: RemoteFsOperator) extends SerialSqlExecutor:
+class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionSpec, remoteFs: RemoteFsOperator) extends SerialSqlExecutor:
 
   type HandleId = String
   private val queryRsLimit: Int                  = sessionDef.resultStore.capacity.contra { limit => if limit < 0 then Integer.MAX_VALUE else limit }
@@ -87,7 +87,7 @@ class SerialSqlExecutorImpl(sessionId: String, sessionDef: SessionDef, remoteFs:
   // especially for parsing statement operations.
   private val flinkTableEnvEc                    = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
   private val context                            = Ref.make[Option[SessionContext]](None).runNow
-  private def createContext(sessDef: SessionDef) = SessionContext.buildContext(sessionId, remoteFs, sessDef).onExecutionContext(flinkTableEnvEc)
+  private def createContext(sessDef: SessionSpec) = SessionContext.buildContext(sessionId, remoteFs, sessDef).onExecutionContext(flinkTableEnvEc)
 
   sealed private trait HandleSign
   private case class ExecuteSqlCmd(handleId: String, sql: String, promise: Option[Promise[ExecuteSqlErr, SqlResult]]) extends HandleSign

@@ -8,7 +8,7 @@ import org.apache.flink.table.api.EnvironmentSettings
 import org.apache.flink.table.delegation.Parser
 import potamoi.flink.FlinkConfigurationTool.safeSet
 import potamoi.flink.FlinkInterpreterErr.CreateTableEnvironmentErr
-import potamoi.flink.model.interact.{RemoteClusterEndpoint, SessionDef}
+import potamoi.flink.model.interact.{RemoteClusterEndpoint, SessionSpec}
 import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.syntax.{tap, toPrettyStr}
 import zio.{IO, UIO, ZIO}
@@ -20,12 +20,12 @@ import java.io.File
 import java.net.URLClassLoader
 
 case class SessionContext(
-    sessDef: SessionDef,
-    configuration: Configuration,
-    classloader: ClassLoader,
-    env: StreamExecutionEnvironment,
-    tEnv: TableEnvironmentInternal,
-    parser: Parser):
+                           sessDef: SessionSpec,
+                           configuration: Configuration,
+                           classloader: ClassLoader,
+                           env: StreamExecutionEnvironment,
+                           tEnv: TableEnvironmentInternal,
+                           parser: Parser):
   def close: UIO[Unit] = ZIO.attempt(env.close()).ignore
 
 object SessionContext:
@@ -35,7 +35,7 @@ object SessionContext:
   private[interpreter] def buildContext(
       sessionId: String,
       remoteFs: RemoteFsOperator,
-      sessDef: SessionDef): IO[CreateTableEnvironmentErr, SessionContext] = {
+      sessDef: SessionSpec): IO[CreateTableEnvironmentErr, SessionContext] = {
     defer {
       // download extra jars
       val (localJarFiles, clusterJarsFiles) = {
@@ -59,7 +59,7 @@ object SessionContext:
         conf.safeSet("execution.shutdown-on-attached-exit", true)
 
         conf.safeSet("parallelism.default", sessDef.parallelism)
-        conf.safeSet("pipeline.name", sessDef.jobName.getOrElse(SessionDef.defaultJobName(sessionId)))
+        conf.safeSet("pipeline.name", sessDef.jobName.getOrElse(SessionSpec.defaultJobName(sessionId)))
         conf.safeSet("pipeline.jars", clusterJarsFiles.map(file => s"file://${file.getAbsolutePath}"))
 
         sessDef.remoteEndpoint.foreach { case RemoteClusterEndpoint(address, port) =>
@@ -67,7 +67,7 @@ object SessionContext:
           conf.safeSet("rest.port", port)
         }
         sessDef.extraProps
-          .filterNot { case (k, _) => SessionDef.nonAllowedOverviewConfigKeys.contains(k) }
+          .filterNot { case (k, _) => SessionSpec.nonAllowedOverviewConfigKeys.contains(k) }
           .foreach { case (k, v) => conf.safeSet(k, v) }
       }
 

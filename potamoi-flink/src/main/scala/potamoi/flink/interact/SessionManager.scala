@@ -30,12 +30,12 @@ trait SessionManager {
   /**
    * Create flink sql interactive session.
    */
-  def create(sessionDef: InteractSessionDef, flinkVer: FlinkMajorVer): IO[CreateSessionErr, SessionId]
+  def create(sessionDef: InteractSessionSpec, flinkVer: FlinkMajorVer): IO[CreateSessionErr, SessionId]
 
   /**
    * Create SessionDef of interactive session entity.
    */
-  def update(sessionId: String, sessionDef: InteractSessionDef): IO[UpdateSessionErr, Unit]
+  def update(sessionId: String, sessionDef: InteractSessionSpec): IO[UpdateSessionErr, Unit]
 
   /**
    * Cancel current sqls execution plan of given session entity.
@@ -88,7 +88,7 @@ class SessionManagerImpl(
   /**
    * Create flink sql interactive session.
    */
-  override def create(sessionDef: InteractSessionDef, flinkVer: FlinkMajorVer): IO[CreateSessionErr, String] = {
+  override def create(sessionDef: InteractSessionSpec, flinkVer: FlinkMajorVer): IO[CreateSessionErr, String] = {
     for {
       // check if the corresponding version of the remote interpreter is active.
       isReady <- listRemoteInterpreter(flinkVer).map(_.nonEmpty)
@@ -107,14 +107,14 @@ class SessionManagerImpl(
   /**
    * Convert InteractSessionDef to SessionDef
    */
-  private def resolveSessionDef(sessionDef: InteractSessionDef): IO[ResolveFlinkClusterEndpointErr, SessionDef] = {
+  private def resolveSessionDef(sessionDef: InteractSessionSpec): IO[ResolveFlinkClusterEndpointErr, SessionSpec] = {
     for {
       flinkSvcEpt <- (sessionDef.execType, sessionDef.remoteCluster) match {
                        case (FlinkTargetType.Remote, Some(fcid)) =>
                          observer.restEndpoint.getEnsure(fcid).mapError(err => ResolveFlinkClusterEndpointErr(fcid, err))
                        case _                                    => succeed(None)
                      }
-      sessDef      = SessionDef(
+      sessDef      = SessionSpec(
                        execType = sessionDef.execType,
                        execMode = sessionDef.execMode,
                        remoteEndpoint = flinkSvcEpt.map(ept => RemoteClusterEndpoint(ept.chooseHost, ept.port)),
@@ -132,7 +132,7 @@ class SessionManagerImpl(
   /**
    * Create SessionDef of interactive session entity.
    */
-  override def update(sessionId: String, sessionDef: InteractSessionDef): IO[UpdateSessionErr, Unit] = {
+  override def update(sessionId: String, sessionDef: InteractSessionSpec): IO[UpdateSessionErr, Unit] = {
     val effect: IO[UpdateSessionErr, Unit] =
       for {
         session <- dataStore.get(sessionId).someOrFailUnion(SessionNotFound(sessionId))

@@ -2,7 +2,7 @@ package potamoi.flink.model.interact
 
 import potamoi.flink.model.{Fcid, FlinkRuntimeMode, FlinkTargetType, InteractSupport}
 import potamoi.flink.model.FlinkRuntimeMode.*
-import potamoi.flink.model.interact.InteractSessionDef.*
+import potamoi.flink.model.interact.InteractSessionSpec.*
 import potamoi.flink.model.interact.ResultDropStrategy.DropHead
 import zio.{durationInt, Duration, ZIO}
 
@@ -11,7 +11,7 @@ import scala.annotation.unused
 /**
  * Behavior definition configuration for the flink interactive session.
  */
-case class InteractSessionDef(
+case class InteractSessionSpec(
     execType: FlinkTargetType with InteractSupport,
     execMode: FlinkRuntimeMode = defaultExecMode,
     remoteCluster: Option[Fcid] = None,
@@ -23,7 +23,7 @@ case class InteractSessionDef(
     resultStore: ResultStoreConf = defaultResultStore,
     allowSinkOperation: Boolean = defaultAllowSinkOperation)
 
-object InteractSessionDef:
+object InteractSessionSpec:
 
   val defaultExecMode: FlinkRuntimeMode   = Streaming
   val defaultParallelism: Int             = 1
@@ -42,8 +42,8 @@ object InteractSessionDef:
       parallelism: Int = defaultParallelism,
       extraProps: Map[String, String] = Map.empty,
       resultStore: ResultStoreConf = defaultResultStore,
-      allowSinkOperation: Boolean = defaultAllowSinkOperation): InteractSessionDef =
-    InteractSessionDef(
+      allowSinkOperation: Boolean = defaultAllowSinkOperation): InteractSessionSpec =
+    InteractSessionSpec(
       execType = FlinkTargetType.Local,
       execMode = execMode,
       jobName = jobName,
@@ -68,8 +68,8 @@ object InteractSessionDef:
       parallelism: Int = defaultParallelism,
       extraProps: Map[String, String] = Map.empty,
       resultStore: ResultStoreConf = defaultResultStore,
-      allowSinkOperation: Boolean = defaultAllowSinkOperation): InteractSessionDef =
-    InteractSessionDef(
+      allowSinkOperation: Boolean = defaultAllowSinkOperation): InteractSessionSpec =
+    InteractSessionSpec(
       execType = FlinkTargetType.Remote,
       execMode = execMode,
       remoteCluster = Some(remoteCluster),

@@ -13,7 +13,7 @@ import zio.json.JsonCodec
 /**
  * Behavior definition configuration for the flink sql executor.
  */
-case class SessionDef(
+case class SessionSpec(
     execType: FlinkTargetType with InteractSupport,
     execMode: FlinkRuntimeMode = FlinkRuntimeMode.Streaming,
     remoteEndpoint: Option[RemoteClusterEndpoint] = None,
@@ -26,7 +26,7 @@ case class SessionDef(
     allowSinkOperation: Boolean = false)
     derives JsonCodec
 
-object SessionDef:
+object SessionSpec:
 
   /**
    * Local target plan.
@@ -40,8 +40,8 @@ object SessionDef:
       parallelism: Int = 1,
       extraProps: Map[String, String] = Map.empty,
       resultStore: ResultStoreConf = ResultStoreConf(),
-      allowSinkOperation: Boolean = false): SessionDef =
-    SessionDef(
+      allowSinkOperation: Boolean = false): SessionSpec =
+    SessionSpec(
       execType = FlinkTargetType.Local,
       execMode = execMode,
       jobName = jobName,
@@ -66,8 +66,8 @@ object SessionDef:
       parallelism: Int = 1,
       extraProps: Map[String, String] = Map.empty,
       resultStore: ResultStoreConf = ResultStoreConf(),
-      allowSinkOperation: Boolean = false): SessionDef =
-    SessionDef(
+      allowSinkOperation: Boolean = false): SessionSpec =
+    SessionSpec(
       execType = FlinkTargetType.Remote,
       execMode = execMode,
       remoteEndpoint = Some(endpoint),

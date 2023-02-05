@@ -9,29 +9,31 @@ import zio.{IO, ZIO}
 import zio.stream.Stream
 
 /**
- * Flink rest endpoint reverse proxy operator.
+ * Flink rest endpoint reverse proxy control.
+ *
+ * Need to add [[potamoi.flink.FlinkRestReverseProxy#route]] to the http route
  */
 trait FlinkRestProxyOperator {
 
   /**
    * Enable proxying the rest server of the target flink cluster to revise service.
    */
-  def enable(fcid: Fcid): IO[FlinkErr, Unit]
+  def enable(fcid: Fcid): IO[(ClusterIsNotYetTracked | FlinkDataStoreErr) with FlinkErr, Unit]
 
   /**
    * Disable proxying the rest server of the target flink cluster.
    */
-  def disable(fcid: Fcid): IO[FlinkErr, Unit]
+  def disable(fcid: Fcid): IO[FlinkDataStoreErr, Unit]
 
   /**
    * Listing the proxying flink cluster.
    */
-  def list: Stream[FlinkErr, Fcid]
+  def list: Stream[FlinkDataStoreErr, Fcid]
 
   /**
    * Listing the proxying flink cluster and the reversed endpoint.
    */
-  def listReverseEndpoint: Stream[FlinkErr, (Fcid, Option[FlinkRestSvcEndpoint])]
+  def listReverseEndpoint: Stream[FlinkDataStoreErr, (Fcid, Option[FlinkRestSvcEndpoint])]
 }
 
 /**
@@ -39,9 +41,7 @@ trait FlinkRestProxyOperator {
  */
 class FlinkRestProxyOperatorLive(snapStg: FlinkDataStorage) extends FlinkRestProxyOperator {
 
-
-  // local cache
-  override def enable(fcid: Fcid): IO[ClusterIsNotYetTracked | FlinkDataStoreErr | FlinkErr, Unit] =
+  override def enable(fcid: Fcid): IO[(ClusterIsNotYetTracked | FlinkDataStoreErr) with FlinkErr, Unit] =
     snapStg.trackedList.exists(fcid).flatMap {
       case false => ZIO.fail(ClusterIsNotYetTracked(fcid))
       case true  => snapStg.restProxy.put(fcid)

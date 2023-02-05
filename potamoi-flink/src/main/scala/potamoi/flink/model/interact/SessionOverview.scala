@@ -10,6 +10,6 @@ case class SessionOverview(
     sessionId: String,
     isStarted: Boolean,
     isBusy: Boolean,
-    sessionDef: Option[SessionDef])
+    sessionDef: Option[SessionSpec])
     extends KryoSerializable
     derives JsonCodec

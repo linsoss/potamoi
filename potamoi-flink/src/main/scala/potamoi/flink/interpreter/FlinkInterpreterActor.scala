@@ -26,7 +26,7 @@ object FlinkInterpreterActor {
 
   sealed trait Cmd extends KryoSerializable
 
-  final case class Start(sessionDef: SessionDef, updateConflict: Boolean = false, reply: ValueReply[Ack.type]) extends Cmd
+  final case class Start(sessionDef: SessionSpec, updateConflict: Boolean = false, reply: ValueReply[Ack.type]) extends Cmd
   final case class Cancel(reply: ValueReply[Ack.type])                                                         extends Cmd
   final case class Stop(reply: ValueReply[Ack.type])                                                           extends Cmd
 
@@ -74,7 +74,7 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
   private val remoteFs  = FlinkInterpreter.unsafeRemoteFs.unsafeGet
 
   // actor state
-  private var curSessDef: Option[SessionDef]         = None
+  private var curSessDef: Option[SessionSpec]         = None
   private var sqlExecutor: Option[SerialSqlExecutor] = None
 
   /**
@@ -214,7 +214,7 @@ class FlinkInterpreterActor(sessionId: String)(using ctx: ActorContext[Cmd]) {
       Behaviors.same
     }
 
-  private def launchSqlExecutor(sessDef: SessionDef): Unit = {
+  private def launchSqlExecutor(sessDef: SessionSpec): Unit = {
     val executor = SerialSqlExecutor.create(sessionId, sessDef, remoteFs).runPureSync
     // question
     sqlExecutor = Some(executor)

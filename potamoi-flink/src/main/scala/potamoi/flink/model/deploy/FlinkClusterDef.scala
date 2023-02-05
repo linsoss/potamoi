@@ -111,3 +111,4 @@ case class FlinkAppClusterDef(
   private[flink] def copyJmHa(jmHa: Option[JmHaConfig]): FlinkAppClusterDef                         = copy(jmHa = jmHa)
   private[flink] def copyInjectDeps(injectedDeps: Set[String]): FlinkAppClusterDef                  = copy(injectedDeps = injectedDeps)
 }
+
