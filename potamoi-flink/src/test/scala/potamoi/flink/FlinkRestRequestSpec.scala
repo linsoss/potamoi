@@ -1,11 +1,13 @@
 package potamoi.flink
 
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.DoNotDiscover
 import potamoi.syntax.*
 import potamoi.zios.*
 import zio.ZIO
 
-class FlinkRestRequestTest extends AnyWordSpec:
+@DoNotDiscover
+class FlinkRestRequestSpec extends AnyWordSpec:
 
   val url = "http://10.233.46.104:8081"
 

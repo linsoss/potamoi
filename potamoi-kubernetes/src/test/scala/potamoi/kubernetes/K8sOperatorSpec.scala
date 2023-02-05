@@ -1,10 +1,12 @@
 package potamoi.kubernetes
 
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{DoNotDiscover, Ignore}
 import potamoi.syntax.*
 import potamoi.zios.*
 
-class K8sOperatorTest extends AnyWordSpec:
+@DoNotDiscover
+class K8sOperatorSpec extends AnyWordSpec:
 
   val layer = K8sConf.default >>> K8sOperator.live
 

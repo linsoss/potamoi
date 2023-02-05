@@ -1,7 +1,7 @@
 package potamoi.flink.interpreter
 
+import org.scalatest.{DoNotDiscover, Ignore}
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.Ignore
 import potamoi.common.ZIOExtension.zioRun
 import potamoi.flink.model.interact.RemoteClusterEndpoint.given
 import potamoi.flink.model.interact.ResultDropStrategy.DropTail
@@ -16,16 +16,16 @@ import potamoi.syntax.toPrettyStr
 import potamoi.zios.*
 import potamoi.PotaErr
 import potamoi.flink.FlinkInterpreterErr.BeCancelled
-import potamoi.flink.model.interact.{PlainSqlRs, QuerySqlRs, ResultStoreConf, SessionDef}
+import potamoi.flink.model.interact.{PlainSqlRs, QuerySqlRs, ResultStoreConf, SessionSpec}
 import zio.{durationInt, IO, Schedule, Scope, Task, ZIO}
 import zio.Console.printLine
 import zio.ZIO.{executor, logErrorCause, logInfo, sleep}
 import zio.stream.ZStream
 
-//@Ignore
-class SerialSqlExecutorTest extends AnyWordSpec:
+@DoNotDiscover
+class SerialSqlExecutorSpec extends AnyWordSpec:
 
-  def testing[E, A](sessDef: SessionDef)(f: SerialSqlExecutor => ZIO[Scope, E, A]) =
+  def testing[E, A](sessDef: SessionSpec)(f: SerialSqlExecutor => ZIO[Scope, E, A]) =
     (for {
       fs       <- ZIO.service[RemoteFsOperator]
       executor <- ZIO.succeed(SerialSqlExecutorImpl("114514", sessDef, fs))
@@ -74,7 +74,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
                             |);
                             |""".stripMargin
 
-  "execute sql normally on local" in testing(SessionDef.local()) { executor =>
+  "execute sql normally on local" in testing(SessionSpec.local()) { executor =>
     for {
       _                 <- executor.submitSql(dataGenTableSql).debugPretty
       _                 <- executor.submitSql("explain select * from Orders").debugPretty
@@ -95,7 +95,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "execute sql normally on remote" in testing(SessionDef.remote(execMode = Streaming, endpoint = "10.233.62.91" -> 8081)) { executor =>
+  "execute sql normally on remote" in testing(SessionSpec.remote(execMode = Streaming, endpoint = "10.233.62.91" -> 8081)) { executor =>
     for {
       _                 <- executor.submitSql(dataGenTableSql).debugPretty
       _                 <- executor.submitSql("explain select * from Orders").debugPretty
@@ -110,7 +110,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "complete sql" in testing(SessionDef.local()) { executor =>
+  "complete sql" in testing(SessionSpec.local()) { executor =>
     for {
       _ <- executor.submitSql(dataGenTableSql).debugPretty
       _ <- logInfo("hint 1") *> executor.completeSql("select * from ").debugPretty
@@ -119,7 +119,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
   }
 
   "execute sql with extra jars on local" in testing(
-    SessionDef.local(
+    SessionSpec.local(
       execMode = Streaming,
       jars = List("pota://flink-faker-0.5.1.jar"),
       resultStore = ResultStoreConf(20, DropTail)
@@ -132,7 +132,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
   }
 
   "execute sql with extra jars on remote" in testing(
-    SessionDef.remote(
+    SessionSpec.remote(
       endpoint = "10.233.62.91" -> 8081,
       execMode = Streaming,
       localJars = List("pota://flink-faker-0.5.1.jar"),
@@ -147,7 +147,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
   }
 
   "execute add jar sql on local" in testing(
-    SessionDef.local(resultStore = ResultStoreConf(10, DropTail))
+    SessionSpec.local(resultStore = ResultStoreConf(10, DropTail))
   ) { executor =>
     for {
       _ <- executor.submitSql("add jar 'pota://flink-faker-0.5.1.jar';").debugPretty
@@ -164,7 +164,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
   }
 
   "execute add jar sql on remote" in testing(
-    SessionDef.remote(
+    SessionSpec.remote(
       endpoint = "10.233.62.91" -> 8081,
       execMode = Streaming,
       resultStore = ResultStoreConf(20, DropTail)
@@ -183,7 +183,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "execute set sql on local" in testing(SessionDef.local(resultStore = ResultStoreConf(10, DropTail))) { executor =>
+  "execute set sql on local" in testing(SessionSpec.local(resultStore = ResultStoreConf(10, DropTail))) { executor =>
     for {
       _ <- executor.submitSql(dataFakerTableSql).debugPretty
       _ <- executor.submitSql("show tables;").debugPretty
@@ -193,7 +193,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "cancel handle on local" in testing(SessionDef.local()) { executor =>
+  "cancel handle on local" in testing(SessionSpec.local()) { executor =>
     for {
       _ <- executor.submitSql(dataGenEndlessTableSql).debugPretty
       _ <- executor
@@ -214,7 +214,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "cancel handle on remote" in testing(SessionDef.remote(execMode = Streaming, endpoint = "10.233.62.91" -> 8081)) { executor =>
+  "cancel handle on remote" in testing(SessionSpec.remote(execMode = Streaming, endpoint = "10.233.62.91" -> 8081)) { executor =>
     for {
       _ <- executor.submitSql(dataGenEndlessTableSql).debugPretty
       _ <- executor
@@ -235,7 +235,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "execute some illegal sql" in testing(SessionDef.local()) { executor =>
+  "execute some illegal sql" in testing(SessionSpec.local()) { executor =>
     for {
       f1 <- executor.submitSql(dataGenTableSql).fork
       f2 <- executor.submitSql("explain select * from Orders").delay(1.millis).fork
@@ -252,7 +252,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "submit sql script" in testing(SessionDef.local()) { executor =>
+  "submit sql script" in testing(SessionSpec.local()) { executor =>
     val script: String =
       """CREATE TABLE Orders (
         |    order_number BIGINT,
@@ -282,7 +282,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "retrieveResultPage" in testing(SessionDef.local()) { executor =>
+  "retrieveResultPage" in testing(SessionSpec.local()) { executor =>
     for {
       _        <- executor
                     .submitSql("""CREATE TABLE Orders (
@@ -311,7 +311,7 @@ class SerialSqlExecutorTest extends AnyWordSpec:
     } yield ()
   }
 
-  "retrieveResultOffset" in testing(SessionDef.local()) { executor =>
+  "retrieveResultOffset" in testing(SessionSpec.local()) { executor =>
     for {
       _        <- executor
                     .submitSql("""CREATE TABLE Orders (

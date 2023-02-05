@@ -1,7 +1,7 @@
 package potamoi.fs.backend
 
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.{BeforeAndAfterAll, Ignore}
+import org.scalatest.{BeforeAndAfterAll, DoNotDiscover, Ignore}
 import potamoi.fs.refactor.{lfs, S3AccessStyle, S3FsBackendConf}
 import potamoi.fs.refactor.backend.S3FsBackend
 import potamoi.fs.S3FsBackendConfDev
@@ -11,8 +11,8 @@ import zio.{IO, ZIO, ZLayer}
 
 import java.io.File
 
-@Ignore
-class S3FsBackendTest extends AnyWordSpec with BeforeAndAfterAll:
+@DoNotDiscover
+class S3FsBackendSpec extends AnyWordSpec with BeforeAndAfterAll:
 
   def testing[E, A](f: S3FsBackend => IO[E, A]) =
     ZIO

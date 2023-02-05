@@ -1,12 +1,15 @@
 package potamoi.flink.observer
 
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.DoNotDiscover
 import potamoi.{BaseConf, HoconConfig, NodeRoles, PotaErr}
-import potamoi.akka.{AkkaMatrix, AkkaConf}
+import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.common.Syntax.toPrettyString
+import potamoi.common.TimeExtension.given_Conversion_ZIODuration_ScalaDuration
 import potamoi.debugs.*
 import potamoi.flink.*
 import potamoi.flink.model.Fcid
+import potamoi.flink.model.snapshot.FlinkRestSvcEndpoint
 import potamoi.flink.model.snapshot.FlK8sComponentName.jobmanager
 import potamoi.flink.observer.FlinkObserverTest.fcid1
 import potamoi.flink.storage.FlinkDataStorage
@@ -17,8 +20,6 @@ import potamoi.zios.*
 import zio.{durationInt, IO, Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.Console.printLine
 import zio.Schedule.spaced
-import potamoi.common.TimeExtension.given_Conversion_ZIODuration_ScalaDuration
-import potamoi.flink.model.snapshot.FlinkRestSvcEndpoint
 
 object FlinkObserverTest:
 
@@ -80,8 +81,8 @@ import potamoi.flink.observer.FlinkObserverTest.*
 
 // ------------------------------- test start -------------------------------------
 
-// @Ignore
-class TestTrackerManager extends AnyWordSpec:
+@DoNotDiscover
+class TrackerManagerSpec extends AnyWordSpec:
 
   "track and untrack" in testing { obr =>
     obr.manager.track(fcid1) *>
@@ -105,8 +106,8 @@ class TestTrackerManager extends AnyWordSpec:
     obr.manager.listTrackersStatus(3).runCollect.watchPretty
   }
 
-// @Ignore
-class TestFlinkRestEndpointQuery extends AnyWordSpec:
+@DoNotDiscover
+class FlinkRestEndpointQuerySpec extends AnyWordSpec:
 
   "retrieve endpoint" in testing { obr =>
     obr.restEndpoint.retrieve(fcid1).map(_.map(_.toPrettyStr)).debug
@@ -122,8 +123,8 @@ class TestFlinkRestEndpointQuery extends AnyWordSpec:
     obr.restEndpoint.get(fcid1).watchPretty
   }
 
-// @Ignore
-class TestFlinkClusterQuery extends AnyWordSpec:
+@DoNotDiscover
+class FlinkClusterQuerySpec extends AnyWordSpec:
 
   "view overview" in testing { obr =>
     obr.manager.track(fcid1) *>
@@ -147,8 +148,8 @@ class TestFlinkClusterQuery extends AnyWordSpec:
     obr.cluster.tmMetrics.list(fcid1).watch
   }
 
-// @Ignore
-class TestFlinkJobQuery extends AnyWordSpec:
+@DoNotDiscover
+class FlinkJobQuerySpec extends AnyWordSpec:
 
   "view job overview" in testing { obr =>
     obr.manager.track(fcid1) *>
@@ -163,8 +164,8 @@ class TestFlinkJobQuery extends AnyWordSpec:
     obr.job.metrics.list(fcid1).watchPretty
   }
 
-// @Ignore
-class TestFlinkK8sRefQuery extends AnyWordSpec:
+@DoNotDiscover
+class FlinkK8sRefQuerySpec extends AnyWordSpec:
 
   "view K8sRefSnap" in testing { obr =>
     obr.manager.track(fcid1) *>

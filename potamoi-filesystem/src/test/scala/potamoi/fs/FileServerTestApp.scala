@@ -8,7 +8,7 @@ import potamoi.zios.asLayer
 import zio.http.{Server, ServerConfig}
 import zio.http.netty.server.NettyDriver
 
-object FileServerAppTest extends ZIOAppDefault:
+object FileServerTestApp extends ZIOAppDefault:
 
   override val bootstrap = PotaLogger.default
 

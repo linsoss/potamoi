@@ -1,7 +1,7 @@
 package potamoi.fs.backend
 
+import org.scalatest.{BeforeAndAfterAll, DoNotDiscover, Ignore}
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.{BeforeAndAfterAll, Ignore}
 import potamoi.fs.refactor.{lfs, S3AccessStyle, S3FsBackendConf}
 import potamoi.fs.refactor.backend.{S3FsBackend, S3FsMirrorBackend}
 import potamoi.fs.S3FsBackendConfDev
@@ -13,8 +13,8 @@ import zio.ZIO.{logErrorCause, logLevel}
 
 import java.io.File
 
-@Ignore
-class S3FsMirrorBackendTest extends AnyWordSpec with BeforeAndAfterAll:
+@DoNotDiscover
+class S3FsMirrorBackendSpec extends AnyWordSpec with BeforeAndAfterAll:
 
   val layer = S3FsBackendConfDev.asLayer >>> S3FsMirrorBackend.live
 

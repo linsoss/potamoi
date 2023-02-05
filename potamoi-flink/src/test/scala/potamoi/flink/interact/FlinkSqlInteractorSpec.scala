@@ -1,7 +1,7 @@
 package potamoi.flink.interact
 
+import org.scalatest.{DoNotDiscover, Ignore}
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.Ignore
 import potamoi.{BaseConf, HoconConfig, NodeRoles}
 import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.debugs.*
@@ -27,9 +27,10 @@ import zio.{durationInt, IO, Schedule, Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.Console.printLine
 import zio.ZIO.logInfo
 
-object FlinkSqlInteractorTest:
+@DoNotDiscover
+class FlinkSqlInteractorSpec extends AnyWordSpec:
 
-  // Need to launch standalone remote app [[potamoi.TestFlinkInterpreterAppV116]] when switch on.
+  // Need to launch standalone remote app [[potamoi.TestFlinkInterpreterV116TestApp]] when switch on.
   val testWithRemoteInterpreter = true
 
   val remoteFlinkFcid = Fcid("session-t16", "fdev")
@@ -92,11 +93,6 @@ object FlinkSqlInteractorTest:
       yield handleId
     }
 
-import potamoi.flink.interact.FlinkSqlInteractorTest.*
-
-// @Ignore
-class FlinkSqlInteractorTest extends AnyWordSpec:
-
   val dataGenTableSql =
     """CREATE TABLE Orders (
       |    order_number BIGINT,
@@ -140,7 +136,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
   "session management" in testing { interact =>
     for {
       _         <- interact.manager.listRemoteInterpreter(V116).repeatUntil(_.nonEmpty).debugPrettyWithTag("list remote interpreter").debug
-      sessionId <- interact.manager.create(InteractSessionDef.local(), V116).debugPrettyWithTag("create session").debug
+      sessionId <- interact.manager.create(InteractSessionSpec.local(), V116).debugPrettyWithTag("create session").debug
       _         <- interact.manager.session.list.runCollect.debugPrettyWithTag("list session")
       _         <- interact.manager.close(sessionId)
       _         <- interact.manager.session.list.runCollect.debugPrettyWithTag("list session")
@@ -150,7 +146,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "execute sql simply and subscribe handle-frame" in testing { intr =>
     for {
-      sessionId <- intr.manager.create(InteractSessionDef.local(), V116).debugPrettyWithTag("session-id")
+      sessionId <- intr.manager.create(InteractSessionSpec.local(), V116).debugPrettyWithTag("session-id")
       conn      <- intr.attach(sessionId)
       handleId  <- conn.submitSqlAsync(dataGenTableSql).debugPrettyWithTag("handle-id")
       _         <- conn.subscribeHandleFrame(handleId).ending.debugPrettyWithTag("handle-frame")
@@ -159,7 +155,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "execute sql simply and poll handle-frame" in testing { intr =>
     for {
-      sessionId <- intr.manager.create(InteractSessionDef.local(), V116).debugPrettyWithTag("session-id")
+      sessionId <- intr.manager.create(InteractSessionSpec.local(), V116).debugPrettyWithTag("session-id")
       conn      <- intr.attach(sessionId)
       handleId  <- conn.submitSqlAsync(dataGenTableSql).debugPrettyWithTag("handle-id")
       f1        <- conn
@@ -180,7 +176,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "execute sql normally on local" in testing { intr =>
     for
-      sessionId <- intr.manager.create(InteractSessionDef.local(), V116)
+      sessionId <- intr.manager.create(InteractSessionSpec.local(), V116)
       conn      <- intr.attach(sessionId)
       _         <- conn.executeSql(dataGenTableSql)
       _         <- conn.executeSql("explain select * from Orders")
@@ -203,7 +199,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "execute sql normally on remote" in testing { intr =>
     for
-      sessionId <- intr.manager.create(InteractSessionDef.remote(remoteFlinkFcid), V116)
+      sessionId <- intr.manager.create(InteractSessionSpec.remote(remoteFlinkFcid), V116)
       conn      <- intr.attach(sessionId)
       _         <- conn.executeSql(dataGenTableSql)
       _         <- conn.executeSql("explain select * from Orders")
@@ -216,7 +212,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "complete sql" in testing { intr =>
     for
-      sessionId <- intr.manager.create(InteractSessionDef.remote(remoteFlinkFcid), V116)
+      sessionId <- intr.manager.create(InteractSessionSpec.remote(remoteFlinkFcid), V116)
       conn      <- intr.attach(sessionId)
       _         <- conn.executeSql(dataGenTableSql)
       _         <- conn.completeSql("select * from ").debugPrettyWithTag("hint 1")
@@ -228,7 +224,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
   "execute sql with extra jars on local" in testing { intr =>
     for
       sessionId <- intr.manager create (
-                     InteractSessionDef.local(
+                     InteractSessionSpec.local(
                        execMode = Streaming,
                        jars = List("pota://flink-faker-0.5.1.jar"),
                        resultStore = ResultStoreConf(20, DropTail)
@@ -245,7 +241,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
   "execute sql with extra jars on remote" in testing { intr =>
     for
       sessionId <- intr.manager.create(
-                     InteractSessionDef.remote(
+                     InteractSessionSpec.remote(
                        execMode = Streaming,
                        remoteCluster = remoteFlinkFcid,
                        localJars = List("pota://flink-faker-0.5.1.jar"),
@@ -263,7 +259,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "execute add jar sql on local" in testing { intr =>
     for
-      sessionId <- intr.manager.create(InteractSessionDef.local(resultStore = ResultStoreConf(20, DropTail)), V116)
+      sessionId <- intr.manager.create(InteractSessionSpec.local(resultStore = ResultStoreConf(20, DropTail)), V116)
       conn      <- intr attach sessionId
       _         <- conn executeSql "add jar 'pota://flink-faker-0.5.1.jar'"
       _         <- conn executeSql "show jars"
@@ -276,7 +272,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
   "execute add jar sql on remote" in testing { intr =>
     for
       sessionId <- intr.manager.create(
-                     InteractSessionDef.remote(
+                     InteractSessionSpec.remote(
                        remoteCluster = remoteFlinkFcid,
                        resultStore = ResultStoreConf(20, DropTail)
                      ),
@@ -293,7 +289,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "execute set sql on local" in testing { intr =>
     for
-      sessionId <- intr.manager.create(InteractSessionDef.local(resultStore = ResultStoreConf(20, DropTail)), V116)
+      sessionId <- intr.manager.create(InteractSessionSpec.local(resultStore = ResultStoreConf(20, DropTail)), V116)
       conn      <- intr.attach(sessionId)
       _         <- conn.executeSql(dataFakerTableSql)
       _         <- conn.executeSql("show tables;")
@@ -305,7 +301,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "cancel handle on local" in testing { intr =>
     for
-      sessionId <- intr.manager.create(InteractSessionDef.local(), V116)
+      sessionId <- intr.manager.create(InteractSessionSpec.local(), V116)
       conn      <- intr.attach(sessionId)
       _         <- conn.executeSql(dataGenEndlessTableSql)
       _         <- conn.executeSql("select * from Orders").fork
@@ -318,7 +314,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
 
   "cancel handle on remote" in testing { intr =>
     for
-      sessionId <- intr.manager.create(InteractSessionDef.remote(remoteFlinkFcid), V116)
+      sessionId <- intr.manager.create(InteractSessionSpec.remote(remoteFlinkFcid), V116)
       conn      <- intr.attach(sessionId)
       _         <- conn.executeSql(dataGenEndlessTableSql)
       _         <- conn.executeSql("select * from Orders").fork
@@ -347,7 +343,7 @@ class FlinkSqlInteractorTest extends AnyWordSpec:
         |""".stripMargin
 
     for
-      sessionId <- intr.manager.create(InteractSessionDef.local(), V116)
+      sessionId <- intr.manager.create(InteractSessionSpec.local(), V116)
       conn      <- intr.attach(sessionId)
       signs     <- conn.submitSqlScriptAsync(script).debugPrettyWithTag("submit sql")
       _         <- conn
