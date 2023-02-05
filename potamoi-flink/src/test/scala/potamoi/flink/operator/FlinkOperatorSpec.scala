@@ -11,7 +11,14 @@ import potamoi.flink.model.deploy.CheckpointStorageType.Filesystem
 import potamoi.flink.model.FlinkTargetType.K8sSession
 import potamoi.flink.model.snapshot.FlK8sComponentName.jobmanager
 import potamoi.flink.model.deploy.StateBackendType.Rocksdb
-import potamoi.flink.model.deploy.{FlinkAppClusterDef, FlinkJobSavepointDef, FlinkSessClusterDef, FlinkSessJobDef, SavepointRestoreConfig, StateBackendConfig}
+import potamoi.flink.model.deploy.{
+  FlinkAppClusterDef,
+  FlinkSessClusterDef,
+  JobSavepointSpec,
+  SavepointRestoreConfig,
+  SessionJobSpec,
+  StateBackendConfig
+}
 import potamoi.flink.model.snapshot.{JobState, JobStates}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.storage.FlinkDataStorage
@@ -125,7 +132,7 @@ object FlinkSessClusterOperatorTest:
   @main def submitJobToSessionCluster = testing { (opr, obr) =>
     opr.session
       .submitJob(
-        FlinkSessJobDef(
+        SessionJobSpec(
           clusterId = "session-t6",
           namespace = "fdev",
           jobJar = "s3://flink-dev/flink-1.15.2/example/streaming/StateMachineExample.jar"
@@ -221,7 +228,7 @@ object FlinkAppClusterOperatorTest:
       _ <- ZIO.sleep(20.seconds)
 
       _       <- logInfo("Let's stop job !")
-      trigger <- opr.application.stopJob("app-t10" -> "fdev", FlinkJobSavepointDef(savepointPath = "s3p://flink-dev/savepoints/myjob"))
+      trigger <- opr.application.stopJob("app-t10" -> "fdev", JobSavepointSpec(savepointPath = "s3p://flink-dev/savepoints/myjob"))
       _       <- obr.job.savepointTrigger
                    .watch(trigger._1, trigger._2)
                    .takeUntil(e => e.isCompleted)
@@ -274,7 +281,7 @@ object FlinkClusterUnifyOperatorTest:
     for {
       _         <- obr.manager.track("app-t10" -> "fdev")
       jid       <- obr.job.overview.listJobId("app-t10" -> "fdev").repeatUntil(_.nonEmpty).map(_.head)
-      triggerId <- opr.unify.triggerJobSavepoint(jid, FlinkJobSavepointDef()).map(_._2)
+      triggerId <- opr.unify.triggerJobSavepoint(jid, JobSavepointSpec()).map(_._2)
       _         <- obr.job.savepointTrigger.watch(jid, triggerId).runForeach(s => printLine(s.toPrettyStr))
     } yield ()
   }
@@ -284,7 +291,7 @@ object FlinkClusterUnifyOperatorTest:
     for {
       _         <- obr.manager.track("app-t10" -> "fdev")
       jid       <- obr.job.overview.listJobId("app-t10" -> "fdev").repeatUntil(_.nonEmpty).map(_.head)
-      triggerId <- opr.unify.stopJob(jid, FlinkJobSavepointDef()).map(_._2)
+      triggerId <- opr.unify.stopJob(jid, JobSavepointSpec()).map(_._2)
       _         <- obr.job.savepointTrigger.watch(jid, triggerId).runForeach(s => printLine(s.toPrettyStr))
     } yield ()
   }

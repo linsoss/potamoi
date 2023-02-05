@@ -196,8 +196,8 @@ class FlinkK8sRefTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
   /**
    * Watch k8s deployments api.
    */
-  def watchDeployments: UIO[Unit] = k8sOperator.client.flatMap { client =>
-    client.deployments
+  def watchDeployments: UIO[Unit] = {
+    k8sOperator.client.deployments
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
         case Reseted()        => dataStore.k8sRef.deployment.rm(fcid)
@@ -211,8 +211,8 @@ class FlinkK8sRefTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
   /**
    * Watch k8s services api.
    */
-  def watchServices: UIO[Unit] = k8sOperator.client.flatMap { client =>
-    client.services
+  def watchServices: UIO[Unit] = {
+    k8sOperator.client.services
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
         case Reseted()     => dataStore.k8sRef.service.rm(fcid)
@@ -239,8 +239,8 @@ class FlinkK8sRefTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
   /**
    * Watch k8s pods api.
    */
-  def watchPods: UIO[Unit] = k8sOperator.client.flatMap { client =>
-    client.pods
+  def watchPods: UIO[Unit] = {
+    k8sOperator.client.pods
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
         case Reseted()     => dataStore.k8sRef.pod.rm(fcid)
@@ -254,8 +254,8 @@ class FlinkK8sRefTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
   /**
    * Watch k8s configmap api.
    */
-  def watchConfigmapNames: UIO[Unit] = k8sOperator.client.flatMap { client =>
-    client.configMaps
+  def watchConfigmapNames: UIO[Unit] = {
+    k8sOperator.client.configMaps
       .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
       .runForeach {
         case Reseted()           => dataStore.k8sRef.configmap.rm(fcid)
@@ -271,8 +271,8 @@ class FlinkK8sRefTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
    */
   def pollPodMetrics: UIO[Unit] = {
 
-    def watchPodNames(podNames: Ref[mutable.HashSet[String]]) = k8sOperator.client.flatMap { client =>
-      client.pods
+    def watchPodNames(podNames: Ref[mutable.HashSet[String]]) = {
+      k8sOperator.client.pods
         .watchForever(namespace = K8sNamespace(fcid.namespace), labelSelector = appSelector(fcid))
         .runForeach {
           case Reseted()     => podNames.set(mutable.HashSet.empty) *> dataStore.k8sRef.podMetrics.rm(fcid).ignore

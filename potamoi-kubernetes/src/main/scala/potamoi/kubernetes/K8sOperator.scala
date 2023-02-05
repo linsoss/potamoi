@@ -22,7 +22,7 @@ import zio.Console.printLine
  */
 trait K8sOperator {
 
-  def client: UIO[K8sClient]
+  def client: K8sClient
 
   /**
    * Get pod metrics info.
@@ -64,11 +64,8 @@ trait K8sOperator {
 
 object K8sOperator {
 
-  lazy val clive: ZLayer[K8sClient, Throwable, K8sOperator] = ZLayer.service[K8sClient].project(K8sOperatorLive(_))
+  lazy val clive: ZLayer[K8sClient, Throwable, K8sOperator] = ZLayer.service[K8sClient].project(K8sOperatorImpl(_))
   lazy val live: ZLayer[K8sConf, Throwable, K8sOperator]    = ZLayer.service[K8sConf] >>> K8sClient.live >>> clive
-
-  def client: ZIO[K8sOperator, Nothing, K8sClient] =
-    ZIO.serviceWithZIO[K8sOperator](_.client)
 
   def getPodMetrics(name: String, namespace: String): ZIO[K8sOperator, K8sErr, PodMetrics] =
     ZIO.serviceWithZIO[K8sOperator](_.getPodMetrics(name, namespace))
@@ -98,9 +95,9 @@ object K8sOperator {
 /**
  * Implementation based on ZIO-K8s.
  */
-class K8sOperatorLive(k8sClient: K8sClient) extends K8sOperator {
+class K8sOperatorImpl(val k8sClient: K8sClient) extends K8sOperator {
 
-  override def client: UIO[K8sClient] = ZIO.succeed(k8sClient)
+  override def client: K8sClient = k8sClient
 
   override def getPodMetrics(name: String, namespace: String): IO[PodNotFound | DirectRequestK8sApiErr, PodMetrics] =
     k8sClient.usingSttp { (request, backend, host) =>

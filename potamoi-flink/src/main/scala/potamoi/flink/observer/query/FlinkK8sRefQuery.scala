@@ -141,7 +141,7 @@ class FlinkK8sRefQueryImpl(storage: K8sRefSnapStorage, k8sOperator: K8sOperator)
 
   override def scanK8sNamespace(namespace: String): Stream[FlinkErr.K8sFailure, Fcid] =
     ZStream
-      .fromZIO(k8sOperator.client)
+      .from(k8sOperator.client)
       .flatMap { client =>
         client.deployments
           .getAll(K8sNamespace(namespace), labelSelector = label("type") === "flink-native-kubernetes")

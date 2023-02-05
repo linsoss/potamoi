@@ -60,8 +60,7 @@ object FlinkObserver extends EarlyLoad[FlinkObserver] {
         actorCradle       <- ZIO.service[AkkaMatrix]
         k8sOperator       <- ZIO.service[K8sOperator]
         snapStorage       <- ZIO.service[FlinkDataStorage]
-        k8sClient         <- k8sOperator.client
-        eptRetriever      <- FlinkRestEndpointRetriever.make(k8sClient)
+        eptRetriever      <- FlinkRestEndpointRetriever.make(k8sOperator.client)
         restEndpointQuery <- FlinkRestEndpointQuery.make(snapStorage.restEndpoint, eptRetriever)
         clusterQuery      <- FlinkClusterQuery.make(snapStorage.cluster)
         jobQuery          <- FlinkJobQuery.make(flinkConf, snapStorage.job, restEndpointQuery)
