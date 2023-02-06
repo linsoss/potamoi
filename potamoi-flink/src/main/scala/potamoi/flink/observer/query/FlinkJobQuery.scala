@@ -11,7 +11,7 @@ import potamoi.flink.observer.query.FlinkRestEndpointQuery.GetRestEptErr
 import potamoi.kubernetes.K8sErr
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
-import potamoi.zios.someOrFailUnion
+import potamoi.zios.{someOrFailUnion, union}
 import zio.{IO, Ref, UIO, ZIO}
 import zio.Schedule.{recurWhile, spaced}
 import zio.ZIOAspect.annotated
@@ -73,8 +73,8 @@ class SavepointTriggerQueryImpl(flinkConf: FlinkConf, restEndpoint: FlinkRestEnd
   /**
    * Get current savepoint trigger status of the flink job.
    */
-  def get(fjid: Fjid, triggerId: String): IO[GetSavepointErr, FlinkSptTriggerStatus] = {
-    val ef: IO[GetSavepointErr, FlinkSptTriggerStatus] =
+  def get(fjid: Fjid, triggerId: String): IO[GetSavepointErr, FlinkSptTriggerStatus] =
+    union[GetSavepointErr, FlinkSptTriggerStatus] {
       for {
         restUrl <- restEndpoint
                      .getEnsure(fjid.fcid)
@@ -82,8 +82,7 @@ class SavepointTriggerQueryImpl(flinkConf: FlinkConf, restEndpoint: FlinkRestEnd
                      .map(_.chooseUrl)
         rs      <- flinkRest(restUrl).getSavepointOperationStatus(fjid.jobId, triggerId)
       } yield rs
-    ef @@ annotated(fjid.toAnno :+ "triggerId" -> triggerId: _*)
-  }
+    } @@ annotated(fjid.toAnno :+ "triggerId" -> triggerId: _*)
 
   /**
    * Watch flink savepoint trigger status until it was completed.

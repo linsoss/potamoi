@@ -36,6 +36,7 @@ object ZIOExtension {
   }
 
   extension [R, E, A](zio: ZIO[R, E, A]) {
+
     inline def debugPretty: ZIO[R, E, A] =
       zio
         .tap(value => ZIO.succeed(println(toPrettyString(value))))
@@ -52,7 +53,10 @@ object ZIOExtension {
 
     inline def repeatWhileWithSpaced(f: A => Boolean, spaced: Duration): ZIO[R, E, A] =
       zio.repeat(Schedule.recurWhile[A](f) && Schedule.spaced(spaced)).map(_._1)
+
   }
+
+
 
   extension [A](uio: UIO[A]) {
     inline def runNow: A = zioRunUnsafe(uio)
@@ -113,4 +117,11 @@ object ZIOExtension {
    * Convert product to a [[ZLayer]].
    */
   extension [A <: Product: Tag](product: A) inline def asLayer: ULayer[A] = ZLayer.succeed(product)
+
+
+  /**
+   * Explicit declaration of the IO type for a simplified declaration
+   * of the union type error channel.
+   */
+  def union[E, A](io: IO[E, A]): IO[E, A] = io
 }

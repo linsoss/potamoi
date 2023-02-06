@@ -15,6 +15,7 @@ import potamoi.logger.LogConf
 import zio.{IO, RIO, Scope, Task, UIO, URIO, ZIO, ZIOAspect}
 import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
 import zio.stream.{Stream, UStream, ZStream}
+import potamoi.zios.union
 
 /**
  * Flink cluster trackers manager.
@@ -84,28 +85,28 @@ class TrackManagerImpl(
   /**
    * Tracking flink cluster.
    */
-  override def track(fcid: Fcid): IO[TrackClusterErr, Unit] = {
-    val ef: IO[TrackClusterErr, Unit] = for
-      _ <- snapStorage.trackedList.put(fcid)
-      _ <- clusterTrackers(fcid).askZIO(FlinkClusterTrackerActor.Start.apply).mapError(AkkaErr.apply)
-      _ <- k8sRefTrackers(fcid).askZIO(FlinkK8sRefTrackerActor.Start.apply).mapError(AkkaErr.apply)
-    yield ()
-    ef @@ ZIOAspect.annotated(fcid.toAnno*)
-  }
+  override def track(fcid: Fcid): IO[TrackClusterErr, Unit] =
+    union[TrackClusterErr, Unit] {
+      for
+        _ <- snapStorage.trackedList.put(fcid)
+        _ <- clusterTrackers(fcid).askZIO(FlinkClusterTrackerActor.Start.apply).mapError(AkkaErr.apply)
+        _ <- k8sRefTrackers(fcid).askZIO(FlinkK8sRefTrackerActor.Start.apply).mapError(AkkaErr.apply)
+      yield ()
+    } @@ ZIOAspect.annotated(fcid.toAnno*)
 
   /**
    * UnTracking flink cluster.
    */
-  override def untrack(fcid: Fcid): IO[TrackClusterErr, Unit] = {
-    val ef: IO[TrackClusterErr, Unit] = for
-      _ <- snapStorage.trackedList.rm(fcid)
-      _ <- clusterTrackers(fcid).askZIO(FlinkClusterTrackerActor.Stop.apply).mapError(AkkaErr.apply)
-      _ <- k8sRefTrackers(fcid).askZIO(FlinkK8sRefTrackerActor.Stop.apply).mapError(AkkaErr.apply)
-      // remove all snapshot data belongs to fcid
-      _ <- snapStorage.rmSnapData(fcid)
-    yield ()
-    ef @@ ZIOAspect.annotated(fcid.toAnno*)
-  }
+  override def untrack(fcid: Fcid): IO[TrackClusterErr, Unit] =
+    union[TrackClusterErr, Unit] {
+      for
+        _ <- snapStorage.trackedList.rm(fcid)
+        _ <- clusterTrackers(fcid).askZIO(FlinkClusterTrackerActor.Stop.apply).mapError(AkkaErr.apply)
+        _ <- k8sRefTrackers(fcid).askZIO(FlinkK8sRefTrackerActor.Stop.apply).mapError(AkkaErr.apply)
+        // remove all snapshot data belongs to fcid
+        _ <- snapStorage.rmSnapData(fcid)
+      yield ()
+    } @@ ZIOAspect.annotated(fcid.toAnno*)
 
   /**
    * Whether the tracked fcid exists.

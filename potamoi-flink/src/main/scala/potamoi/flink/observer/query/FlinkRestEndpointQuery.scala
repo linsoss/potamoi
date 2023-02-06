@@ -10,6 +10,7 @@ import zio.{IO, UIO, ZIO, ZIOAspect}
 import zio.stream.Stream
 import zio.ZIO.logDebug
 import potamoi.flink.observer.query.FlinkRestEndpointQuery.GetRestEptErr
+import potamoi.zios.union
 
 /**
  * Flink kubernetes rest endpoint observer.
@@ -47,16 +48,16 @@ class FlinkRestEndpointQueryImpl(storage: RestEndpointStorage, retriever: FlinkR
   override def retrieve(fcid: Fcid): IO[FlinkErr.K8sFailure, Option[FlinkRestSvcEndpoint]] =
     retriever.retrieve(fcid).mapError(FlinkErr.K8sFailure.apply)
 
-  override def getEnsure(fcid: Fcid): IO[GetRestEptErr, Option[FlinkRestSvcEndpoint]] = {
-    val ef: IO[GetRestEptErr, Option[FlinkRestSvcEndpoint]] = get(fcid)
-      .flatMap {
-        case Some(value) => ZIO.succeed(Some(value))
-        case None        => retrieve(fcid)
-      }
-      .catchAll { e =>
-        logDebug(s"Fallback to retrieve via k8s api due to: ${e.getMessage}") *>
-        retrieve(fcid)
-      }
-    ef @@ ZIOAspect.annotated(fcid.toAnno*)
-  }
+  override def getEnsure(fcid: Fcid): IO[GetRestEptErr, Option[FlinkRestSvcEndpoint]] =
+    union[GetRestEptErr, Option[FlinkRestSvcEndpoint]] {
+      get(fcid)
+        .flatMap {
+          case Some(value) => ZIO.succeed(Some(value))
+          case None        => retrieve(fcid)
+        }
+        .catchAll { e =>
+          logDebug(s"Fallback to retrieve via k8s api due to: ${e.getMessage}") *>
+          retrieve(fcid)
+        }
+    } @@ ZIOAspect.annotated(fcid.toAnno*)
 }
