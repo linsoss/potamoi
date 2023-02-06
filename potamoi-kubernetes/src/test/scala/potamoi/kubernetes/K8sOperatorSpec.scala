@@ -1,7 +1,7 @@
 package potamoi.kubernetes
 
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{DoNotDiscover, Ignore}
+import org.scalatest.wordspec.AnyWordSpec
 import potamoi.syntax.*
 import potamoi.zios.*
 

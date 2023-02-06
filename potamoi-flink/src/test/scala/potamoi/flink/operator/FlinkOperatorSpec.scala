@@ -11,14 +11,7 @@ import potamoi.flink.model.deploy.CheckpointStorageType.Filesystem
 import potamoi.flink.model.FlinkTargetType.K8sSession
 import potamoi.flink.model.snapshot.FlK8sComponentName.jobmanager
 import potamoi.flink.model.deploy.StateBackendType.Rocksdb
-import potamoi.flink.model.deploy.{
-  FlinkAppClusterDef,
-  FlinkSessClusterDef,
-  JobSavepointSpec,
-  SavepointRestoreConfig,
-  SessionJobSpec,
-  StateBackendConfig
-}
+import potamoi.flink.model.deploy.*
 import potamoi.flink.model.snapshot.{JobState, JobStates}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.storage.FlinkDataStorage
@@ -31,6 +24,8 @@ import zio.{durationInt, IO, Scope, ZIO}
 import zio.Console.printLine
 import zio.Schedule.spaced
 import zio.ZIO.logInfo
+import potamoi.FsBackendConfDev.given
+import potamoi.BaseConfDev.given
 
 object FlinkOperatorTest {
 
@@ -48,11 +43,11 @@ object FlinkOperatorTest {
       .provide(
         HoconConfig.empty,
         S3ConfDev.asLayer, // todo remove
+        S3Operator.live,   // todo replace with RemoteFsOperator
         LogConf.default,
         BaseConf.test,
         FlinkConf.test,
         K8sConf.default,
-        S3Operator.live,   // todo replace with RemoteFsOperator
         K8sOperator.live,
         FlinkDataStorage.test,
         FlinkObserver.live,

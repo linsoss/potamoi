@@ -14,5 +14,3 @@ package object fs:
   ).resolve("var/potamoi")
 
   val LocalFsBackendConfDev = LocalFsBackendConf().resolve("var/potamoi")
-
-  val FileServerConfDev = FileServerConf(host = "10.144.108.28")

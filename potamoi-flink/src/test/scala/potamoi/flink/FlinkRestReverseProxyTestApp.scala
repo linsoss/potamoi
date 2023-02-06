@@ -1,7 +1,7 @@
 package potamoi.flink
 
 import potamoi.{BaseConf, HoconConfig, NodeRoles}
-import potamoi.akka.{AkkaMatrix, AkkaConf}
+import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.FlinkOperator
 import potamoi.flink.storage.FlinkDataStorage
@@ -10,6 +10,7 @@ import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.syntax.*
 import potamoi.zios.*
+import potamoi.BaseConfDev.given
 import zio.*
 import zio.http.{Client, Server}
 

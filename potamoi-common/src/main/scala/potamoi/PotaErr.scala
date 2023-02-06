@@ -8,10 +8,9 @@ import java.io.{PrintWriter, StringWriter}
 /**
  * Error AST root of potamoi effect which is a stackless Throwable.
  */
-trait PotaErr extends Throwable:
+trait PotaErr extends Throwable with Product:
   override def fillInStackTrace: Throwable = this
   override def getMessage: String          = toPrettyString(this)
-
 
 object PotaErr:
 

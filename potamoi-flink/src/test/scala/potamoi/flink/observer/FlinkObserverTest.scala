@@ -17,6 +17,7 @@ import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.syntax.*
 import potamoi.zios.*
+import potamoi.BaseConfDev.given
 import zio.{durationInt, IO, Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.Console.printLine
 import zio.Schedule.spaced

@@ -2,6 +2,7 @@ package potamoi
 
 import potamoi.fs.{S3AccessStyle, S3Conf}
 
+// todo remove
 package object flink {
 
   val S3ConfDev = S3Conf(

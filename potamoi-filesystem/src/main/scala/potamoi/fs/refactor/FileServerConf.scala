@@ -10,9 +10,7 @@ import zio.http.ServerConfig
 /**
  * Potamoi remote file storage server app configuration.
  */
-case class FileServerConf(
-    @name("host") host: String,
-    @name("port") port: Int = 3520)
+case class FileServerConf(@name("port") port: Int = 3520)
 
 object FileServerConf:
 
@@ -23,4 +21,4 @@ object FileServerConf:
     } yield config
   }
 
-  val default: ULayer[FileServerConf] = ZLayer.succeed(FileServerConf("127.0.0.1", 3520))
+  val default: ULayer[FileServerConf] = ZLayer.succeed(FileServerConf(port = 3520))

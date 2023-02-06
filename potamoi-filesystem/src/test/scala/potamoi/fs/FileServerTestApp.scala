@@ -1,10 +1,12 @@
 package potamoi.fs
 
-import potamoi.fs.refactor.{FileServer, FileServerConf}
+import potamoi.fs.refactor.{FileServer, FileServerConf, RemoteFsOperator, S3FsBackendConf}
 import potamoi.fs.refactor.backend.S3FsBackend
 import potamoi.logger.PotaLogger
+import potamoi.BaseConf
+import potamoi.BaseConfDev.given
+import potamoi.FsBackendConfDev.given
 import zio.{ZIOAppDefault, ZLayer}
-import potamoi.zios.asLayer
 import zio.http.{Server, ServerConfig}
 import zio.http.netty.server.NettyDriver
 
@@ -14,7 +16,8 @@ object FileServerTestApp extends ZIOAppDefault:
 
   val run = FileServer.run
     .provide(
-      S3FsBackendConfDev.asLayer,
-      S3FsBackend.live,
+      BaseConf.test,
+      S3FsBackendConf.test,
+      RemoteFsOperator.live,
       FileServerConf.default
     )

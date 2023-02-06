@@ -3,6 +3,7 @@ package potamoi.fs.refactor
 import potamoi.fs.refactor.FsErr.UnSupportedSchema
 import potamoi.syntax.contra
 import potamoi.zios.asLayer
+import potamoi.BaseConf
 import zio.*
 import zio.http.*
 import zio.http.model.{Method, Status}
@@ -20,38 +21,43 @@ object FileServer:
   /**
    * Running filer server app.
    */
-  def run: ZIO[RemoteFsOperator with FileServerConf, Throwable, Unit] =
+  def run: ZIO[RemoteFsOperator with FileServerConf with BaseConf, Throwable, Unit] =
     for {
-      conf    <- ZIO.service[FileServerConf]
-      backend <- ZIO.service[RemoteFsOperator]
-      app      = FileServer(conf, backend)
-      _       <- ZIO.logInfo(s"""Potamoi file remote server start at http://${conf.host}:${conf.port}
+      conf     <- ZIO.service[FileServerConf]
+      baseConf <- ZIO.service[BaseConf]
+      backend  <- ZIO.service[RemoteFsOperator]
+      app       = FileServer(backend)
+      _        <- ZIO.logInfo(s"""Potamoi file remote server start at http://${baseConf.svcDns}:${conf.port}
                           |API List:
                           |- GET /heath
                           |- GET /fs/<file-path>""".stripMargin)
-      _       <- Server
-                   .serve(app.routes)
-                   .provide(
-                     ServerConfig.live ++ ServerConfig.live.project(_.binding(InetSocketAddress(conf.port))),
-                     Server.live,
-                     Scope.default
-                   )
+      _        <- Server
+                    .serve(app.routes)
+                    .provide(
+                      ServerConfig.live ++ ServerConfig.live.project(_.binding(InetSocketAddress(conf.port))),
+                      Server.live,
+                      Scope.default
+                    )
     } yield ()
 
   /**
    * Get the remote http access address corresponding to the path in pota schema format.
    * For example: "pota://aa/bb.txt" to "http://127.0.0.1:3400/fs/aa/bb.txt"
    */
-  def getRemoteHttpFilePath(path: String, conf: FileServerConf): IO[UnSupportedSchema, String] = {
+  def getRemoteHttpFilePath(path: String): ZIO[FileServerConf with BaseConf, UnSupportedSchema, String] = {
     paths.getSchema(path) match
       case None                                         => ZIO.fail(UnSupportedSchema(path))
       case Some(schema) if schema != paths.potaFsSchema => ZIO.fail(UnSupportedSchema(path))
       case Some(_)                                      =>
-        val purePath = paths.rmSchema andThen paths.rmFirstSlash apply path
-        ZIO.succeed(s"http://${conf.host}:${conf.port}/fs/$purePath")
+        for
+          host    <- ZIO.service[BaseConf].map(_.svcDns)
+          port    <- ZIO.service[FileServerConf].map(_.port)
+          purePath = paths.rmSchema andThen paths.rmFirstSlash apply path
+          httpPath = s"http://${host}:${port}/fs/$purePath"
+        yield httpPath
   }
 
-class FileServer(conf: FileServerConf, backend: RemoteFsOperator):
+class FileServer(backend: RemoteFsOperator):
 
   val routes = Http.collectHttp[Request] {
     case Method.GET -> !! / "health"      => Http.ok

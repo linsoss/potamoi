@@ -4,19 +4,19 @@ import org.scalatest.{BeforeAndAfterAll, DoNotDiscover, Ignore}
 import org.scalatest.wordspec.AnyWordSpec
 import potamoi.fs.refactor.{lfs, S3AccessStyle, S3FsBackendConf}
 import potamoi.fs.refactor.backend.{S3FsBackend, S3FsMirrorBackend}
-import potamoi.fs.S3FsBackendConfDev
 import potamoi.logger.{LogsLevel, PotaLogger}
 import potamoi.zios.*
 import potamoi.PotaErr
 import zio.{IO, ZIO, ZLayer}
 import zio.ZIO.{logErrorCause, logLevel}
+import potamoi.FsBackendConfDev.given
 
 import java.io.File
 
 @DoNotDiscover
 class S3FsMirrorBackendSpec extends AnyWordSpec with BeforeAndAfterAll:
 
-  val layer = S3FsBackendConfDev.asLayer >>> S3FsMirrorBackend.live
+  val layer = S3FsBackendConf.test >>> S3FsMirrorBackend.live
 
   def testing[E, A](f: S3FsMirrorBackend => IO[E, A]) =
     ZIO

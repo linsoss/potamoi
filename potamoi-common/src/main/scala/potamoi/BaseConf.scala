@@ -8,7 +8,9 @@ import zio.config.magnolia.{descriptor, name}
 /**
  * Potamoi basic config
  */
-case class BaseConf(@name("data-dir") dataDir: String = "/var/potamoi")
+case class BaseConf(
+    @name("svc-dns") svcDns: String,
+    @name("data-dir") dataDir: String = "/var/potamoi")
 
 object BaseConf:
 
@@ -18,5 +20,3 @@ object BaseConf:
       config <- read(descriptor[BaseConf].from(source))
     } yield config
   }
-
-  val test: ULayer[BaseConf] = ZLayer.succeed(BaseConf(dataDir = "var/potamoi"))

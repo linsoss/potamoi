@@ -1,13 +1,13 @@
 package potamoi
 
-import potamoi.akka.{AkkaMatrix, AkkaConf}
+import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf}
-import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator}
+import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator, S3FsBackendConf}
 import potamoi.fs.refactor.backend.S3FsMirrorBackend
-import potamoi.fs.S3FsBackendConfDev
+import potamoi.FsBackendConfDev.given
 import potamoi.logger.{LogConf, PotaLogger}
-import potamoi.zios.asLayer
+import potamoi.BaseConfDev.given
 import zio.{Scope, ZLayer}
 
 /**
@@ -21,8 +21,8 @@ object FlinkInterpreterV115TestApp extends FlinkInterpBootstrap(FlinkMajorVer.V1
     HoconConfig.empty,
     LogConf.default,
     BaseConf.test,
-    S3FsBackendConfDev.asLayer,
-    S3FsMirrorBackend.live,
+    S3FsBackendConf.test,
+    RemoteFsOperator.live,
     AkkaConf.localCluster(3315, List(3300, 3315), List(FlinkMajorVer.V115.nodeRole)),
     AkkaMatrix.live,
     FlinkConf.test,
