@@ -1,7 +1,7 @@
 package potamoi.fs
 
 import org.scalatest.wordspec.AnyWordSpec
-import potamoi.fs.refactor.paths.*
+import potamoi.fs.paths.*
 import potamoi.PotaErr
 
 class PathToolSpec extends AnyWordSpec:

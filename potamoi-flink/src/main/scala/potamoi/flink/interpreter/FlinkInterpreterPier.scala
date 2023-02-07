@@ -6,9 +6,9 @@ import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.cluster.sharding.typed.ClusterShardingSettings.PassivationStrategySettings
 import potamoi.akka.{behaviors, AkkaMatrix, ShardingProxy}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
-import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.logger.LogConf
 import potamoi.NodeRoles
+import potamoi.fs.RemoteFsOperator
 import potamoi.times.given_Conversion_ScalaDuration_FiniteDuration
 import zio.{IO, Task, ZIO}
 

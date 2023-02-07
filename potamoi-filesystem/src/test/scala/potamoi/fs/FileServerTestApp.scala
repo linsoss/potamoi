@@ -1,11 +1,10 @@
 package potamoi.fs
 
-import potamoi.fs.refactor.{FileServer, FileServerConf, RemoteFsOperator, S3FsBackendConf}
-import potamoi.fs.refactor.backend.S3FsBackend
 import potamoi.logger.PotaLogger
 import potamoi.BaseConf
 import potamoi.BaseConfDev.given
 import potamoi.FsBackendConfDev.given
+import potamoi.fs.backend.S3FsBackend
 import zio.{ZIOAppDefault, ZLayer}
 import zio.http.{Server, ServerConfig}
 import zio.http.netty.server.NettyDriver

@@ -1,9 +1,8 @@
-package potamoi.fs.refactor
+package potamoi.fs
 
-import potamoi.fs.refactor.FsErr
-import potamoi.fs.refactor.backend.{LocalFsBackend, S3FsBackend, S3FsMirrorBackend}
 import potamoi.syntax.contra
 import potamoi.BaseConf
+import potamoi.fs.backend.{LocalFsBackend, S3FsBackend, S3FsMirrorBackend}
 import zio.{IO, Scope, UIO, URIO, URLayer, ZIO, ZLayer}
 import zio.stream.{Stream, ZStream}
 

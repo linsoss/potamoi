@@ -5,12 +5,13 @@ import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.flink.observer.FlinkObserver
 import potamoi.flink.operator.FlinkOperator
 import potamoi.flink.storage.FlinkDataStorage
-import potamoi.fs.S3Operator
+import potamoi.fs.{FileServerConf, RemoteFsOperator, S3FsBackendConf}
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.syntax.*
 import potamoi.zios.*
 import potamoi.BaseConfDev.given
+import potamoi.FsBackendConfDev.given
 import zio.*
 import zio.http.{Client, Server}
 
@@ -33,11 +34,12 @@ object FlinkRestReverseProxyTest extends ZIOAppDefault:
     .provide(
       HoconConfig.empty,
       LogConf.default,
-      S3ConfDev.asLayer, // todo remove
+      FileServerConf.default,
       BaseConf.test,
+      S3FsBackendConf.test,
+      RemoteFsOperator.live,
       FlinkConf.test,
       K8sConf.default,
-      S3Operator.live,   // todo replace with RemoteFsOperator
       K8sOperator.live,
       FlinkDataStorage.test,
       FlinkObserver.live,

@@ -1,7 +1,8 @@
-package potamoi.fs.refactor.backend
+package potamoi.fs.backend
 
-import potamoi.fs.refactor.*
-import potamoi.fs.refactor.FsErr.{LfsErr, RfsErr}
+import potamoi.fs.*
+import potamoi.fs.FsErr.{LfsErr, RfsErr}
+import potamoi.fs.{FsErr, LocalFsBackendConf, RemoteFsOperator}
 import potamoi.syntax.contra
 import zio.{stream, IO, Scope, UIO, ZIO, ZLayer}
 import zio.stream.ZStream

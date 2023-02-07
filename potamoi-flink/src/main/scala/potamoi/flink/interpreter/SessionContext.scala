@@ -9,7 +9,7 @@ import org.apache.flink.table.delegation.Parser
 import potamoi.flink.FlinkConfigurationTool.safeSet
 import potamoi.flink.FlinkInterpreterErr.CreateTableEnvironmentErr
 import potamoi.flink.model.interact.{RemoteClusterEndpoint, SessionSpec}
-import potamoi.fs.refactor.RemoteFsOperator
+import potamoi.fs.RemoteFsOperator
 import potamoi.syntax.{tap, toPrettyStr}
 import zio.{IO, UIO, ZIO}
 import zio.ZIO.{attempt, succeed}

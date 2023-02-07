@@ -1,8 +1,8 @@
 package potamoi.flink.operator.resolver
 
-import potamoi.flink.ResolveFlinkClusterDefErr.ResolveLogConfigErr
-import potamoi.fs.{lfs, LocalFsErr}
-import potamoi.fs.LocalFsErr.IOErr
+import potamoi.flink.ResolveFlinkClusterSpecErr.ResolveLogConfigErr
+import potamoi.fs.lfs
+import potamoi.fs
 import zio.*
 import zio.ZIO.{logInfo, succeed}
 
@@ -27,8 +27,8 @@ object LogConfigResolver {
    * See Flink config item: $internal.deployment.config-dir
    */
   def ensureFlinkLogsConfigFiles(confDir: String, overwrite: Boolean = false): IO[ResolveLogConfigErr, Unit] = {
-    val isAllFilesExist = ZIO
-      .foreachPar(flinkLogConfigNames.map(n => s"$confDir/$n"))(lfs.fileExists)
+    val isAllFilesExist  = ZIO
+      .foreachPar(flinkLogConfigNames.map(n => s"$confDir/$n"))(lfs.existFile)
       .mapBoth(
         e => ResolveLogConfigErr(s"Unable to access flink log config directory: $confDir", e.cause),
         r => !r.contains(false)
@@ -37,10 +37,10 @@ object LogConfigResolver {
       ZIO.foreachDiscard(defaultFlinkLogConfigs) { case (fName, content) =>
         for {
           targetFilePath <- succeed(s"$confDir/$fName")
-          _ <- lfs
-            .write(targetFilePath, content)
-            .mapError(e => ResolveLogConfigErr(s"Fail to write flink config file to local: $confDir/$fName", e.cause))
-          _ <- logInfo(s"Wrote flink log config file: $targetFilePath")
+          _              <- lfs
+                              .write(targetFilePath, content)
+                              .mapError(e => ResolveLogConfigErr(s"Fail to write flink config file to local: $confDir/$fName", e.cause))
+          _              <- logInfo(s"Wrote flink log config file: $targetFilePath")
         } yield ()
       }
     if (overwrite) writeConfigFiles.unit

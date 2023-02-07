@@ -39,7 +39,7 @@ trait FlinkRestProxyOperator {
 /**
  * Default implementation.
  */
-class FlinkRestProxyOperatorLive(snapStg: FlinkDataStorage) extends FlinkRestProxyOperator {
+class FlinkRestProxyOperatorImpl(snapStg: FlinkDataStorage) extends FlinkRestProxyOperator {
 
   override def enable(fcid: Fcid): IO[(ClusterIsNotYetTracked | FlinkDataStoreErr) with FlinkErr, Unit] =
     snapStg.trackedList.exists(fcid).flatMap {

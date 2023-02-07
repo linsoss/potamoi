@@ -6,7 +6,7 @@ import potamoi.{codecs, BaseConf, HoconConfig}
 import potamoi.common.Codec
 import potamoi.common.Codec.scalaDurationJsonCodec
 import potamoi.flink.FlinkRestEndpointTypes.given
-import potamoi.fs.refactor.paths
+import potamoi.fs.paths
 import zio.{ZIO, ZLayer}
 import zio.config.magnolia.{descriptor, name}
 import zio.config.read
@@ -19,7 +19,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
  */
 case class FlinkConf(
     @name("k8s-account") k8sAccount: String = "flink-opr",
-    @name("mc-image") minioClientImage: String = "minio/mc:RELEASE.2022-10-12T18-12-50Z",
+    @name("busy-box-image") busyBoxImage: String = "busybox:last",
     @name("local-tmpdir") localTmpDir: String = "tmp/flink",
     @name("rest-endpoint-internal") restEndpointTypeInternal: FlinkRestEndpointType = FlinkRestEndpointType.ClusterIP,
     @name("log-failed-deploy") logFailedDeployReason: Boolean = false,

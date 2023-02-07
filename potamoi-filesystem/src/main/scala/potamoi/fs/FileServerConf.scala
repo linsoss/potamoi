@@ -1,4 +1,4 @@
-package potamoi.fs.refactor
+package potamoi.fs
 
 import com.typesafe.config.Config
 import potamoi.HoconConfig

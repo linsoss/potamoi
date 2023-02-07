@@ -5,7 +5,7 @@ import potamoi.flink.model.*
 import potamoi.flink.model.snapshot.JobStates.given_JsonCodec_JobState
 import potamoi.flink.FlinkRestErr.*
 import potamoi.flink.FlinkRestRequest.*
-import potamoi.flink.model.deploy.{FlinkJobSavepointDef, FlinkSessJobDef, SavepointFormatType}
+import potamoi.flink.model.deploy.{JobSavepointSpec, SessionJobSpec, SavepointFormatType}
 import potamoi.flink.model.snapshot.{FlinkClusterOverview, FlinkJobOverview, FlinkPipeOprStates, FlinkSptTriggerStatus, FlinkTmDetail, JobsStats, JobState, TaskStats, TmHardware, TmMemoryConfig, TmResource}
 import potamoi.fs.paths
 import potamoi.sttps.*
@@ -348,7 +348,7 @@ object FlinkRestRequest {
       derives JsonCodec
 
   object RunJobReq:
-    def apply(jobDef: FlinkSessJobDef): RunJobReq = RunJobReq(
+    def apply(jobDef: SessionJobSpec): RunJobReq = RunJobReq(
       jobId = jobDef.jobId,
       entryClass = jobDef.appMain,
       programArgs = if (jobDef.appArgs.isEmpty) None else Some(jobDef.appArgs.mkString(" ")),
@@ -369,7 +369,7 @@ object FlinkRestRequest {
       derives JsonCodec
 
   object StopJobSptReq:
-    def apply(sptConf: FlinkJobSavepointDef): StopJobSptReq =
+    def apply(sptConf: JobSavepointSpec): StopJobSptReq =
       StopJobSptReq(sptConf.drain, sptConf.formatType, sptConf.savepointPath, sptConf.triggerId)
 
   /**
@@ -383,7 +383,7 @@ object FlinkRestRequest {
       derives JsonCodec
 
   object TriggerSptReq:
-    def apply(sptConf: FlinkJobSavepointDef): TriggerSptReq =
+    def apply(sptConf: JobSavepointSpec): TriggerSptReq =
       TriggerSptReq(cancelJob = false, sptConf.formatType, sptConf.savepointPath, sptConf.triggerId)
 
   /**

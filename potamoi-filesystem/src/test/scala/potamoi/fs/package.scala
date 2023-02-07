@@ -1,7 +1,7 @@
 package potamoi
 
-import potamoi.fs.refactor.{FileServerConf, LocalFsBackendConf, S3FsBackendConf}
-import potamoi.fs.refactor.S3AccessStyle.PathStyle
+import potamoi.fs.{FileServerConf, LocalFsBackendConf, S3FsBackendConf}
+import potamoi.fs.S3AccessStyle.PathStyle
 
 package object fs:
 

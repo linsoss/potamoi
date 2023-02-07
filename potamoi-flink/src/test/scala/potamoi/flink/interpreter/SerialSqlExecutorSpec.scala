@@ -8,8 +8,6 @@ import potamoi.flink.model.interact.ResultDropStrategy.DropTail
 import potamoi.flink.model.FlinkRuntimeMode.{Batch, Streaming}
 import potamoi.flink.model.FlinkTargetType
 import potamoi.flink.model.FlinkTargetType.{Local, Remote}
-import potamoi.fs.refactor.{RemoteFsOperator, S3FsBackendConf}
-import potamoi.fs.refactor.backend.S3FsBackend
 import potamoi.logger.PotaLogger
 import potamoi.syntax.toPrettyStr
 import potamoi.zios.*
@@ -17,6 +15,8 @@ import potamoi.PotaErr
 import potamoi.flink.FlinkInterpreterErr.BeCancelled
 import potamoi.flink.model.interact.{PlainSqlRs, QuerySqlRs, ResultStoreConf, SessionSpec}
 import potamoi.FsBackendConfDev.given
+import potamoi.fs.backend.S3FsBackend
+import potamoi.fs.{RemoteFsOperator, S3FsBackendConf}
 import zio.{durationInt, IO, Schedule, Scope, Task, ZIO}
 import zio.Console.printLine
 import zio.ZIO.{executor, logErrorCause, logInfo, sleep}

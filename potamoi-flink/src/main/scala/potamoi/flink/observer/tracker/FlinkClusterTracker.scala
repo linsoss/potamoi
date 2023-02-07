@@ -3,21 +3,21 @@ package potamoi.flink.observer.tracker
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
+import potamoi.{KryoSerializable, NodeRoles}
 import potamoi.akka.ShardingProxy
 import potamoi.akka.behaviors.*
 import potamoi.akka.zios.*
 import potamoi.flink.{flinkRest, FlinkConf, FlinkRestEndpointRetriever, FlinkRestEndpointType}
 import potamoi.flink.model.*
-import potamoi.flink.FlinkConfigExtension.{InjectedDeploySourceConf, InjectedExecModeKey}
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.flink.FlinkErr.ClusterNotFound
+import potamoi.flink.model.snapshot.*
+import potamoi.flink.operator.resolver.ClusterSpecResolver.{InjectedDeploySourceConf, InjectedDeployTargetKey}
 import potamoi.kubernetes.K8sErr.RequestK8sApiErr
 import potamoi.logger.LogConf
+import potamoi.options.unsafeGet
 import potamoi.syntax.toPrettyStr
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
-import potamoi.{KryoSerializable, NodeRoles}
-import potamoi.flink.model.snapshot.{FlinkJmMetrics, FlinkJobMetrics, FlinkRestSvcEndpoint, FlinkTmDetail, FlinkTmMetrics}
-import potamoi.options.unsafeGet
 import zio.*
 import zio.stream.ZStream
 import zio.Schedule.{recurWhile, spaced}
@@ -221,7 +221,7 @@ class FlinkClusterTrackerActor(fcid: Fcid)(using ctx: ActorContext[Cmd]) {
 
       isFromPotamoi = clusterConfig.exists(_ == InjectedDeploySourceConf)
       execType      = clusterConfig
-                        .get(InjectedExecModeKey)
+                        .get(InjectedDeployTargetKey)
                         .flatMap(e => FlinkTargetTypes.effectValues.find(_.toString == e))
                         .getOrElse(
                           FlinkTargetTypes.ofRawValue(clusterConfig.getOrElse("execution.target", "unknown")) match

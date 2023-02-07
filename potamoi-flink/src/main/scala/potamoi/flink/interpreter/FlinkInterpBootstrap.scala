@@ -3,7 +3,7 @@ package potamoi.flink.interpreter
 import potamoi.{BaseConf, HoconConfig}
 import potamoi.akka.{AkkaConf, AkkaMatrix, DDataConf, ORSetDData}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
-import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator}
+import potamoi.fs.{FsBackendConf, RemoteFsOperator}
 import potamoi.logger.{LogConf, PotaLogger}
 import zio.{Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.ZIO.logInfo

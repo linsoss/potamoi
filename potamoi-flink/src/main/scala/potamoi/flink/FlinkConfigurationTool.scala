@@ -1,6 +1,11 @@
 package potamoi.flink
 
 import org.apache.flink.configuration.Configuration
+import potamoi.flink.model.deploy.FlinkProps
+import potamoi.flink.operator.resolver.ClusterSpecResolver.ProtectedFlinkConfigKeys
+
+import scala.collection.immutable.TreeMap
+import scala.jdk.CollectionConverters.*
 
 object FlinkConfigurationTool:
 
@@ -48,4 +53,26 @@ object FlinkConfigurationTool:
       config
     }
 
+    /**
+     * Merge the mapping configs of [[FlinkProps]] into Configuration.
+     */
+    def mergePropOpt(flinkPropOpt: Option[FlinkProps]): Configuration = flinkPropOpt.map(mergeProp).getOrElse(config)
+
+    def mergeProp(flinkProp: FlinkProps): Configuration = flinkProp.mapping.foldLeft(config) { case (conf, (key, value)) =>
+      conf.safeSet(key, value)
+    }
+
+    def mergeMap(configMap: Map[String, String]): Configuration = {
+      configMap.foreach { case (key, value) => config.setString(key, value) }
+      config
+    }
+
+    /**
+     * Convert to internal configuration to Map with confidential value handling settings.
+     */
+    def dumpToMap(enableProtect: Boolean = false): Map[String, String] = {
+      val map = TreeMap(config.toMap.asScala.toArray: _*)
+      if (enableProtect) map.map { case (k, v) => if (ProtectedFlinkConfigKeys.contains(k)) k -> "***" else k -> v }
+      else map
+    }
   }

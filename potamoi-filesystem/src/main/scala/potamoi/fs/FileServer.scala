@@ -1,6 +1,6 @@
-package potamoi.fs.refactor
+package potamoi.fs
 
-import potamoi.fs.refactor.FsErr.UnSupportedSchema
+import FsErr.UnSupportedSchema
 import potamoi.syntax.contra
 import potamoi.zios.asLayer
 import potamoi.BaseConf

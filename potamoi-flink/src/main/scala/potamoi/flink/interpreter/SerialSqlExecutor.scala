@@ -15,7 +15,7 @@ import potamoi.flink.model.interact.HandleStatus.*
 import potamoi.flink.model.interact.ResultDropStrategy.*
 import potamoi.flink.model.FlinkTargetType
 import potamoi.flink.model.interact.*
-import potamoi.fs.refactor.RemoteFsOperator
+import potamoi.fs.RemoteFsOperator
 import potamoi.syntax.contra
 import potamoi.zios.{runNow, someOrUnit, someOrUnitZIO}
 import zio.{Fiber, IO, Promise, Queue, Ref, Scope, UIO, URIO, ZIO}

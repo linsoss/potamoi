@@ -2,12 +2,11 @@ package potamoi.fs.backend
 
 import org.scalatest.{BeforeAndAfterAll, DoNotDiscover, Ignore}
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
-import potamoi.fs.refactor.{lfs, LocalFsBackendConf, S3AccessStyle, S3FsBackendConf}
-import potamoi.fs.refactor.backend.{LocalFsBackend, S3FsBackend}
 import potamoi.zios.*
 import potamoi.PotaErr
 import potamoi.logger.PotaLogger
 import potamoi.FsBackendConfDev.given
+import potamoi.fs.{lfs, LocalFsBackendConf, S3AccessStyle, S3FsBackendConf}
 import zio.{IO, ZIO, ZLayer}
 
 import java.io.File

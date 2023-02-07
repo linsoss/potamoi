@@ -1,8 +1,8 @@
-package potamoi.fs.refactor.backend
+package potamoi.fs.backend
 
 import io.minio.StatObjectArgs
-import potamoi.fs.refactor.{S3FsBackendConf, *}
-import potamoi.fs.refactor.FsErr.{LfsErr, RfsErr}
+import potamoi.fs.*
+import potamoi.fs.FsErr.{LfsErr, RfsErr}
 import potamoi.syntax.contra
 import potamoi.zios.runNow
 import zio.{durationInt, IO, Scope, Task, UIO, ZIO, ZLayer}

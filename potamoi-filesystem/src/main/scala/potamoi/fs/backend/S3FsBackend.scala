@@ -1,12 +1,11 @@
-package potamoi.fs.refactor.backend
+package potamoi.fs.backend
 
 import io.minio.*
 import io.minio.errors.ErrorResponseException
 import io.minio.messages.Tags
-import potamoi.fs.refactor.*
-import potamoi.fs.refactor.FsErr.{LfsErr, RfsErr}
-import potamoi.fs.S3Err.UploadObjErr
-import potamoi.fs.refactor.backend.S3FsBackend.make
+import potamoi.fs.*
+import potamoi.fs.FsErr.{LfsErr, RfsErr}
+import potamoi.fs.backend.S3FsBackend.make
 import potamoi.syntax.contra
 import zio.{durationInt, stream, IO, Scope, Task, UIO, ZIO, ZLayer}
 import zio.ZIO.{logInfo, succeed, unit}

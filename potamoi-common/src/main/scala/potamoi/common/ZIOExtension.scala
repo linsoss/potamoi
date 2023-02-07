@@ -54,9 +54,8 @@ object ZIOExtension {
     inline def repeatWhileWithSpaced(f: A => Boolean, spaced: Duration): ZIO[R, E, A] =
       zio.repeat(Schedule.recurWhile[A](f) && Schedule.spaced(spaced)).map(_._1)
 
+    inline def flatMapUnion[R1 <: R, E1, B](k: A => ZIO[R1, E1, B]): ZIO[R1, E1 | E, B] = zio.flatMap(k)
   }
-
-
 
   extension [A](uio: UIO[A]) {
     inline def runNow: A = zioRunUnsafe(uio)
@@ -117,7 +116,6 @@ object ZIOExtension {
    * Convert product to a [[ZLayer]].
    */
   extension [A <: Product: Tag](product: A) inline def asLayer: ULayer[A] = ZLayer.succeed(product)
-
 
   /**
    * Explicit declaration of the IO type for a simplified declaration

@@ -8,7 +8,7 @@ import potamoi.flink.storage.{FlinkDataStorage, InteractSessionStorage}
 import potamoi.flink.FlinkInteractErr.SessionNotFound
 import potamoi.flink.interact.FlinkSqlInteractor.RetrieveSessionErr
 import potamoi.flink.interpreter.FlinkInterpreterPier
-import potamoi.fs.refactor.RemoteFsOperator
+import potamoi.fs.RemoteFsOperator
 import potamoi.logger.LogConf
 import potamoi.times.given_Conversion_ScalaDuration_ZIODuration
 import potamoi.zios.someOrFailUnion

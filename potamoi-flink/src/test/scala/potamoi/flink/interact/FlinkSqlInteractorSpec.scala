@@ -11,7 +11,6 @@ import potamoi.flink.model.interact.*
 import potamoi.flink.storage.FlinkDataStorage
 import potamoi.flink.FlinkMajorVer.*
 import potamoi.flink.interpreter.{FlinkInterpConf, FlinkInterpreterPier}
-import potamoi.fs.refactor.backend.S3FsMirrorBackend
 import potamoi.kubernetes.{K8sConf, K8sOperator}
 import potamoi.logger.{LogConf, LogsLevel, PotaLogger}
 import potamoi.times.given_Conversion_ZIODuration_ScalaDuration
@@ -24,7 +23,8 @@ import potamoi.flink.model.interact.ResultDropStrategy.{DropHead, DropTail}
 import potamoi.syntax.toPrettyStr
 import potamoi.BaseConfDev.given
 import potamoi.FsBackendConfDev.given
-import potamoi.fs.refactor.{RemoteFsOperator, S3FsBackendConf}
+import potamoi.fs.backend.S3FsMirrorBackend
+import potamoi.fs.{RemoteFsOperator, S3FsBackendConf}
 import zio.{durationInt, IO, Schedule, Scope, ZIO, ZIOAppDefault, ZLayer}
 import zio.Console.printLine
 import zio.ZIO.logInfo

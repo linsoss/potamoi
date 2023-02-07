@@ -3,11 +3,11 @@ package potamoi
 import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf}
-import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator, S3FsBackendConf}
-import potamoi.fs.refactor.backend.S3FsMirrorBackend
 import potamoi.FsBackendConfDev.given
 import potamoi.logger.{LogConf, PotaLogger}
 import potamoi.BaseConfDev.given
+import potamoi.fs.backend.S3FsMirrorBackend
+import potamoi.fs.{FsBackendConf, RemoteFsOperator, S3FsBackendConf}
 import zio.{Scope, ZLayer}
 
 /**

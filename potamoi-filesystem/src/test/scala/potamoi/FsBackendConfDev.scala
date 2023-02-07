@@ -1,7 +1,7 @@
 package potamoi
 
-import potamoi.fs.refactor.{FsBackendConf, LocalFsBackendConf, S3FsBackendConf}
-import potamoi.fs.refactor.S3AccessStyle.PathStyle
+import potamoi.fs.{FsBackendConf, LocalFsBackendConf, S3FsBackendConf}
+import potamoi.fs.S3AccessStyle.PathStyle
 import zio.{ULayer, ZLayer}
 
 object FsBackendConfDev:

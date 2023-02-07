@@ -2,13 +2,13 @@ package potamoi.flink.model.deploy
 
 import potamoi.codecs
 import potamoi.flink.model.deploy.SavepointFormatType
-import potamoi.flink.model.deploy.SavepointFormatTypes.given_JsonCodec_SavepointFormatType
+import potamoi.flink.model.deploy.SavepointFormatTypes.given
 import zio.json.{JsonCodec, JsonDecoder, JsonEncoder}
 
 /**
- * Flink job savepoint conf.
+ * Flink job savepoint specification.
  */
-case class FlinkJobSavepointDef(
+case class JobSavepointSpec(
     drain: Boolean = false,
     savepointPath: Option[String] = None,
     formatType: Option[SavepointFormatType] = None,

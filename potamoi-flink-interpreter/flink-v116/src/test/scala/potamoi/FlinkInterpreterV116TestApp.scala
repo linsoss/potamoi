@@ -4,11 +4,11 @@ import potamoi.akka.{AkkaConf, AkkaMatrix}
 import potamoi.flink.{FlinkConf, FlinkMajorVer}
 import potamoi.flink.interpreter.{FlinkInterpBootstrap, FlinkInterpConf}
 import potamoi.flink.storage.FlinkDataStorage
-import potamoi.fs.refactor.{FsBackendConf, RemoteFsOperator, S3FsBackendConf}
-import potamoi.fs.refactor.backend.S3FsMirrorBackend
 import potamoi.logger.{LogConf, LogsLevel, PotaLogger}
 import potamoi.BaseConfDev.given
 import potamoi.FsBackendConfDev.given
+import potamoi.fs.backend.S3FsMirrorBackend
+import potamoi.fs.{FsBackendConf, RemoteFsOperator, S3FsBackendConf}
 import zio.{Scope, ZLayer}
 
 /**

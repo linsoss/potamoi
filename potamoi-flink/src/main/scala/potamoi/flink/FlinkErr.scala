@@ -30,22 +30,22 @@ object FlinkErr:
 /**
  * Resolve flink cluster definition error.
  */
-sealed trait ResolveFlinkClusterDefErr extends FlinkErr
+sealed trait ResolveFlinkClusterSpecErr extends FlinkErr
 
-object ResolveFlinkClusterDefErr:
-  case class ReviseClusterDefErr(cause: Throwable)                    extends ResolveFlinkClusterDefErr
-  case class ConvertToFlinkRawConfigErr(cause: Throwable)             extends ResolveFlinkClusterDefErr
-  case class ResolveLogConfigErr(message: String, cause: Throwable)   extends ResolveFlinkClusterDefErr
-  case class ResolvePodTemplateErr(message: String, cause: Throwable) extends ResolveFlinkClusterDefErr
+object ResolveFlinkClusterSpecErr:
+  case class ReviseClusterSpecErr(cause: Throwable)                   extends ResolveFlinkClusterSpecErr
+  case class ConvertToFlinkRawConfigErr(cause: Throwable)             extends ResolveFlinkClusterSpecErr
+  case class ResolveLogConfigErr(message: String, cause: Throwable)   extends ResolveFlinkClusterSpecErr
+  case class ResolvePodTemplateErr(message: String, cause: Throwable) extends ResolveFlinkClusterSpecErr
 
 /**
  * Resolve flink job definition error.
  */
-sealed trait ResolveFlinkJobDefErr extends FlinkErr
+sealed trait ResolveFlinkJobSpecErr extends FlinkErr
 
-object ResolveFlinkJobDefErr:
-  case class NotSupportJobJarPath(path: String)                            extends FlinkErr
-  case class DownloadRemoteJobJarErr(remotePath: String, cause: Throwable) extends FlinkErr
+object ResolveFlinkJobSpecErr:
+  case class NotSupportJobJarPath(path: String)                            extends ResolveFlinkJobSpecErr
+  case class DownloadRemoteJobJarErr(remotePath: String, cause: Throwable) extends ResolveFlinkJobSpecErr
 
 /**
  * Flink snapshot data storage operation err.

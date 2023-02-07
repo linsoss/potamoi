@@ -2,7 +2,7 @@ package potamoi.fs
 
 import org.scalatest.wordspec.AnyWordSpec
 import potamoi.fs.OsTool.{randomDir, randomFile, rmFile}
-import potamoi.fs.refactor.lfs
+import potamoi.fs.lfs
 import potamoi.zios.*
 import zio.ZIO
 import zio.test.ZIOSpecDefault

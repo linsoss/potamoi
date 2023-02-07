@@ -1,7 +1,7 @@
-package potamoi.fs.refactor
+package potamoi.fs
 
 import org.apache.commons.codec.digest.DigestUtils
-import potamoi.fs.refactor.FsErr.LfsErr
+import FsErr.LfsErr
 import potamoi.syntax.contra
 import zio.{IO, ZIO}
 import zio.ZIO.{attempt, attemptBlocking}

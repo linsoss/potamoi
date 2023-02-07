@@ -1,8 +1,8 @@
-package potamoi.fs.refactor
+package potamoi.fs
 
 import com.typesafe.config.Config
 import potamoi.{codecs, BaseConf, HoconConfig}
-import potamoi.fs.refactor.S3AccessStyles.given_JsonCodec_S3AccessStyle
+import S3AccessStyles.given_JsonCodec_S3AccessStyle
 import zio.{ZIO, ZLayer}
 import zio.config.magnolia.{descriptor, name}
 import zio.config.read
@@ -11,7 +11,7 @@ import zio.json.{DeriveJsonCodec, JsonCodec, JsonDecoder, JsonEncoder}
 /**
  * Remote file system backend configuration.
  */
-sealed trait FsBackendConf:
+sealed trait FsBackendConf extends Product:
   type This <: FsBackendConf
   def resolve(rootDataDir: String): This
 

@@ -7,12 +7,12 @@ import potamoi.flink.{FlinkConf, FlinkInteractErr}
 import potamoi.flink.model.interact.*
 import potamoi.flink.FlinkInteractErr.*
 import potamoi.flink.FlinkInterpreterErr.{HandleNotFound, ResultNotFound, SplitSqlScriptErr}
-import potamoi.fs.refactor.RemoteFsOperator
 import potamoi.logger.LogConf
 import potamoi.options.unsafeGet
 import potamoi.KryoSerializable
 import potamoi.akka.*
 import potamoi.flink.model.{FlinkRuntimeMode, FlinkTargetType}
+import potamoi.fs.RemoteFsOperator
 import zio.{CancelableFuture, Schedule, Scope, ZIO}
 import zio.ZIO.{fail, succeed}
 
