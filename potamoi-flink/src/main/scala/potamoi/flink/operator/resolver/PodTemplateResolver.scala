@@ -74,14 +74,14 @@ object PodTemplateResolver {
       _                                    <- ZIO.unit
 
       // userlib-loader initContainer
-      libDownloadCmdArgs     = userLibsHttps.flatMap { case (fileName, httpPath) => Vector(httpPath, "-O", s"/opt/flink/lib/$fileName") }
+      wgetCommands           = userLibsHttps.map { case (fileName, httpPath) => s"wget $httpPath -O /opt/flink/lib/$fileName" }
       libLoaderInitContainer = if userLibsHttps.isEmpty then None
                                else
                                  Some(
                                    Container(
                                      name = "userlib-loader",
                                      image = flinkConf.busyBoxImage,
-                                     command = Vector("wget") ++ libDownloadCmdArgs.toVector,
+                                     command = Vector("sh", "-c", wgetCommands.mkString(" && ")),
                                      volumeMounts = Vector(VolumeMount(name = "flink-libs", mountPath = "/opt/flink/lib"))
                                    ))
       initContainers         = Vector(libLoaderInitContainer).flatten

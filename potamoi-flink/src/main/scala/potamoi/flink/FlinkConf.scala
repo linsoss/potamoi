@@ -19,7 +19,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
  */
 case class FlinkConf(
     @name("k8s-account") k8sAccount: String = "flink-opr",
-    @name("busy-box-image") busyBoxImage: String = "busybox:last",
+    @name("busy-box-image") busyBoxImage: String = "busybox:1.36.0",
     @name("local-tmpdir") localTmpDir: String = "tmp/flink",
     @name("rest-endpoint-internal") restEndpointTypeInternal: FlinkRestEndpointType = FlinkRestEndpointType.ClusterIP,
     @name("log-failed-deploy") logFailedDeployReason: Boolean = false,

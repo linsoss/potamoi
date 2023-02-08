@@ -11,7 +11,7 @@ import potamoi.flink.model.snapshot.JobStates
 import potamoi.flink.FlinkErr.*
 import potamoi.flink.FlinkRestErr.{JobNotFound, RequestApiErr}
 import potamoi.flink.operator.resolver.{ClusterSpecResolver, JarAppClusterSpecResolver, LogConfigResolver, PodTemplateResolver}
-import potamoi.flink.FlinkConfigurationTool.dumpToMap
+import potamoi.flink.FlinkConfigurationTool.{dumpToMap, safeSet}
 import potamoi.flink.model.{Fcid, Fjid, FlinkTargetType}
 import potamoi.flink.ResolveFlinkClusterSpecErr.{ConvertToFlinkRawConfigErr, ResolveLogConfigErr, ResolvePodTemplateErr, ReviseClusterSpecErr}
 import potamoi.flink.operator.FlinkClusterAppModeOperator.{AppModeJobOperationErr, DeployAppClusterErr}
@@ -91,10 +91,15 @@ class FlinkClusterAppModeOperatorImpl(
         _                   <- PodTemplateResolver.resolvePodTemplateAndDump(revisedSpec, podTemplateFilePath).provideLayer(podTemplateResolveLayer)
         _                   <- LogConfigResolver.ensureFlinkLogsConfigFiles(logConfFilePath)
         // convert to raw flink config
-        resolvedConfig      <- (spec match
+        resolvedConfig      <- (revisedSpec match
                                  case sc: JarAppClusterSpec => ClusterSpecResolver.jarApp.resolveToFlinkConfig(sc, podTemplateFilePath, logConfFilePath)
                                  case sc: SqlAppClusterSpec => ZIO.succeed(new Configuration())
-                               ).provideLayer(flinkConfigConvertLayer)
+                               )
+                                 .provideLayer(flinkConfigConvertLayer)
+                                 .map { conf =>
+                                   conf.safeSet("execution.shutdown-on-application-finish", false) // prevents the jobmanager from being destroyed
+                                   conf.safeSet("execution.shutdown-on-attached-exit", false)
+                                 }
 
         _ <- logInfo(s"Start to deploy flink session cluster:\n${resolvedConfig.dumpToMap(enableProtect = true).toPrettyStr}")
 
